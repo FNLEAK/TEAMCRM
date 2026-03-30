@@ -1,0 +1,26 @@
+{
+  "name": "pipeline-crm",
+  "private": true,
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,web -c blue,green \"npm run dev -w server\" \"npm run dev -w web\"",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "devDependencies": {
+    "bcryptjs": "^2.4.3",
+    "browserslist": "^4.28.1",
+    "caniuse-lite": "^1.0.30001782",
+    "concurrently": "^9.1.0",
+    "prisma": "^6.3.1",
+    "tsx": "^4.19.2"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}
