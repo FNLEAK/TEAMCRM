@@ -49,7 +49,13 @@ export function AuthSessionShell({ children }: { children: React.ReactNode }) {
         !signedIn && "flex flex-col items-center justify-center",
       )}
     >
-      <DeskLayoutProvider>{children}</DeskLayoutProvider>
+      <DeskLayoutProvider>
+        {signedIn ? (
+          children
+        ) : (
+          <div className="pointer-events-auto min-h-[100svh] w-full max-w-[100vw]">{children}</div>
+        )}
+      </DeskLayoutProvider>
     </div>
   );
 }

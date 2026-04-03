@@ -348,8 +348,18 @@ function L() {
   }
 }
 
+function touchEventTargetIsRegisteredCanvas(e) {
+  const tar = e.target;
+  if (!tar || typeof tar !== "object") return false;
+  for (const [elem] of b) {
+    if (elem === tar) return true;
+  }
+  return false;
+}
+
 function TouchStart(e) {
   if (e.touches.length > 0) {
+    if (!touchEventTargetIsRegisteredCanvas(e)) return;
     e.preventDefault();
     A.x = e.touches[0].clientX;
     A.y = e.touches[0].clientY;
@@ -371,6 +381,7 @@ function TouchStart(e) {
 
 function TouchMove(e) {
   if (e.touches.length > 0) {
+    if (!touchEventTargetIsRegisteredCanvas(e)) return;
     e.preventDefault();
     A.x = e.touches[0].clientX;
     A.y = e.touches[0].clientY;
@@ -687,19 +698,23 @@ function createBallpit(canvas, t = {}) {
   canvas.style.userSelect = "none";
   canvas.style.webkitUserSelect = "none";
 
-  const h = S({
-    domElement: canvas,
-    onMove() {
-      n.setFromCamera(h.nPosition, i.camera);
-      i.camera.getWorldDirection(o.normal);
-      n.ray.intersectPlane(o, r);
-      s.physics.center.copy(r);
-      s.config.controlSphere0 = true;
-    },
-    onLeave() {
-      s.config.controlSphere0 = false;
-    },
-  });
+  /** When false, skip global pointer/touch listeners so touches reach stacked UI (e.g. login form on mobile). */
+  const interactive = t.followCursor !== false;
+  const h = interactive
+    ? S({
+        domElement: canvas,
+        onMove() {
+          n.setFromCamera(h.nPosition, i.camera);
+          i.camera.getWorldDirection(o.normal);
+          n.ray.intersectPlane(o, r);
+          s.physics.center.copy(r);
+          s.config.controlSphere0 = true;
+        },
+        onLeave() {
+          s.config.controlSphere0 = false;
+        },
+      })
+    : { dispose() {} };
   function initialize(e) {
     if (s) {
       i.clear();

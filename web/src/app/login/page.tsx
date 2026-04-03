@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Ballpit from "@/components/Ballpit";
 import { formatAuthError } from "@/lib/authErrors";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -15,6 +15,16 @@ const LOGIN_BALLPIT_COLORS: number[] = [...BALLPIT_COLORS];
 
 export default function LoginPage() {
   const router = useRouter();
+  /** WebGL + full-viewport canvas breaks touch hit-testing on some mobile browsers; use static bg only. */
+  const [allowBallpit, setAllowBallpit] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const sync = () => setAllowBallpit(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   const [mode, setMode] = useState<Mode>("signin");
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
@@ -49,6 +59,7 @@ export default function LoginPage() {
           email: email.trim(),
           password,
           options: {
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               first_name: fn,
               full_name: fn,
@@ -99,24 +110,26 @@ export default function LoginPage() {
   const isSignUp = mode === "signup";
 
   return (
-    <main className="relative isolate min-h-svh w-full overflow-hidden bg-black px-4 py-12 antialiased">
+    <main className="relative min-h-svh w-full overflow-x-hidden overflow-y-auto bg-black px-4 py-12 antialiased">
       <div
         className="pointer-events-none absolute inset-0 z-0 opacity-80 [background:radial-gradient(120%_100%_at_10%_0%,rgba(34,211,238,0.22),transparent_55%),radial-gradient(120%_100%_at_90%_0%,rgba(16,185,129,0.18),transparent_58%),radial-gradient(120%_100%_at_50%_100%,rgba(139,92,246,0.2),transparent_62%)] [animation:loginBgPulse_7s_ease-in-out_infinite]"
         aria-hidden
       />
-      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
-        <Ballpit
-          className="h-full w-full opacity-90"
-          count={160}
-          gravity={0.03}
-          friction={0.9975}
-          wallBounce={0.94}
-          followCursor
-          colors={LOGIN_BALLPIT_COLORS}
-        />
-      </div>
+      {allowBallpit ? (
+        <div className="pointer-events-none absolute inset-0 z-0" aria-hidden>
+          <Ballpit
+            className="pointer-events-none h-full w-full opacity-90"
+            count={160}
+            gravity={0.03}
+            friction={0.9975}
+            wallBounce={0.94}
+            followCursor={false}
+            colors={LOGIN_BALLPIT_COLORS}
+          />
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute inset-0 z-[1] bg-black/38" aria-hidden />
-      <div className="relative z-10 mx-auto w-full max-w-[440px]">
+      <div className="relative z-[100] mx-auto w-full max-w-[440px] pointer-events-auto touch-manipulation">
         <div className="mb-10 flex flex-col items-center text-center">
           <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-500/25 to-cyan-500/15 shadow-[0_0_40px_-8px_rgba(34,211,238,0.35)] ring-1 ring-white/10">
             <span className="bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-xl font-bold tracking-tight text-transparent">
