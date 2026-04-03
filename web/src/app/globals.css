@@ -1,0 +1,500 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pulse desk — aligned with CRM BUILD theme tokens */
+:root {
+  color-scheme: dark;
+  --color-canvas: #050508;
+  --color-surface: rgba(12, 14, 22, 0.72);
+  --color-surface-strong: rgba(18, 20, 32, 0.88);
+  --color-border-glass: rgba(255, 255, 255, 0.08);
+  --color-neon-cyan: #22d3ee;
+  --color-neon-violet: #a78bfa;
+  --color-neon-emerald: #34d399;
+  --color-neon-amber: #fbbf24;
+  --color-neon-rose: #fb7185;
+}
+
+html {
+  @apply antialiased;
+}
+
+body {
+  @apply m-0 min-h-svh bg-[var(--color-canvas)] text-slate-200;
+}
+
+/* Smooth horizontal board scroll */
+.board-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.board-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.board-scroll::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-white/20;
+}
+
+/* CRM dashboard — “Appointments today” stat when count > 0 */
+@keyframes crm-emerald-stat-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 40px -12px rgba(52, 211, 153, 0.45),
+      0 0 80px -24px rgba(16, 185, 129, 0.25);
+    filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.35));
+  }
+  50% {
+    box-shadow:
+      0 0 56px -10px rgba(52, 211, 153, 0.75),
+      0 0 100px -20px rgba(16, 185, 129, 0.45);
+    filter: drop-shadow(0 0 14px rgba(52, 211, 153, 0.55));
+  }
+}
+
+.crm-stat-emerald-live {
+  animation: crm-emerald-stat-pulse 2.4s ease-in-out infinite;
+}
+
+.crm-stat-emerald-live .crm-stat-emerald-value {
+  animation: crm-emerald-value-soft-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes crm-drawer-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0.92;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.crm-drawer-panel {
+  animation: crm-drawer-slide-in 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes crm-appt-set-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 12px -5px rgba(52, 211, 153, 0.2),
+      0 0 20px -10px rgba(16, 185, 129, 0.08),
+      inset 0 0 14px -11px rgba(16, 185, 129, 0.1);
+  }
+  50% {
+    box-shadow:
+      0 0 16px -4px rgba(52, 211, 153, 0.28),
+      0 0 26px -8px rgba(16, 185, 129, 0.12),
+      inset 0 0 16px -9px rgba(16, 185, 129, 0.14);
+  }
+}
+
+.crm-status-appt-set-active {
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.55), rgba(4, 47, 46, 0.9));
+  animation: crm-appt-set-glow 3s ease-in-out infinite;
+}
+
+@keyframes crm-status-pill-appt-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 10px -5px rgba(52, 211, 153, 0.18),
+      0 0 18px -9px rgba(16, 185, 129, 0.07);
+  }
+  50% {
+    box-shadow:
+      0 0 14px -4px rgba(52, 211, 153, 0.26),
+      0 0 22px -7px rgba(16, 185, 129, 0.11);
+  }
+}
+
+.crm-status-pill-appt-set {
+  animation: crm-status-pill-appt-pulse 3s ease-in-out infinite;
+}
+
+@keyframes crm-live-dot-ping {
+  75%,
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.crm-live-dot {
+  animation: crm-live-dot-ping 1.4s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes crm-claimed-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px -2px rgba(244, 63, 94, 0.45),
+      0 0 28px -8px rgba(168, 85, 247, 0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 22px -2px rgba(244, 63, 94, 0.65),
+      0 0 36px -6px rgba(192, 132, 252, 0.35);
+  }
+}
+
+.crm-claimed-badge {
+  animation: crm-claimed-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes crm-emerald-value-soft-pulse {
+  0%,
+  100% {
+    color: rgb(167 243 208);
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.45);
+  }
+  50% {
+    color: rgb(209 250 229);
+    text-shadow:
+      0 0 28px rgba(52, 211, 153, 0.65),
+      0 0 40px rgba(16, 185, 129, 0.35);
+  }
+}
+
+/* FullCalendar — Web Friendly CRM */
+.crm-calendar-shell .fc {
+  --fc-border-color: rgba(255, 255, 255, 0.06);
+  --fc-page-bg-color: #0a0a0a;
+  --fc-neutral-bg-color: #18181b;
+  --fc-neutral-text-color: #a1a1aa;
+  --fc-list-event-hover-bg-color: #27272a;
+  --fc-today-bg-color: rgba(16, 185, 129, 0.07);
+  --fc-now-indicator-color: rgba(52, 211, 153, 0.75);
+  --fc-button-bg-color: rgba(39, 39, 42, 0.65);
+  --fc-button-border-color: rgba(255, 255, 255, 0.1);
+  --fc-button-text-color: #e4e4e7;
+  --fc-button-hover-bg-color: rgba(63, 63, 70, 0.85);
+  --fc-button-active-bg-color: #14532d;
+  --fc-highlight-color: rgba(52, 211, 153, 0.12);
+  --fc-more-link-bg-color: rgba(24, 24, 27, 0.92);
+  --fc-more-link-text-color: #a7f3d0;
+}
+
+/* Main toolbar */
+.crm-calendar-shell .fc .fc-header-toolbar {
+  @apply mb-4 rounded-2xl border border-white/10 bg-zinc-950/80 px-3 py-2 backdrop-blur-xl;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 14px 36px -24px rgba(0, 0, 0, 0.9);
+}
+
+.crm-calendar-shell .fc .fc-header-toolbar .fc-toolbar-chunk {
+  @apply flex items-center gap-2;
+}
+
+.crm-calendar-shell .fc .fc-toolbar-title {
+  @apply text-base font-semibold tracking-tight text-zinc-100;
+}
+
+.crm-calendar-shell .fc .fc-button-group {
+  @apply rounded-xl border border-white/10 bg-black/35 p-0.5 backdrop-blur-sm;
+}
+
+.crm-calendar-shell .fc .fc-button {
+  @apply rounded-lg border-0 bg-transparent px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-300;
+  box-shadow: none !important;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.12s ease;
+}
+
+.crm-calendar-shell .fc .fc-button:hover:not(:disabled) {
+  @apply bg-white/10 text-white;
+}
+
+.crm-calendar-shell .fc .fc-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.crm-calendar-shell .fc .fc-button-primary:not(:disabled).fc-button-active,
+.crm-calendar-shell .fc .fc-button-primary:not(:disabled):active {
+  @apply bg-emerald-500/85 text-black;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 18px -8px rgba(16, 185, 129, 0.75) !important;
+}
+
+.crm-calendar-shell .fc .fc-today-button {
+  @apply border border-white/10 bg-white/5 text-zinc-200;
+}
+
+.crm-calendar-shell .fc .fc-col-header-cell {
+  @apply border-white/[0.06] bg-white/[0.02];
+}
+
+.crm-calendar-shell .fc .fc-col-header-cell-cushion,
+.crm-calendar-shell .fc .fc-daygrid-day-number {
+  @apply text-zinc-400;
+}
+
+.crm-calendar-shell .fc-theme-standard td,
+.crm-calendar-shell .fc-theme-standard th {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.crm-calendar-shell .fc .fc-daygrid-day.fc-day-today {
+  background-color: rgba(16, 185, 129, 0.06) !important;
+}
+
+.crm-calendar-shell .fc .fc-timegrid-slot-label {
+  @apply text-zinc-500;
+}
+
+/* Events — solid fills, high-contrast text, no glow */
+.crm-calendar-shell .fc-daygrid-event,
+.crm-calendar-shell .fc-timegrid-event {
+  border: none !important;
+  background: transparent !important;
+  margin-top: 2px !important;
+}
+
+.crm-calendar-shell .fc-daygrid-event .fc-event-main,
+.crm-calendar-shell .fc-timegrid-event .fc-event-main {
+  border-radius: 8px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  line-height: 1.35 !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  border: 1px solid rgba(0, 0, 0, 0.35) !important;
+  transition: opacity 0.15s ease;
+}
+
+.crm-calendar-shell .fc-daygrid-event:hover .fc-event-main,
+.crm-calendar-shell .fc-timegrid-event:hover .fc-event-main {
+  opacity: 0.92;
+}
+
+.crm-calendar-shell .crm-cal-pill-inner {
+  overflow: hidden;
+}
+
+/* My schedule */
+.crm-calendar-shell .crm-cal-event-my .fc-event-main {
+  color: #ecfdf5 !important;
+  background: rgb(6 78 59) !important;
+  border: 1px solid rgb(20 83 45) !important;
+}
+
+/* Team schedule — solid fills */
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-0 .fc-event-main {
+  color: #ecfdf5 !important;
+  background: rgb(5 120 85) !important;
+  border: 1px solid rgb(6 95 70) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-1 .fc-event-main {
+  color: #eff6ff !important;
+  background: rgb(29 78 216) !important;
+  border: 1px solid rgb(30 64 175) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-2 .fc-event-main {
+  color: #faf5ff !important;
+  background: rgb(109 40 217) !important;
+  border: 1px solid rgb(91 33 182) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-3 .fc-event-main {
+  color: #fffbeb !important;
+  background: rgb(180 83 9) !important;
+  border: 1px solid rgb(146 64 14) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-4 .fc-event-main {
+  color: #fff1f2 !important;
+  background: rgb(190 18 60) !important;
+  border: 1px solid rgb(159 18 57) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-5 .fc-event-main {
+  color: #ecfeff !important;
+  background: rgb(14 116 144) !important;
+  border: 1px solid rgb(21 94 117) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-6 .fc-event-main {
+  color: #fdf4ff !important;
+  background: rgb(162 28 175) !important;
+  border: 1px solid rgb(134 25 143) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-7 .fc-event-main {
+  color: #f0fdf4 !important;
+  background: rgb(21 128 61) !important;
+  border: 1px solid rgb(20 83 45) !important;
+}
+.crm-calendar-shell .crm-cal-event-team.crm-cal-sch-unassigned .fc-event-main {
+  color: #e4e4e7 !important;
+  background: rgb(39 39 42) !important;
+  border: 1px solid rgb(63 63 70) !important;
+}
+
+/* “+N more” link */
+.crm-calendar-shell .fc-daygrid-more-link {
+  @apply mt-1 inline-flex items-center rounded-md border border-white/15 bg-zinc-900 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-zinc-300;
+}
+
+.crm-calendar-shell .fc .fc-popover {
+  @apply border border-white/10 bg-zinc-950/95 shadow-2xl backdrop-blur-xl;
+}
+
+.crm-calendar-shell .fc .fc-popover-header {
+  @apply border-white/10 bg-emerald-950/40 text-zinc-200;
+}
+
+.crm-cal-glass-header {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(34, 211, 238, 0.14) 0%, rgba(34, 211, 238, 0) 56%),
+    radial-gradient(120% 140% at 100% 0%, rgba(167, 139, 250, 0.14) 0%, rgba(167, 139, 250, 0) 58%),
+    linear-gradient(100deg, rgba(8, 13, 24, 0.96) 0%, rgba(10, 12, 22, 0.95) 52%, rgba(12, 10, 24, 0.96) 100%);
+}
+
+/* Team schedule: day “heatmap” density (appointment count per cell) */
+.crm-calendar-shell.crm-cal-team-heat .fc .fc-daygrid-day {
+  transition:
+    background 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.crm-calendar-shell.crm-cal-team-heat .fc .fc-daygrid-day.crm-cal-day-density-low .fc-daygrid-day-frame {
+  background: rgba(16, 185, 129, 0.045);
+  border-radius: 10px;
+}
+.crm-calendar-shell.crm-cal-team-heat .fc .fc-daygrid-day.crm-cal-day-density-mid .fc-daygrid-day-frame {
+  background: rgba(16, 185, 129, 0.09);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.14);
+  border-radius: 10px;
+}
+.crm-calendar-shell.crm-cal-team-heat .fc .fc-daygrid-day.crm-cal-day-density-high .fc-daygrid-day-frame {
+  background: rgba(16, 185, 129, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.12);
+  border-radius: 10px;
+}
+
+.crm-leaderboard-glass {
+  background: #0a0a0a;
+}
+
+.crm-leaderboard-row:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes crm-appt-pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45);
+    filter: brightness(1);
+  }
+  40% {
+    box-shadow: 0 0 0 14px rgba(52, 211, 153, 0);
+    filter: brightness(1.08);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+    filter: brightness(1);
+  }
+}
+
+@keyframes leaderShine {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  45% {
+    transform: translateX(330%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(330%);
+    opacity: 0;
+  }
+}
+
+.crm-appt-stat-pulse-wrap {
+  animation: crm-appt-pulse-glow 1.35s ease-out 1;
+}
+
+.crm-appt-stat-pulse-inner {
+  animation: crm-appt-pulse-inner 1.35s ease-out 1;
+}
+
+@keyframes crm-appt-pulse-inner {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.02);
+  }
+}
+
+/* Command bar buttons use utility classes in CommandCenterBar */
+
+/* Team avatar dots — same palette order as `.crm-cal-sch-*` */
+.crm-team-avatar {
+  display: inline-flex;
+  height: 1.5rem;
+  width: 1.5rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 18px -6px currentColor;
+}
+.crm-team-avatar-0 {
+  background: linear-gradient(145deg, rgb(5 150 105), rgb(4 100 70));
+  color: rgb(167 243 208);
+}
+.crm-team-avatar-1 {
+  background: linear-gradient(145deg, rgb(37 99 235), rgb(29 78 216));
+  color: rgb(191 219 254);
+}
+.crm-team-avatar-2 {
+  background: linear-gradient(145deg, rgb(124 58 237), rgb(109 40 217));
+  color: rgb(233 213 255);
+}
+.crm-team-avatar-3 {
+  background: linear-gradient(145deg, rgb(217 119 6), rgb(180 83 9));
+  color: rgb(254 243 199);
+}
+.crm-team-avatar-4 {
+  background: linear-gradient(145deg, rgb(225 29 72), rgb(190 18 60));
+  color: rgb(255 228 230);
+}
+.crm-team-avatar-5 {
+  background: linear-gradient(145deg, rgb(8 145 178), rgb(14 116 144));
+  color: rgb(207 250 254);
+}
+.crm-team-avatar-6 {
+  background: linear-gradient(145deg, rgb(192 38 211), rgb(162 28 175));
+  color: rgb(250 232 255);
+}
+.crm-team-avatar-7 {
+  background: linear-gradient(145deg, rgb(22 163 74), rgb(21 128 61));
+  color: rgb(220 252 231);
+}
+.crm-team-avatar-unassigned {
+  background: linear-gradient(145deg, rgb(63 63 70), rgb(39 39 42));
+  color: rgb(212 212 216);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.crm-team-avatar-my {
+  background: linear-gradient(145deg, rgb(4 120 87), rgb(2 44 34));
+  color: rgb(209 250 229);
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.25);
+}

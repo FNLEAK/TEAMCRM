@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PipelineStage {
+  NEW
+  ATTEMPTED_CONTACT
+  CONNECTED
+  QUALIFIED
+  APPOINTMENT_BOOKED
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  users     User[]
+  leads     Lead[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignedLeads Lead[]  @relation("LeadAssignee")
+  notes        Note[]
+
+  @@index([workspaceId])
+}
+
+model Lead {
+  id              String        @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title           String
+  contactName     String?
+  email           String?
+  phone           String?
+  dealValue       Decimal       @default(0) @db.Decimal(14, 2)
+  notes           String?       @db.Text
+  stage           PipelineStage @default(NEW)
+  assigneeId      String?
+  assignee        User?         @relation("LeadAssignee", fields: [assigneeId], references: [id])
+  lastContactedAt DateTime?
+  nextAction      String?
+  nextActionAt    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  activities      Note[]
+
+  @@index([workspaceId, stage])
+  @@index([assigneeId])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
