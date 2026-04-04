@@ -1,13 +1,30 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { PipelineBoard } from "@/components/PipelineBoard";
 import { BulkActionsBar } from "@/components/BulkActionsBar";
-import { LeadFormModal } from "@/components/LeadFormModal";
-import { ImportCsvModal } from "@/components/ImportCsvModal";
-import { QuickAddModal } from "@/components/QuickAddModal";
+
+const PipelineBoard = dynamic(
+  () => import("@/components/PipelineBoard").then((m) => ({ default: m.PipelineBoard })),
+  {
+    loading: () => (
+      <div className="flex min-h-[min(60dvh,520px)] items-center justify-center text-sm text-slate-500">
+        Loading board…
+      </div>
+    ),
+  },
+);
+const LeadFormModal = dynamic(() =>
+  import("@/components/LeadFormModal").then((m) => ({ default: m.LeadFormModal })),
+);
+const ImportCsvModal = dynamic(() =>
+  import("@/components/ImportCsvModal").then((m) => ({ default: m.ImportCsvModal })),
+);
+const QuickAddModal = dynamic(() =>
+  import("@/components/QuickAddModal").then((m) => ({ default: m.QuickAddModal })),
+);
 import { useBoardRefresh } from "@/hooks/useBoardRefresh";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/auth";
@@ -110,25 +127,31 @@ export default function PipelinePage() {
         />
       </div>
 
-      <LeadFormModal
-        token={token}
-        open={leadOpen}
-        onClose={() => setLeadOpen(false)}
-        onSaved={refresh}
-        users={users}
-      />
-      <ImportCsvModal
-        token={token}
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-        onComplete={refresh}
-      />
-      <QuickAddModal
-        token={token}
-        open={quickOpen}
-        onClose={() => setQuickOpen(false)}
-        onComplete={refresh}
-      />
+      {leadOpen ? (
+        <LeadFormModal
+          token={token}
+          open
+          onClose={() => setLeadOpen(false)}
+          onSaved={refresh}
+          users={users}
+        />
+      ) : null}
+      {importOpen ? (
+        <ImportCsvModal
+          token={token}
+          open
+          onClose={() => setImportOpen(false)}
+          onComplete={refresh}
+        />
+      ) : null}
+      {quickOpen ? (
+        <QuickAddModal
+          token={token}
+          open
+          onClose={() => setQuickOpen(false)}
+          onComplete={refresh}
+        />
+      ) : null}
     </AppShell>
   );
 }

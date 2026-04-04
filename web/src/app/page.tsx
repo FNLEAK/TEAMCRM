@@ -1,4 +1,5 @@
-import { CrmDashboard } from "@/components/CrmDashboard";
+import dynamic from "next/dynamic";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import {
   COMPANY_SEARCH_MAX_LEN,
@@ -18,6 +19,11 @@ import {
 } from "@/lib/utcDayBounds";
 import { redirect } from "next/navigation";
 import { canManageRoles } from "@/lib/roleAccess";
+
+const CrmDashboard = dynamic(
+  () => import("@/components/CrmDashboard").then((m) => ({ default: m.CrmDashboard })),
+  { loading: () => <RouteChunkFallback label="Loading workspace…" /> },
+);
 
 type SearchParams = {
   page?: string;

@@ -1,7 +1,13 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { PersonalStatsShell } from "@/components/PersonalStatsShell";
 import { canManageRoles } from "@/lib/roleAccess";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
+
+const PersonalStatsShell = dynamic(
+  () => import("@/components/PersonalStatsShell").then((m) => ({ default: m.PersonalStatsShell })),
+  { loading: () => <RouteChunkFallback label="Loading stats…" /> },
+);
 
 export default async function PersonalStatsPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

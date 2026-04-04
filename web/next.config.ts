@@ -3,6 +3,23 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  /** Tree-shake heavy barrel packages (smaller client bundles, faster parse on mobile). */
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "@tanstack/react-virtual",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+      "@dnd-kit/utilities",
+      "@fullcalendar/react",
+      "@fullcalendar/core",
+      "@fullcalendar/daygrid",
+      "@fullcalendar/timegrid",
+      "@fullcalendar/interaction",
+      "date-fns",
+    ],
+  },
   /** Monorepo: trace files from repo root (quiets wrong-root warning when multiple lockfiles exist). */
   outputFileTracingRoot: path.join(process.cwd(), ".."),
   webpack: (config, { dev }) => {

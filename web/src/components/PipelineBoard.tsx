@@ -261,7 +261,7 @@ export function PipelineBoard({ token, selectedIds, onToggleSelect, boardVersion
             </button>
           </div>
         )}
-        <div className="board-scroll flex flex-1 gap-4 overflow-x-auto overflow-y-hidden px-4 pb-6 pt-1 sm:px-6">
+        <div className="board-scroll flex flex-1 flex-col gap-4 overflow-x-hidden px-4 pb-6 pt-1 sm:px-6 md:flex-row md:overflow-x-auto md:overflow-y-hidden">
           {STAGE_ORDER.map((stage) => (
             <KanbanColumn
               key={stage}

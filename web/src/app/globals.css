@@ -45,6 +45,15 @@ body {
   max-width: 100%;
 }
 
+/* Snappier taps on real controls (avoids double-tap-to-zoom delay on many mobile browsers) */
+button,
+[type="button"],
+[type="submit"],
+[type="reset"],
+[role="button"] {
+  touch-action: manipulation;
+}
+
 /* Smooth horizontal board scroll */
 .board-scroll {
   scrollbar-width: thin;

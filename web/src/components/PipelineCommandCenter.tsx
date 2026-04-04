@@ -866,8 +866,11 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                   </div>
                   <div
                     className={clsx(
-                      "max-h-[min(52dvh,420px)] space-y-1.5 overflow-y-auto p-2",
-                      layoutMobileShell ? "@min-[780px]:max-h-[68vh]" : "min-[780px]:max-h-[68vh]",
+                      /* Mobile: one vertical scroll (page) — avoids scroll traps on stacked stages */
+                      "space-y-1.5 overflow-y-visible p-2 max-h-none",
+                      layoutMobileShell
+                        ? "@min-[780px]:max-h-[68vh] @min-[780px]:overflow-y-auto"
+                        : "min-[780px]:max-h-[68vh] min-[780px]:overflow-y-auto",
                     )}
                   >
                     {cols.length === 0 ? (

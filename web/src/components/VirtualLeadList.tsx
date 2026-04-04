@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Lead } from "@/lib/types";
@@ -16,6 +16,26 @@ type Props = {
 
 const ESTIMATE = 118;
 
+const MD_UP = "(min-width: 768px)";
+
+function subscribeMdUp(onChange: () => void) {
+  if (typeof window === "undefined") return () => {};
+  const mq = window.matchMedia(MD_UP);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function getMdUpSnapshot() {
+  if (typeof window === "undefined") return true;
+  return window.matchMedia(MD_UP).matches;
+}
+
+/** Below `md`, pipeline columns stack — virtual list should follow the page scroll, not a nested pane. */
+function usePipelinePageScrollVirtual() {
+  const mdUp = useSyncExternalStore(subscribeMdUp, getMdUpSnapshot, () => true);
+  return !mdUp;
+}
+
 export function VirtualLeadList({
   leadIds,
   leadsById,
@@ -24,10 +44,16 @@ export function VirtualLeadList({
   useVirtual,
 }: Props) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const pageScrollVirtual = usePipelinePageScrollVirtual();
 
   const virtualizer = useVirtualizer({
     count: leadIds.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => {
+      if (pageScrollVirtual) {
+        return typeof document !== "undefined" ? document.documentElement : null;
+      }
+      return parentRef.current;
+    },
     estimateSize: () => ESTIMATE,
     overscan: 8,
     enabled: useVirtual,
@@ -56,44 +82,52 @@ export function VirtualLeadList({
 
   const items = virtualizer.getVirtualItems();
 
+  const listBody = (
+    <div
+      style={{
+        height: `${virtualizer.getTotalSize()}px`,
+        width: "100%",
+        position: "relative",
+      }}
+    >
+      {items.map((virtualRow) => {
+        const id = leadIds[virtualRow.index];
+        const lead = leadsById[id];
+        if (!lead) return null;
+        return (
+          <div
+            key={id}
+            data-index={virtualRow.index}
+            ref={virtualizer.measureElement}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${virtualRow.start}px)`,
+            }}
+            className="pb-2"
+          >
+            <LeadCard
+              lead={lead}
+              selected={selectedIds.has(id)}
+              onToggleSelect={onToggleSelect}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+
   return (
     <SortableContext items={leadIds} strategy={verticalListSortingStrategy}>
-      <div ref={parentRef} className="max-h-[calc(100vh-10rem)] overflow-auto pr-1">
-        <div
-          style={{
-            height: `${virtualizer.getTotalSize()}px`,
-            width: "100%",
-            position: "relative",
-          }}
-        >
-          {items.map((virtualRow) => {
-            const id = leadIds[virtualRow.index];
-            const lead = leadsById[id];
-            if (!lead) return null;
-            return (
-              <div
-                key={id}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-                className="pb-2"
-              >
-                <LeadCard
-                  lead={lead}
-                  selected={selectedIds.has(id)}
-                  onToggleSelect={onToggleSelect}
-                />
-              </div>
-            );
-          })}
+      {pageScrollVirtual ? (
+        listBody
+      ) : (
+        <div ref={parentRef} className="max-h-[calc(100vh-10rem)] overflow-auto pr-1">
+          {listBody}
         </div>
-      </div>
+      )}
     </SortableContext>
   );
 }

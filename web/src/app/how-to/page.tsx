@@ -1,7 +1,13 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canManageRoles } from "@/lib/roleAccess";
-import { HowToShell } from "@/components/HowToShell";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
+
+const HowToShell = dynamic(
+  () => import("@/components/HowToShell").then((m) => ({ default: m.HowToShell })),
+  { loading: () => <RouteChunkFallback label="Loading guide…" /> },
+);
 
 export default async function HowToPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

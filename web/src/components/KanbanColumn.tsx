@@ -28,7 +28,7 @@ export function KanbanColumn({
   const useVirtual = leadIds.length > 50;
 
   return (
-    <div className="flex w-[min(100vw-2rem,300px)] shrink-0 flex-col rounded-2xl border border-white/[0.06] bg-column-bg p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl">
+    <div className="flex w-full min-w-0 shrink-0 flex-col rounded-2xl border border-white/[0.06] bg-column-bg p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-xl md:w-[min(100vw-2rem,300px)]">
       <div className="mb-3 flex items-center justify-between gap-2 px-0.5">
         <h2 className="text-sm font-semibold tracking-tight text-slate-200">{STAGE_LABELS[stage]}</h2>
         <span className="rounded-full border border-white/[0.08] bg-white/[0.08] px-2.5 py-0.5 text-xs font-semibold text-slate-300 tabular-nums">

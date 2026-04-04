@@ -1,8 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import Ballpit from "@/components/Ballpit";
+
+/** Lazy-load Three/WebGL only on desktop — keeps login JS small on phones. */
+const Ballpit = dynamic(() => import("@/components/Ballpit"), { ssr: false, loading: () => null });
 import { formatAuthError } from "@/lib/authErrors";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureTeamRoleFromSession, upsertTeamProfileFromSession } from "@/lib/syncTeamProfile";

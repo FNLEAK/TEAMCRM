@@ -1,10 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
-import { LeadFormModal } from "@/components/LeadFormModal";
+
+const LeadFormModal = dynamic(() =>
+  import("@/components/LeadFormModal").then((m) => ({ default: m.LeadFormModal })),
+);
 import { api } from "@/lib/api";
 import { STAGE_LABELS } from "@/lib/stages";
 import type { Lead } from "@/lib/types";
@@ -295,14 +299,16 @@ export default function LeadDetailPage() {
         {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
       </div>
 
-      <LeadFormModal
-        token={token}
-        open={editOpen}
-        onClose={() => setEditOpen(false)}
-        onSaved={() => void load()}
-        lead={lead}
-        users={users}
-      />
+      {editOpen && lead ? (
+        <LeadFormModal
+          token={token}
+          open
+          onClose={() => setEditOpen(false)}
+          onSaved={() => void load()}
+          lead={lead}
+          users={users}
+        />
+      ) : null}
     </AppShell>
   );
 }

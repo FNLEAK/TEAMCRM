@@ -1,7 +1,13 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canManageRoles } from "@/lib/roleAccess";
-import { TeamChatShell } from "@/components/TeamChatShell";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
+
+const TeamChatShell = dynamic(
+  () => import("@/components/TeamChatShell").then((m) => ({ default: m.TeamChatShell })),
+  { loading: () => <RouteChunkFallback label="Loading team chat…" /> },
+);
 
 export default async function TeamChatPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

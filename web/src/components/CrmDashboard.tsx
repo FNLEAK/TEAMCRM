@@ -952,7 +952,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
 }) {
   return (
     <>
-      <div className="max-h-[58vh] w-full min-w-0 overflow-x-auto overflow-y-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
+      <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] max-md:overflow-y-visible md:max-h-[58vh] md:overflow-y-auto">
         <table className="w-full min-w-[780px] border-separate border-spacing-0 text-left text-[13px]">
           <thead>
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">

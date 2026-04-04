@@ -1,8 +1,14 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { OWNER_EMAIL, isOwnerEmail } from "@/lib/ownerRoleGate";
 import { canManageRoles } from "@/lib/roleAccess";
-import { RoleApplierShell } from "@/components/RoleApplierShell";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
+
+const RoleApplierShell = dynamic(
+  () => import("@/components/RoleApplierShell").then((m) => ({ default: m.RoleApplierShell })),
+  { loading: () => <RouteChunkFallback label="Loading role tools…" /> },
+);
 
 export default async function RoleApplierPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

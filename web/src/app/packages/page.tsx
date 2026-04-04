@@ -1,7 +1,13 @@
+import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
-import { PackagesShell } from "@/components/PackagesShell";
 import { canManageRoles } from "@/lib/roleAccess";
+import { RouteChunkFallback } from "@/components/RouteChunkFallback";
+
+const PackagesShell = dynamic(
+  () => import("@/components/PackagesShell").then((m) => ({ default: m.PackagesShell })),
+  { loading: () => <RouteChunkFallback label="Loading packages…" /> },
+);
 
 export default async function PackagesPage() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {

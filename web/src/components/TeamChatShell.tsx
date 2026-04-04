@@ -235,6 +235,13 @@ export function TeamChatShell({
   const teamChatCenterRef = useRef<HTMLDivElement | null>(null);
   const dmFileInputRef = useRef<HTMLInputElement | null>(null);
   const groupFileInputRef = useRef<HTMLInputElement | null>(null);
+  /** Sync guards so double-tap / impatient Enter cannot enqueue two inserts before React re-renders. */
+  const groupSendLockRef = useRef(false);
+  const dmSendLockRef = useRef(false);
+  const ownerDmSendLockRef = useRef(false);
+  const [groupSendPending, setGroupSendPending] = useState(false);
+  const [dmSendPending, setDmSendPending] = useState(false);
+  const [ownerDmSendPending, setOwnerDmSendPending] = useState(false);
   const [ownerActiveConversationId, setOwnerActiveConversationId] = useState("");
   const [ownerReplyDraft, setOwnerReplyDraft] = useState("");
   const [liveProfileStats, setLiveProfileStats] = useState<
@@ -685,108 +692,179 @@ export function TeamChatShell({
         ? "text-amber-100 border-amber-400/35 bg-amber-500/18"
         : "text-zinc-100 border-zinc-400/35 bg-zinc-500/18";
 
+  /** Runs after a successful insert — do not await from send handlers so the composer unlocks immediately. */
+  const scheduleDmInboxRefresh = (conversationId: string) => {
+    const sb = createSupabaseBrowserClient();
+    void (async () => {
+      try {
+        await markDmConversationRead(sb, conversationId, userId);
+        const prof = await fetchProfilesForChat(sb);
+        if (!prof.error && prof.data) {
+          const rows = prof.data as ProfileRow[];
+          const dm = await buildDmConversations(sb, userId, userDisplayName, rows);
+          if (!dm.error) setConversations(dm.conversations);
+          if (canManageRoles) {
+            const all = await buildDmConversations(sb, userId, userDisplayName, rows, {
+              viewAllConversationsAsOwner: true,
+            });
+            if (!all.error) setOwnerPanelConversations(all.conversations);
+          }
+        }
+      } catch (e) {
+        console.error("[dm inbox refresh]", e);
+      }
+    })();
+  };
+
   const sendGroupMessage = () => {
     const msg = groupDraft.trim();
     if (!msg && groupAttachments.length === 0) return;
+    if (groupSendLockRef.current) return;
+
+    groupSendLockRef.current = true;
+    setGroupSendPending(true);
+
     const textBody = msg || "(attachment)";
     const replyPayload = groupReplyTarget ? { from: groupReplyTarget.from, text: groupReplyTarget.text } : null;
-    const supabase = createSupabaseBrowserClient();
     const channel = groupChannel === "announcements" ? "announcements" : "team_chat";
+    const supabase = createSupabaseBrowserClient();
+    const draftSnap = groupDraft;
+    const replySnap = groupReplyTarget;
+    const attSnap = [...groupAttachments];
+
+    setGroupDraft("");
+    setGroupReplyTarget(null);
+    setGroupAttachments([]);
+
     void (async () => {
-      const { data, error } = await insertTeamRoomMessage(supabase, channel, userId, textBody, replyPayload);
-      if (error) {
-        console.error("[team chat]", error.message);
-        if (isTeamChatSchemaError(error.message)) {
-          setChatSchemaError(
-            "Team chat tables are missing. Run web/supabase/team-chat-messages.sql in Supabase, then enable Realtime on team_room_messages and dm_messages.",
-          );
+      try {
+        const { data, error } = await insertTeamRoomMessage(supabase, channel, userId, textBody, replyPayload);
+        if (error) {
+          console.error("[team chat]", error.message);
+          if (isTeamChatSchemaError(error.message)) {
+            setChatSchemaError(
+              "Team chat tables are missing. Run web/supabase/team-chat-messages.sql in Supabase, then enable Realtime on team_room_messages and dm_messages.",
+            );
+          }
+          setGroupDraft(draftSnap);
+          setGroupReplyTarget(replySnap);
+          setGroupAttachments(attSnap);
+          return;
         }
-        return;
-      }
-      if (data) {
-        const ui = teamMessageFromPayload(data as Record<string, unknown>, nameByIdRef.current, userId, userDisplayName);
-        if (ui) {
-          const row: GroupChannelMessage = { ...ui, replyTo: ui.replyTo, attachments: groupAttachments.length ? groupAttachments : undefined };
-          if (channel === "team_chat") {
-            setGroupMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
-          } else {
-            setAnnouncementMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
-            if (/@everyone\b/i.test(msg)) setAnnouncementPings((prev) => prev + 1);
+        if (data) {
+          const ui = teamMessageFromPayload(data as Record<string, unknown>, nameByIdRef.current, userId, userDisplayName);
+          if (ui) {
+            const row: GroupChannelMessage = {
+              ...ui,
+              replyTo: ui.replyTo,
+              attachments: attSnap.length ? attSnap : undefined,
+            };
+            if (channel === "team_chat") {
+              setGroupMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
+            } else {
+              setAnnouncementMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
+              if (/@everyone\b/i.test(msg)) setAnnouncementPings((prev) => prev + 1);
+            }
           }
         }
+      } finally {
+        groupSendLockRef.current = false;
+        setGroupSendPending(false);
       }
-      setGroupDraft("");
-      setGroupReplyTarget(null);
-      setGroupAttachments([]);
     })();
   };
 
   const sendDmMessage = () => {
     const supabase = createSupabaseBrowserClient();
-    const replyPayload = dmReplyTarget ? { from: dmReplyTarget.from, text: dmReplyTarget.text } : null;
-
-    const afterSend = async (conversationId: string) => {
-      await markDmConversationRead(supabase, conversationId, userId);
-      const prof = await fetchProfilesForChat(supabase);
-      if (!prof.error && prof.data) {
-        const rows = prof.data as ProfileRow[];
-        const dm = await buildDmConversations(supabase, userId, userDisplayName, rows);
-        if (!dm.error) setConversations(dm.conversations);
-        if (canManageRoles) {
-          const all = await buildDmConversations(supabase, userId, userDisplayName, rows, {
-            viewAllConversationsAsOwner: true,
-          });
-          if (!all.error) setOwnerPanelConversations(all.conversations);
-        }
-      }
-    };
 
     if (activeConversation) {
       const msg = draft.trim();
       if (!msg && dmAttachments.length === 0) return;
+      if (dmSendLockRef.current) return;
+
+      dmSendLockRef.current = true;
+      setDmSendPending(true);
+
       const textBody = msg || "(attachment)";
+      const replyPayload = dmReplyTarget ? { from: dmReplyTarget.from, text: dmReplyTarget.text } : null;
+      const draftSnap = draft;
+      const replySnap = dmReplyTarget;
+      const attSnap = [...dmAttachments];
+      const otherUserId = activeConversation.otherUserId;
+
+      setDraft("");
+      setDmReplyTarget(null);
+      setDmAttachments([]);
+
       void (async () => {
-        const { id: convId, error: convErr } = await getOrCreateDmConversationId(supabase, userId, activeConversation.otherUserId);
-        if (convErr || !convId) {
-          console.error("[dm]", convErr?.message);
-          return;
-        }
-        const { error } = await insertDmMessage(supabase, convId, userId, textBody, replyPayload);
-        if (error) {
-          console.error("[dm]", error.message);
-          if (isTeamChatSchemaError(error.message)) {
-            setChatSchemaError(
-              "DM tables are missing. Run web/supabase/team-chat-messages.sql in Supabase, then enable Realtime on dm_messages.",
-            );
+        try {
+          const { id: convId, error: convErr } = await getOrCreateDmConversationId(supabase, userId, otherUserId);
+          if (convErr || !convId) {
+            console.error("[dm]", convErr?.message);
+            setDraft(draftSnap);
+            setDmReplyTarget(replySnap);
+            setDmAttachments(attSnap);
+            return;
           }
-          return;
+          const { error } = await insertDmMessage(supabase, convId, userId, textBody, replyPayload);
+          if (error) {
+            console.error("[dm]", error.message);
+            if (isTeamChatSchemaError(error.message)) {
+              setChatSchemaError(
+                "DM tables are missing. Run web/supabase/team-chat-messages.sql in Supabase, then enable Realtime on dm_messages.",
+              );
+            }
+            setDraft(draftSnap);
+            setDmReplyTarget(replySnap);
+            setDmAttachments(attSnap);
+            return;
+          }
+          scheduleDmInboxRefresh(convId);
+        } finally {
+          dmSendLockRef.current = false;
+          setDmSendPending(false);
         }
-        setDraft("");
-        setDmReplyTarget(null);
-        setDmAttachments([]);
-        await afterSend(convId);
       })();
       return;
     }
+
     const msg = newMessageBody.trim();
     if (!msg && dmAttachments.length === 0) return;
     if (resolvedDmPeerId === NO_DM_PEER_PLACEHOLDER) return;
+    if (dmSendLockRef.current) return;
+
+    dmSendLockRef.current = true;
+    setDmSendPending(true);
+
+    const textBody = msg || "(attachment)";
+    const bodySnap = newMessageBody;
+    const attSnap = [...dmAttachments];
+
+    setNewMessageBody("");
+    setDmAttachments([]);
+
     void (async () => {
-      const { id: convId, error: convErr } = await getOrCreateDmConversationId(supabase, userId, resolvedDmPeerId);
-      if (convErr || !convId) {
-        console.error("[dm]", convErr?.message);
-        return;
+      try {
+        const { id: convId, error: convErr } = await getOrCreateDmConversationId(supabase, userId, resolvedDmPeerId);
+        if (convErr || !convId) {
+          console.error("[dm]", convErr?.message);
+          setNewMessageBody(bodySnap);
+          setDmAttachments(attSnap);
+          return;
+        }
+        const { error } = await insertDmMessage(supabase, convId, userId, textBody, null);
+        if (error) {
+          console.error("[dm]", error.message);
+          setNewMessageBody(bodySnap);
+          setDmAttachments(attSnap);
+          return;
+        }
+        setActiveConversationId(convId);
+        scheduleDmInboxRefresh(convId);
+      } finally {
+        dmSendLockRef.current = false;
+        setDmSendPending(false);
       }
-      const textBody = msg || "(attachment)";
-      const { error } = await insertDmMessage(supabase, convId, userId, textBody, null);
-      if (error) {
-        console.error("[dm]", error.message);
-        return;
-      }
-      setNewMessageBody("");
-      setDmAttachments([]);
-      setActiveConversationId(convId);
-      await afterSend(convId);
     })();
   };
 
@@ -1567,10 +1645,13 @@ export function TeamChatShell({
                         setGroupAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
+                        if (e.key !== "Enter" || e.shiftKey) return;
+                        if (groupSendPending) {
                           e.preventDefault();
-                          sendGroupMessage();
+                          return;
                         }
+                        e.preventDefault();
+                        sendGroupMessage();
                       }}
                       className="mt-2 w-full resize-none rounded-xl border border-transparent bg-black/40 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)] focus:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.36)] focus:outline-none"
                     />
@@ -1611,15 +1692,17 @@ export function TeamChatShell({
                         />
                         <button
                           type="button"
+                          disabled={groupSendPending}
                           onClick={() => groupFileInputRef.current?.click()}
-                          className="rounded-xl border border-cyan-300/35 bg-cyan-500/14 px-2.5 py-2 text-[11px] font-semibold text-cyan-100"
+                          className="touch-manipulation rounded-xl border border-cyan-300/35 bg-cyan-500/14 px-2.5 py-2 text-[11px] font-semibold text-cyan-100 transition duration-100 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
                         >
                           Upload
                         </button>
                         <button
                           type="button"
+                          disabled={groupSendPending}
                           onClick={sendGroupMessage}
-                          className="rounded-xl border border-cyan-300/45 bg-gradient-to-r from-cyan-500/[0.24] to-violet-500/[0.24] px-3.5 py-2 text-xs font-semibold text-cyan-100 transition hover:border-cyan-300/65 hover:from-cyan-500/[0.34] hover:to-violet-500/[0.34]"
+                          className="touch-manipulation rounded-xl border border-cyan-300/45 bg-gradient-to-r from-cyan-500/[0.24] to-violet-500/[0.24] px-3.5 py-2 text-xs font-semibold text-cyan-100 transition duration-100 hover:border-cyan-300/65 hover:from-cyan-500/[0.34] hover:to-violet-500/[0.34] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
                         >
                           Send to group
                         </button>
@@ -1784,10 +1867,13 @@ export function TeamChatShell({
                   setDmAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
                 }}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  if (e.key !== "Enter" || e.shiftKey) return;
+                  if (dmSendPending) {
                     e.preventDefault();
-                    sendDmMessage();
+                    return;
                   }
+                  e.preventDefault();
+                  sendDmMessage();
                 }}
                 className="mt-2 w-full min-w-0 resize-none rounded-lg border border-zinc-700/70 bg-zinc-900/90 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none @min-[960px]:rounded-xl @min-[960px]:border-transparent @min-[960px]:bg-black/40 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)] @min-[960px]:focus:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.36)]"
               />
@@ -1824,15 +1910,20 @@ export function TeamChatShell({
                   />
                   <button
                     type="button"
+                    disabled={dmSendPending}
                     onClick={() => dmFileInputRef.current?.click()}
-                    className="rounded-lg border border-zinc-600/60 bg-zinc-800/90 px-3 py-2.5 text-xs font-medium text-zinc-200 @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/35 @min-[960px]:bg-cyan-500/14 @min-[960px]:py-2 @min-[960px]:text-[11px] @min-[960px]:font-semibold @min-[960px]:text-cyan-100"
+                    className="touch-manipulation rounded-lg border border-zinc-600/60 bg-zinc-800/90 px-3 py-2.5 text-xs font-medium text-zinc-200 transition duration-100 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/35 @min-[960px]:bg-cyan-500/14 @min-[960px]:py-2 @min-[960px]:text-[11px] @min-[960px]:font-semibold @min-[960px]:text-cyan-100"
                   >
                     File
                   </button>
                   <button
                     type="button"
+                    disabled={
+                      dmSendPending ||
+                      (!activeConversation && resolvedDmPeerId === NO_DM_PEER_PLACEHOLDER)
+                    }
                     onClick={sendDmMessage}
-                    className="min-h-[42px] flex-1 rounded-lg border border-[#5865f2]/50 bg-[#5865f2]/90 px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#5865f2] @min-[960px]:min-h-0 @min-[960px]:flex-none @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/45 @min-[960px]:bg-gradient-to-r @min-[960px]:from-cyan-500/[0.24] @min-[960px]:to-violet-500/[0.24] @min-[960px]:px-3.5 @min-[960px]:text-xs @min-[960px]:text-cyan-100 @min-[960px]:hover:border-cyan-300/65"
+                    className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-[#5865f2]/50 bg-[#5865f2]/90 px-3 py-2 text-sm font-semibold text-white transition duration-100 hover:bg-[#5865f2] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 @min-[960px]:min-h-0 @min-[960px]:flex-none @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/45 @min-[960px]:bg-gradient-to-r @min-[960px]:from-cyan-500/[0.24] @min-[960px]:to-violet-500/[0.24] @min-[960px]:px-3.5 @min-[960px]:text-xs @min-[960px]:text-cyan-100 @min-[960px]:hover:border-cyan-300/65"
                   >
                     {activeConversation ? "Send" : "Start chat"}
                   </button>
@@ -2000,31 +2091,33 @@ export function TeamChatShell({
                   <div className="mt-2 flex justify-end">
                     <button
                       type="button"
+                      disabled={ownerDmSendPending}
                       onClick={() => {
                         const msg = ownerReplyDraft.trim();
                         if (!msg || !ownerActiveConversation) return;
+                        if (ownerDmSendLockRef.current) return;
+                        ownerDmSendLockRef.current = true;
+                        setOwnerDmSendPending(true);
+                        const snap = ownerReplyDraft;
+                        const convId = ownerActiveConversation.id;
+                        setOwnerReplyDraft("");
                         const sb = createSupabaseBrowserClient();
                         void (async () => {
-                          const { error } = await insertDmMessage(sb, ownerActiveConversation.id, userId, msg, null);
-                          if (error) {
-                            console.error("[owner dm]", error.message);
-                            return;
-                          }
-                          setOwnerReplyDraft("");
-                          await markDmConversationRead(sb, ownerActiveConversation.id, userId);
-                          const prof = await fetchProfilesForChat(sb);
-                          if (!prof.error && prof.data) {
-                            const rows = prof.data as ProfileRow[];
-                            const dm = await buildDmConversations(sb, userId, userDisplayName, rows);
-                            if (!dm.error) setConversations(dm.conversations);
-                            const all = await buildDmConversations(sb, userId, userDisplayName, rows, {
-                              viewAllConversationsAsOwner: true,
-                            });
-                            if (!all.error) setOwnerPanelConversations(all.conversations);
+                          try {
+                            const { error } = await insertDmMessage(sb, convId, userId, msg, null);
+                            if (error) {
+                              console.error("[owner dm]", error.message);
+                              setOwnerReplyDraft(snap);
+                              return;
+                            }
+                            scheduleDmInboxRefresh(convId);
+                          } finally {
+                            ownerDmSendLockRef.current = false;
+                            setOwnerDmSendPending(false);
                           }
                         })();
                       }}
-                      className="rounded-lg border border-emerald-300/45 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/30"
+                      className="touch-manipulation rounded-lg border border-emerald-300/45 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition duration-100 hover:bg-emerald-500/30 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
                     >
                       Send owner reply
                     </button>
