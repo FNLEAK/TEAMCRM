@@ -366,7 +366,7 @@ export function DeskShell({
 
   if (isMobileShell) {
     const mobileChrome = (
-      <div className="flex min-h-svh min-w-0 flex-col bg-[#06080d]">
+      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-[#06080d]">
         <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/[0.07] bg-[#06080d]/92 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl supports-[backdrop-filter]:bg-[#06080d]/80">
           <button
             type="button"
@@ -396,7 +396,7 @@ export function DeskShell({
         </main>
 
         <nav
-          className="fixed bottom-0 left-0 right-0 z-30 border-t border-white/[0.08] bg-[#07090d]/95 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_40px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[#07090d]/88"
+          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-white/[0.08] bg-[#07090d]/95 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_40px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[#07090d]/88"
           aria-label="Primary navigation"
         >
           <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-5">
@@ -448,7 +448,7 @@ export function DeskShell({
         </nav>
 
         <div
-          className={clsx("fixed inset-0 z-50", drawerOpen ? "pointer-events-auto" : "pointer-events-none")}
+          className={clsx("fixed inset-0 z-[110]", drawerOpen ? "pointer-events-auto" : "pointer-events-none")}
           aria-hidden={!drawerOpen}
         >
           <button
@@ -499,7 +499,7 @@ export function DeskShell({
   }
 
   return (
-    <div className="flex min-h-svh bg-[#06080d]">
+    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-[#06080d]">
       <aside className="relative flex w-[17.5rem] shrink-0 flex-col bg-gradient-to-b from-[#0a0c10] via-[#090b0f] to-[#07090d] shadow-[inset_-1px_0_0_rgba(255,255,255,0.02),20px_0_40px_-35px_rgba(6,182,212,0.22)] backdrop-blur-xl sm:w-72">
         <div
           aria-hidden

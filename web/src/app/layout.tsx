@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import { AuthSessionShell } from "@/components/AuthSessionShell";
 import "./globals.css";
@@ -19,10 +19,18 @@ export const metadata: Metadata = {
   description: "Sales pipeline for high-volume cold calling teams",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className={`${dmSans.variable} ${geistMono.variable} relative min-h-svh font-sans antialiased`}>
+    <html lang="en" className="overflow-x-hidden">
+      <body
+        className={`${dmSans.variable} ${geistMono.variable} relative min-h-svh max-w-[100%] overflow-x-hidden font-sans antialiased`}
+      >
         <AuthSessionShell>{children}</AuthSessionShell>
       </body>
     </html>

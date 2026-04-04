@@ -988,7 +988,7 @@ export function LeadDetailDrawer({
 
         <div
           className={clsx(
-            "flex-1 overflow-y-auto px-6 py-5 transition-[opacity,filter] duration-200",
+            "flex-1 touch-pan-y overflow-y-auto overscroll-y-contain px-6 py-5 transition-[opacity,filter] duration-200",
             apptStatusLocked && "opacity-[0.52] saturate-[0.65]",
           )}
         >
@@ -1065,10 +1065,12 @@ export function LeadDetailDrawer({
                       void persistStatus(s);
                     }}
                     className={clsx(
-                      "flex w-full items-center gap-3 px-3 py-2.5 text-left transition active:bg-white/[0.03]",
+                      "flex w-full touch-manipulation select-none items-center gap-3 px-3 py-2.5 text-left transition",
+                      /* Hover / press tint only on real hover devices — avoids grey “picked” rows while scrolling on touch */
+                      "[@media(hover:hover)]:active:bg-white/[0.03]",
                       active && isAppt && "crm-status-appt-set-active",
                       active && !isAppt && "bg-emerald-500/[0.12]",
-                      !active && "hover:bg-zinc-800/50",
+                      !active && "[@media(hover:hover)]:hover:bg-zinc-800/50",
                       statusBusy && "cursor-wait opacity-70",
                     )}
                   >

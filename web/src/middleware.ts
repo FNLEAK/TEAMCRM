@@ -47,7 +47,11 @@ export async function middleware(request: NextRequest) {
       pathname === "/pipeline-command-center" ||
       pathname === "/personal-stats" ||
       pathname === "/role-applier" ||
-      pathname === "/packages")
+      pathname === "/packages" ||
+      pathname === "/team-chat" ||
+      pathname.startsWith("/team-chat/") ||
+      pathname === "/how-to" ||
+      pathname.startsWith("/how-to/"))
   ) {
     const redirect = NextResponse.redirect(new URL("/login", request.url));
     return redirect;

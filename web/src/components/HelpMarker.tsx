@@ -67,6 +67,8 @@ export function HelpMarker({
       const r = el.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
+      /** Reserve space for mobile DeskShell bottom tabs (~3.75rem) + safe area so tooltip doesn’t sit under the bar. */
+      const mobileBottomReserve = vw < 1024 ? 72 + 20 : 16;
 
       // Default placement: below-right of icon (existing behavior).
       let left = r.right - tooltipWidth;
@@ -83,8 +85,9 @@ export function HelpMarker({
       }
       // Clamp for left edge.
       if (left < edgePad) left = edgePad;
-      // Keep within viewport vertically.
-      if (top > vh - edgePad - 80) top = Math.max(edgePad, vh - edgePad - 80);
+      // Keep within viewport vertically (above mobile bottom tab bar).
+      const bottomLimit = vh - mobileBottomReserve;
+      if (top > bottomLimit - 80) top = Math.max(edgePad, bottomLimit - 80);
       if (top < edgePad) top = edgePad;
 
       setStyle({
@@ -120,7 +123,7 @@ export function HelpMarker({
   }, [open]);
 
   return (
-    <div className={clsx("pointer-events-auto absolute right-[10px] top-[10px] z-50", className)}>
+    <div className={clsx("pointer-events-auto absolute right-[10px] top-[10px] z-20", className)}>
       <button
         ref={triggerRef}
         type="button"

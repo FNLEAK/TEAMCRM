@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Ballpit from "@/components/Ballpit";
 import { formatAuthError } from "@/lib/authErrors";
@@ -14,7 +13,6 @@ const BALLPIT_COLORS = [0x22d3ee, 0x10b981, 0x8b5cf6] as const;
 const LOGIN_BALLPIT_COLORS: number[] = [...BALLPIT_COLORS];
 
 export default function LoginPage() {
-  const router = useRouter();
   /** WebGL + full-viewport canvas breaks touch hit-testing on some mobile browsers; use static bg only. */
   const [allowBallpit, setAllowBallpit] = useState(false);
   useEffect(() => {
@@ -38,6 +36,7 @@ export default function LoginPage() {
     setError(null);
     setInfo(null);
     setLoading(true);
+    let willHardRedirect = false;
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -75,8 +74,8 @@ export default function LoginPage() {
         if (data.session) {
           await upsertTeamProfileFromSession(supabase);
           await ensureTeamRoleFromSession(supabase);
-          router.push("/");
-          router.refresh();
+          willHardRedirect = true;
+          window.location.assign("/");
           return;
         }
 
@@ -98,12 +97,12 @@ export default function LoginPage() {
 
       await upsertTeamProfileFromSession(supabase);
       await ensureTeamRoleFromSession(supabase);
-      router.push("/");
-      router.refresh();
+      willHardRedirect = true;
+      window.location.assign("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
-      setLoading(false);
+      if (!willHardRedirect) setLoading(false);
     }
   }
 

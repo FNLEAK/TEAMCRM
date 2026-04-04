@@ -45,7 +45,7 @@ export function AuthSessionShell({ children }: { children: React.ReactNode }) {
   return (
     <div
       className={cn(
-        "relative min-h-svh w-full",
+        "relative min-h-svh w-full min-w-0 max-w-full overflow-x-hidden",
         !signedIn && "flex flex-col items-center justify-center",
       )}
     >
@@ -53,7 +53,9 @@ export function AuthSessionShell({ children }: { children: React.ReactNode }) {
         {signedIn ? (
           children
         ) : (
-          <div className="pointer-events-auto min-h-[100svh] w-full max-w-[100vw]">{children}</div>
+          <div className="pointer-events-auto min-h-[100svh] w-full min-w-0 max-w-full overflow-x-hidden">
+            {children}
+          </div>
         )}
       </DeskLayoutProvider>
     </div>

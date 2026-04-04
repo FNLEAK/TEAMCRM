@@ -18,10 +18,31 @@
 
 html {
   @apply antialiased;
+  overflow-x: hidden;
+  /* Avoid automatic font inflation on orientation / pinch (esp. mobile WebKit) */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* iOS Safari grey “flash” on touch / scroll over links & buttons */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/*
+ * iOS Safari zooms the viewport when focusing inputs whose computed font-size is < 16px.
+ * Tailwind `text-sm` (14px) loses to this rule only with !important on narrow viewports.
+ */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="image"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
 }
 
 body {
   @apply m-0 min-h-svh bg-[var(--color-canvas)] text-slate-200;
+  overflow-x: clip;
+  max-width: 100%;
 }
 
 /* Smooth horizontal board scroll */

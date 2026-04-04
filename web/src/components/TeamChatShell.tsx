@@ -7,6 +7,7 @@ import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
 import { HelpMarker } from "@/components/HelpMarker";
+import { cn } from "@/lib/utils";
 import { UiSelect } from "@/components/UiSelect";
 import type { ProfileRow } from "@/lib/profileSelect";
 import {
@@ -230,6 +231,8 @@ export function TeamChatShell({
   const [issueReplyDrafts, setIssueReplyDrafts] = useState<Record<string, string>>({});
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
+  /** On mobile, group/issues render in row 2 below a tall inbox; scroll into view after mode change. */
+  const teamChatCenterRef = useRef<HTMLDivElement | null>(null);
   const dmFileInputRef = useRef<HTMLInputElement | null>(null);
   const groupFileInputRef = useRef<HTMLInputElement | null>(null);
   const [ownerActiveConversationId, setOwnerActiveConversationId] = useState("");
@@ -254,6 +257,16 @@ export function TeamChatShell({
   useEffect(() => {
     groupChannelRef.current = groupChannel;
   }, [groupChannel]);
+
+  useEffect(() => {
+    if (centerMode !== "group" && centerMode !== "issues") return;
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(min-width: 960px)").matches) return;
+    const id = window.setTimeout(() => {
+      teamChatCenterRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [centerMode]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null;
   const ownerActiveConversation =
@@ -824,7 +837,14 @@ export function TeamChatShell({
         </header>
 
         <section className="grid min-w-0 shrink-0 grid-cols-1 gap-3 overflow-hidden @max-[959px]:auto-rows-min @min-[960px]:gap-5 @min-[960px]:h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:min-h-[320px] @min-[960px]:max-h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:grid-cols-[360px_minmax(0,1fr)_280px] @min-[960px]:grid-rows-[minmax(0,1fr)]">
-          <aside className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @max-[959px]:min-h-[min(64dvh,calc(100dvh-15rem))] @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[linear-gradient(180deg,rgba(9,14,24,0.96),rgba(8,11,18,0.93))] @min-[960px]:p-4 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16),0_0_26px_-22px_rgba(34,211,238,0.6)] @min-[960px]:h-full @min-[960px]:max-h-full">
+          <aside
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[linear-gradient(180deg,rgba(9,14,24,0.96),rgba(8,11,18,0.93))] @min-[960px]:p-4 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16),0_0_26px_-22px_rgba(34,211,238,0.6)] @min-[960px]:h-full @min-[960px]:max-h-full",
+              centerMode === "group" || centerMode === "issues"
+                ? "@max-[959px]:min-h-0"
+                : "@max-[959px]:min-h-[min(64dvh,calc(100dvh-15rem))]",
+            )}
+          >
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-transparent bg-black/35 p-1 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.14)]">
               <button
                 type="button"
@@ -867,7 +887,7 @@ export function TeamChatShell({
                       setGroupChannel("chat");
                       setActiveConversationId("");
                     }}
-                    className="mt-2 w-full rounded-lg border border-emerald-300/35 bg-emerald-500/18 px-2 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/24"
+                    className="touch-manipulation mt-2 w-full rounded-lg border border-emerald-300/35 bg-emerald-500/18 px-2 py-1.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-500/24 active:bg-emerald-500/28"
                   >
                     Open group chat
                   </button>
@@ -1084,7 +1104,14 @@ export function TeamChatShell({
             </div>
           </aside>
 
-          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[radial-gradient(120%_120%_at_10%_0%,rgba(34,211,238,0.14),transparent_48%),radial-gradient(120%_120%_at_90%_0%,rgba(167,139,250,0.14),transparent_52%),linear-gradient(180deg,rgba(10,14,26,0.97),rgba(7,10,18,0.96))] @min-[960px]:p-5 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(167,139,250,0.18),0_0_34px_-22px_rgba(34,211,238,0.42)] @min-[960px]:h-full @min-[960px]:max-h-full">
+          <div
+            ref={teamChatCenterRef}
+            className={cn(
+              "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[radial-gradient(120%_120%_at_10%_0%,rgba(34,211,238,0.14),transparent_48%),radial-gradient(120%_120%_at_90%_0%,rgba(167,139,250,0.14),transparent_52%),linear-gradient(180deg,rgba(10,14,26,0.97),rgba(7,10,18,0.96))] @min-[960px]:p-5 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(167,139,250,0.18),0_0_34px_-22px_rgba(34,211,238,0.42)] @min-[960px]:h-full @min-[960px]:max-h-full",
+              (centerMode === "group" || centerMode === "issues") &&
+                "@max-[959px]:min-h-[min(62dvh,620px)] @max-[959px]:scroll-mt-3",
+            )}
+          >
             <HelpMarker
               accent="crimson"
               className="right-2 top-2 @min-[960px]:right-4 @min-[960px]:top-4"
