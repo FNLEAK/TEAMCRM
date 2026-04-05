@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { WEBSITE_BOOKED_LEAD_STATUS } from "@/lib/webFriendlyBooking";
+import { webhookLeadStatus } from "@/lib/webFriendlyBooking";
 
 export const runtime = "nodejs";
 
@@ -87,7 +87,8 @@ export async function POST(request: Request) {
   const topic = typeof b.topic === "string" ? b.topic.trim() : "";
   const message = typeof b.message === "string" ? b.message.trim() : "";
   const preferredAt = typeof b.preferredAt === "string" ? b.preferredAt.trim() : "";
-  const status = typeof b.status === "string" ? b.status.trim() : "";
+  /** Partner app’s booking state — text only; never copied to `leads.status` (would break `leads_status_check`). */
+  const sourceAppBookingStatus = typeof b.status === "string" ? b.status.trim() : "";
   const createdAt = typeof b.createdAt === "string" ? b.createdAt.trim() : "";
   const updatedAt = typeof b.updatedAt === "string" ? b.updatedAt.trim() : "";
 
@@ -96,33 +97,24 @@ export async function POST(request: Request) {
     email ? `Email: ${email}` : null,
     topic ? `Topic: ${topic}` : null,
     message ? `Message: ${message}` : null,
-    preferredAt ? `Preferred: ${preferredAt}` : null,
-    status ? `Booking status: ${status}` : null,
+    preferredAt ? `Preferred (visitor text, not validated): ${preferredAt}` : null,
+    sourceAppBookingStatus ? `Source app booking.status: ${sourceAppBookingStatus}` : null,
     createdAt ? `Created (source): ${createdAt}` : null,
     updatedAt ? `Updated (source): ${updatedAt}` : null,
   ].filter(Boolean) as string[];
 
   const notes = notesLines.join("\n").slice(0, 8000);
 
-  let apptDate: string | null = null;
-  if (preferredAt) {
-    const d = new Date(preferredAt);
-    if (!Number.isNaN(d.getTime())) {
-      apptDate = d.toISOString().slice(0, 10);
-    } else if (/^\d{4}-\d{2}-\d{2}/.test(preferredAt)) {
-      apptDate = preferredAt.slice(0, 10);
-    }
-  }
+  const leadStatus = webhookLeadStatus();
 
   const row = {
     source_booking_id: externalId,
     company_name: name,
     phone: phone && phone.length > 0 ? phone : null,
     website: null as string | null,
-    status: WEBSITE_BOOKED_LEAD_STATUS,
+    status: leadStatus,
     notes: notes.length > 0 ? notes : null,
     import_filename: "web-friendly",
-    appt_date: apptDate,
   };
 
   const { error } = await admin.from("leads").upsert(row, { onConflict: "source_booking_id" });
