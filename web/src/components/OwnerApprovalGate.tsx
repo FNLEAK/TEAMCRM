@@ -45,8 +45,12 @@ export function OwnerApprovalGate({ children }: { children: React.ReactNode }) {
   const gateOn = ownerApprovalGateEnabled();
   const exempt = isOverlayExemptPath(pathname);
 
-  const runCheck = useCallback(async (userId: string, email: string | undefined) => {
-    setUi("checking");
+  /**
+   * `showChecking` only on first load / hard refresh — never on poll, Realtime, or window focus,
+   * or the modal flips "Waiting" ↔ "One moment" and drops the Sign out button every few seconds.
+   */
+  const runCheck = useCallback(async (userId: string, email: string | undefined, showChecking: boolean) => {
+    if (showChecking) setUi("checking");
     const ok = await fetchApproved(userId, email);
     setUi(ok ? "idle" : "blocked");
   }, []);
@@ -74,7 +78,7 @@ export function OwnerApprovalGate({ children }: { children: React.ReactNode }) {
         setUi("idle");
         return;
       }
-      await runCheck(user.id, user.email);
+      await runCheck(user.id, user.email, true);
 
       channel = supabase
         .channel(`owner_approval_${user.id}`)
@@ -87,19 +91,19 @@ export function OwnerApprovalGate({ children }: { children: React.ReactNode }) {
             filter: `user_id=eq.${user.id}`,
           },
           () => {
-            void runCheck(user.id, user.email);
+            void runCheck(user.id, user.email, false);
           },
         )
         .subscribe();
 
       poll = setInterval(() => {
-        void runCheck(user.id, user.email);
+        void runCheck(user.id, user.email, false);
       }, 5000);
     })();
 
     const onFocus = () => {
       void supabase.auth.getUser().then(({ data: { user: u } }) => {
-        if (u) void runCheck(u.id, u.email);
+        if (u) void runCheck(u.id, u.email, false);
       });
     };
     window.addEventListener("focus", onFocus);
