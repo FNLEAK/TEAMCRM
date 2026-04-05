@@ -1,0 +1,39 @@
+-- =============================================================================
+-- CRM security runbook (checklist — read in repo; run pieces in Supabase as needed)
+-- =============================================================================
+--
+-- 1) ROW LEVEL SECURITY
+--    • Confirm every sensitive table has RLS ON (Table Editor → table → RLS).
+--    • Default app uses shared `leads` pool (any logged-in user). Tighter option:
+--      run `security-optional-member-allowlist-rls.sql` after seeding allowlist.
+--
+-- 2) WHO CAN SIGN UP
+--    • Supabase → Authentication → Providers → Email → "Allow new users to sign up"
+--      Turn OFF for invite-only; use Dashboard "Invite user" or Admin API + service role.
+--    • App env: NEXT_PUBLIC_DISABLE_PUBLIC_SIGNUP=true hides signup UI (pair with step above).
+--    • App env: NEXT_PUBLIC_SIGNUP_ALLOWED_DOMAINS=yourcompany.com (comma-separated).
+--
+-- 3) EMAIL VERIFICATION
+--    • Authentication → Providers → Email → "Confirm email" ON.
+--    • URL Configuration: Site URL = production origin; Redirect URLs include /auth/callback.
+--    • Vercel: NEXT_PUBLIC_SITE_URL matches production.
+--
+-- 4) RATE LIMITS & ABUSE
+--    • Authentication → Rate Limits (Supabase) — primary protection for password spray
+--      (sign-in hits Supabase directly, not your Next.js server).
+--    • Optional: Cloudflare / Vercel Firewall in front of the site.
+--
+-- 5) OWNER / ADMIN
+--    • team_roles + OWNER_EMAIL / NEXT_PUBLIC_OWNER_EMAIL in app; keep SQL bootstrap email
+--      in team-roles.sql and chat RLS in sync if you change owner address.
+--
+-- 6) GEO / "INDIANA ONLY"
+--    • IP geolocation is approximate (VPNs bypass). Use Cloudflare WAF rules or similar
+--      if you need a coarse country/region filter — not available as accurate "state only".
+--
+-- 7) MONITORING
+--    • Authentication → Users / Logs (or Audit) for signups and failures.
+--    • Never expose SUPABASE_SERVICE_ROLE_KEY in the browser or NEXT_PUBLIC_*.
+--
+-- =============================================================================
+select 1 as read_security_runbook;

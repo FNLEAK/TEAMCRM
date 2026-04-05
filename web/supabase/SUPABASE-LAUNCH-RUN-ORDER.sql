@@ -23,6 +23,10 @@
     leads, lead_activity, crm_settings, team_room_messages, dm_messages, (appointments if you added it)
 
   Your `weekly_closed_leads` view is for reporting; the app KPI header reads `leads` directly.
+
+  Security checklist + optional tighter `leads` RLS:
+  • Read `SECURITY-RUNBOOK.sql`
+  • Optional: `security-optional-member-allowlist-rls.sql` (only if you want allowlist-gated CRM data)
 */
 
 select 1 as ready;

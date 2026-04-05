@@ -3,12 +3,18 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { formatAuthError } from "@/lib/authErrors";
+import { getAuthCallbackUrl } from "@/lib/authSiteUrl";
+import {
+  isPublicSignupDisabled,
+  signupAllowedDomainsHint,
+  signupEmailDomainAllowed,
+} from "@/lib/securityConfig";
+import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { ensureTeamRoleFromSession, upsertTeamProfileFromSession } from "@/lib/syncTeamProfile";
 
 /** Lazy-load Three/WebGL only on desktop — keeps login JS small on phones. */
 const Ballpit = dynamic(() => import("@/components/Ballpit"), { ssr: false, loading: () => null });
-import { formatAuthError } from "@/lib/authErrors";
-import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { ensureTeamRoleFromSession, upsertTeamProfileFromSession } from "@/lib/syncTeamProfile";
 
 type Mode = "signin" | "signup";
 const BALLPIT_COLORS = [0x22d3ee, 0x10b981, 0x8b5cf6] as const;
@@ -16,6 +22,8 @@ const BALLPIT_COLORS = [0x22d3ee, 0x10b981, 0x8b5cf6] as const;
 const LOGIN_BALLPIT_COLORS: number[] = [...BALLPIT_COLORS];
 
 export default function LoginPage() {
+  const publicSignupDisabled = isPublicSignupDisabled();
+
   /** WebGL + full-viewport canvas breaks touch hit-testing on some mobile browsers; use static bg only. */
   const [allowBallpit, setAllowBallpit] = useState(false);
   useEffect(() => {
@@ -27,17 +35,54 @@ export default function LoginPage() {
   }, []);
 
   const [mode, setMode] = useState<Mode>("signin");
+  useEffect(() => {
+    if (publicSignupDisabled && mode === "signup") setMode("signin");
+  }, [publicSignupDisabled, mode]);
   const [firstName, setFirstName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [awaitingEmailConfirm, setAwaitingEmailConfirm] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendHint, setResendHint] = useState<string | null>(null);
+
+  function callbackRedirectUrl() {
+    return getAuthCallbackUrl() || `${window.location.origin}/auth/callback`;
+  }
+
+  async function resendConfirmationEmail() {
+    const addr = email.trim();
+    if (!addr) return;
+    setResendHint(null);
+    setError(null);
+    setResendBusy(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error: resendErr } = await supabase.auth.resend({
+        type: "signup",
+        email: addr,
+        options: { emailRedirectTo: callbackRedirectUrl() },
+      });
+      if (resendErr) {
+        setError(formatAuthError(resendErr));
+        return;
+      }
+      setResendHint("Another confirmation email is on its way. Check spam / promotions.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend email.");
+    } finally {
+      setResendBusy(false);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setInfo(null);
+    setResendHint(null);
+    setAwaitingEmailConfirm(false);
     setLoading(true);
     let willHardRedirect = false;
 
@@ -56,12 +101,19 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+        if (!signupEmailDomainAllowed(email.trim())) {
+          setError(
+            "This email domain is not allowed for new accounts. Use your company email or ask an owner to invite you.",
+          );
+          setLoading(false);
+          return;
+        }
 
         const { data, error: signUpErr } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: callbackRedirectUrl(),
             data: {
               first_name: fn,
               full_name: fn,
@@ -82,8 +134,9 @@ export default function LoginPage() {
           return;
         }
 
+        setAwaitingEmailConfirm(true);
         setInfo(
-          "Check your email for a confirmation link. After you confirm, sign in — your profile syncs on first login.",
+          "We sent a confirmation link to your email (not a numeric code). Open it to verify, then sign in here — your profile syncs on first login. Check spam or promotions if you don’t see it.",
         );
         return;
       }
@@ -152,6 +205,12 @@ export default function LoginPage() {
         <div className="relative rounded-2xl p-[1px] shadow-[0_32px_100px_-24px_rgba(0,0,0,0.85)] [background:linear-gradient(135deg,rgba(255,255,255,0.1),rgba(16,185,129,0.12),rgba(34,211,238,0.1))]">
           <div className="rounded-2xl border border-white/[0.06] bg-zinc-950/90 px-8 py-9 backdrop-blur-2xl">
             <form onSubmit={onSubmit} className="space-y-5">
+              {publicSignupDisabled ? (
+                <p className="rounded-xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm leading-relaxed text-amber-100/95">
+                  Self-service sign up is turned off for this workspace. Ask an owner for an invite, or sign in below if
+                  you already have an account.
+                </p>
+              ) : null}
               {isSignUp ? (
                 <div>
                   <label htmlFor="firstName" className="text-xs font-medium text-zinc-400">
@@ -184,6 +243,9 @@ export default function LoginPage() {
                   placeholder="you@company.com"
                   required
                 />
+                {isSignUp && signupAllowedDomainsHint() ? (
+                  <p className="mt-2 text-[11px] text-cyan-200/80">{signupAllowedDomainsHint()}</p>
+                ) : null}
               </div>
               <div>
                 <label htmlFor="password" className="text-xs font-medium text-zinc-400">
@@ -213,9 +275,20 @@ export default function LoginPage() {
                 </p>
               ) : null}
               {info ? (
-                <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm leading-relaxed text-emerald-100/95">
-                  {info}
-                </p>
+                <div className="space-y-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm leading-relaxed text-emerald-100/95">
+                  <p>{info}</p>
+                  {awaitingEmailConfirm ? (
+                    <button
+                      type="button"
+                      disabled={resendBusy}
+                      onClick={() => void resendConfirmationEmail()}
+                      className="text-xs font-semibold text-cyan-200 underline decoration-cyan-400/50 underline-offset-2 hover:text-cyan-100 disabled:opacity-50"
+                    >
+                      {resendBusy ? "Sending…" : "Resend confirmation email"}
+                    </button>
+                  ) : null}
+                  {resendHint ? <p className="text-xs text-emerald-200/90">{resendHint}</p> : null}
+                </div>
               ) : null}
 
               <button
@@ -244,11 +317,15 @@ export default function LoginPage() {
                       setMode("signin");
                       setError(null);
                       setInfo(null);
+                      setAwaitingEmailConfirm(false);
+                      setResendHint(null);
                     }}
                   >
                     Sign in
                   </button>
                 </>
+              ) : publicSignupDisabled ? (
+                <span className="text-zinc-600">New accounts require an invitation from a workspace owner.</span>
               ) : (
                 <>
                   Don&apos;t have an account?{" "}
@@ -259,6 +336,8 @@ export default function LoginPage() {
                       setMode("signup");
                       setError(null);
                       setInfo(null);
+                      setAwaitingEmailConfirm(false);
+                      setResendHint(null);
                     }}
                   >
                     Sign up

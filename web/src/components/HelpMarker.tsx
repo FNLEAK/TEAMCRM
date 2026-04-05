@@ -53,9 +53,8 @@ export function HelpMarker({
   });
   const [animClass, setAnimClass] = useState("opacity-0 scale-95");
 
-  const tooltipWidth = 320;
-  const gap = 10;
-  const edgePad = 8;
+  const gap = 8;
+  const edgePad = 10;
   const preferRight = popupSide === "right";
 
   useEffect(() => setMounted(true), []);
@@ -67,11 +66,15 @@ export function HelpMarker({
       const r = el.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      /** Reserve space for mobile DeskShell bottom tabs (~3.75rem) + safe area so tooltip doesn’t sit under the bar. */
+      /** Narrow popover on phones; a bit wider on tablet/desktop */
+      const tw =
+        vw < 400 ? vw - edgePad * 2 : vw < 640 ? Math.min(280, vw - edgePad * 2) : Math.min(300, vw - 24);
+      const maxPopoverH = vw < 1024 ? Math.min(Math.round(vh * 0.42), 240) : Math.min(Math.round(vh * 0.55), 360);
+
+      /** Reserve space for mobile DeskShell bottom tabs (~3.75rem) + safe area. */
       const mobileBottomReserve = vw < 1024 ? 72 + 20 : 16;
 
-      // Default placement: below-right of icon (existing behavior).
-      let left = r.right - tooltipWidth;
+      let left = r.right - tw;
       let top = r.bottom + gap;
 
       if (preferRight) {
@@ -79,22 +82,24 @@ export function HelpMarker({
         top = r.top;
       }
 
-      // Collision detection / flip when near right edge.
-      if (left + tooltipWidth > vw - edgePad) {
-        left = Math.max(edgePad, r.left - tooltipWidth - gap);
+      if (left + tw > vw - edgePad) {
+        left = Math.max(edgePad, r.left - tw - gap);
       }
-      // Clamp for left edge.
       if (left < edgePad) left = edgePad;
-      // Keep within viewport vertically (above mobile bottom tab bar).
+
       const bottomLimit = vh - mobileBottomReserve;
-      if (top > bottomLimit - 80) top = Math.max(edgePad, bottomLimit - 80);
+      if (top + maxPopoverH > bottomLimit) {
+        top = Math.max(edgePad, r.top - maxPopoverH - gap);
+      }
       if (top < edgePad) top = edgePad;
 
       setStyle({
         position: "fixed",
         top,
         left,
-        width: tooltipWidth,
+        width: tw,
+        maxHeight: maxPopoverH,
+        overflowY: "auto",
         zIndex: 9999,
       });
     },
@@ -122,19 +127,30 @@ export function HelpMarker({
     return () => window.clearTimeout(t);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <div className={clsx("pointer-events-auto absolute right-[10px] top-[10px] z-20", className)}>
       <button
         ref={triggerRef}
         type="button"
-        aria-label="Show help"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setOpen(false)}
+        aria-expanded={open}
+        aria-label={open ? "Close help" : "Show help"}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
         className={clsx(
-          "flex h-7 w-7 items-center justify-center rounded-full border bg-black/50 text-xs font-bold transition sm:h-5 sm:w-5 sm:text-[11px]",
-          "hover:brightness-110 active:brightness-110",
+          "flex h-5 w-5 items-center justify-center rounded-full border bg-black/55 text-[10px] font-bold leading-none transition md:h-[18px] md:w-[18px] md:text-[11px]",
+          "hover:brightness-110 active:scale-95",
           a.chip,
         )}
       >
@@ -145,11 +161,13 @@ export function HelpMarker({
             <div
               style={style}
               className={clsx(
-                "pointer-events-none origin-top-left rounded-xl border-2 bg-[#08090c]/95 p-3.5",
-                "text-sm font-bold leading-relaxed text-white transition duration-200",
+                "origin-top-left rounded-lg border-2 bg-[#08090c]/95 p-2.5 sm:rounded-xl sm:p-3",
+                "text-[11px] font-semibold leading-snug text-white transition duration-200 sm:text-sm sm:font-bold sm:leading-relaxed",
+                "pointer-events-auto overscroll-contain [-webkit-overflow-scrolling:touch]",
                 animClass,
                 a.popup,
               )}
+              onClick={(e) => e.stopPropagation()}
             >
               {text}
             </div>,

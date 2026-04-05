@@ -41,7 +41,8 @@ create policy "team_roles_select_authenticated"
   using (true);
 
 -- Owners (row with role = owner) can manage all role rows. Optional legacy email for first bootstrap.
--- Change the email string to your real owner account, or remove the OR clause after your owner row exists.
+-- Keep this email aligned with NEXT_PUBLIC_OWNER_EMAIL (or default) in web/src/lib/ownerRoleGate.ts
+-- Change the string to your real owner account, or remove the OR clause after your owner row exists.
 drop policy if exists "team_roles_owner_write" on public.team_roles;
 create policy "team_roles_owner_write"
   on public.team_roles
