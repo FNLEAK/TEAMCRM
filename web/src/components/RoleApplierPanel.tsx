@@ -38,6 +38,7 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setInfo(null);
     const supabase = createSupabaseBrowserClient();
 
     const profilesFull = await (supabase as any)
@@ -95,6 +96,34 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
         email: roleEmails[rid] ?? null,
         avatar_initials: null,
       });
+    }
+
+    try {
+      const authRes = await fetch("/api/role-applier/pending-auth-users", {
+        credentials: "same-origin",
+      });
+      const authJson = (await authRes.json().catch(() => null)) as {
+        users?: { id: string; email: string | null }[];
+        hint?: string;
+      } | null;
+      if (authRes.ok && authJson?.users?.length) {
+        for (const u of authJson.users) {
+          if (mergedRows.some((r) => r.id === u.id)) continue;
+          const em = u.email?.trim() || null;
+          const local = em?.split("@")[0] ?? null;
+          mergedRows.push({
+            id: u.id,
+            first_name: local,
+            full_name: local,
+            email: em,
+            avatar_initials: null,
+          });
+        }
+      } else if (authRes.status === 503 && authJson?.hint) {
+        setInfo((prev) => prev ?? authJson.hint ?? null);
+      }
+    } catch {
+      /* optional enrichment */
     }
 
     setRows(mergedRows);
