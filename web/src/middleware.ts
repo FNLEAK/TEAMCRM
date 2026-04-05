@@ -3,20 +3,17 @@ import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import {
   allowsAnonymousSupabasePath,
+  isInboundWebhookApiPath,
   ownerApprovalGateEnabled,
   requiresSupabaseSession,
 } from "@/lib/crmRouteGuards";
 import { isOwnerEmail } from "@/lib/ownerRoleGate";
 
-function isStripeWebhookPath(pathname: string): boolean {
-  return pathname === "/api/stripe/webhook" || pathname.startsWith("/api/stripe/webhook/");
-}
-
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const { pathname } = request.nextUrl;
 
-  if (isStripeWebhookPath(pathname)) {
+  if (isInboundWebhookApiPath(pathname)) {
     return response;
   }
 

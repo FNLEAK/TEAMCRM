@@ -23,8 +23,18 @@ export function allowsAnonymousSupabasePath(pathname: string): boolean {
   );
 }
 
-function isStripeWebhookPath(pathname: string): boolean {
-  return pathname === "/api/stripe/webhook" || pathname.startsWith("/api/stripe/webhook/");
+/**
+ * Server-to-server webhooks: no Supabase session — each route validates its own secret
+ * (Stripe signature, Bearer token, etc.). Must bypass global auth middleware.
+ */
+export function isInboundWebhookApiPath(pathname: string): boolean {
+  if (pathname === "/api/stripe/webhook" || pathname.startsWith("/api/stripe/webhook/")) {
+    return true;
+  }
+  if (pathname.startsWith("/api/webhooks/")) {
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -33,7 +43,7 @@ function isStripeWebhookPath(pathname: string): boolean {
  */
 export function requiresSupabaseSession(pathname: string): boolean {
   if (allowsAnonymousSupabasePath(pathname)) return false;
-  if (isStripeWebhookPath(pathname)) return false;
+  if (isInboundWebhookApiPath(pathname)) return false;
 
   if (pathname.startsWith("/api/")) {
     return true;
