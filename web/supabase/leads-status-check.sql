@@ -19,9 +19,10 @@ alter table public.leads
       'Appt Set',
       'Pending Close',
       'Not Interested',
-      'Website Booked'
+      'Website Booked',
+      'Website booked calls'
     )
   );
 
 comment on constraint leads_status_check on public.leads is
-  'Allowed pipeline statuses for Web Friendly CRM; includes Claimed for legacy rows and Website Booked for partner webhooks.';
+  'Allowed pipeline statuses; partner webhook may use Website booked calls (or legacy Website Booked).';

@@ -1,5 +1,5 @@
--- One-off: allow `Website Booked` on leads (partner webhook /api/webhooks/booked-call).
--- Run if you already applied leads-status-check.sql before `Website Booked` was added.
+-- One-off: allow partner webhook statuses on leads (POST /api/webhooks/booked-call).
+-- Run if you already applied leads-status-check.sql before these values were added.
 -- Safe to re-run: drops and recreates `leads_status_check`.
 
 alter table public.leads drop constraint if exists leads_status_check;
@@ -17,6 +17,7 @@ alter table public.leads
       'Appt Set',
       'Pending Close',
       'Not Interested',
-      'Website Booked'
+      'Website Booked',
+      'Website booked calls'
     )
   );
