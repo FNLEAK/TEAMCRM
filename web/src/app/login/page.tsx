@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatAuthError } from "@/lib/authErrors";
 import { getAuthCallbackUrl } from "@/lib/authSiteUrl";
+import { ownerApprovalGateEnabled } from "@/lib/crmRouteGuards";
 import {
   isPublicSignupDisabled,
   signupAllowedDomainsHint,
@@ -128,7 +129,9 @@ export default function LoginPage() {
 
         if (data.session) {
           await upsertTeamProfileFromSession(supabase);
-          await ensureTeamRoleFromSession(supabase);
+          if (!ownerApprovalGateEnabled()) {
+            await ensureTeamRoleFromSession(supabase);
+          }
           willHardRedirect = true;
           window.location.assign("/");
           return;
@@ -152,7 +155,9 @@ export default function LoginPage() {
       }
 
       await upsertTeamProfileFromSession(supabase);
-      await ensureTeamRoleFromSession(supabase);
+      if (!ownerApprovalGateEnabled()) {
+        await ensureTeamRoleFromSession(supabase);
+      }
       willHardRedirect = true;
       window.location.assign("/");
     } catch (err) {

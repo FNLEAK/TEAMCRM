@@ -1,9 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  allowsAnonymousSupabasePath,
+  ownerApprovalGateEnabled,
+  requiresSupabaseSession,
+} from "@/lib/crmRouteGuards";
+import { isOwnerEmail } from "@/lib/ownerRoleGate";
+
+function isStripeWebhookPath(pathname: string): boolean {
+  return pathname === "/api/stripe/webhook" || pathname.startsWith("/api/stripe/webhook/");
+}
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+
+  if (isStripeWebhookPath(pathname)) {
+    return response;
+  }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -12,9 +27,10 @@ export async function middleware(request: NextRequest) {
   }
 
   let user: User | null = null;
+  let supabase: ReturnType<typeof createServerClient> | null = null;
 
   try {
-    const supabase = createServerClient(url, key, {
+    supabase = createServerClient(url, key, {
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -33,48 +49,58 @@ export async function middleware(request: NextRequest) {
     user = data.user ?? null;
   } catch (err) {
     console.error("[middleware] Supabase auth failed:", err);
-    // Fail open: avoid blank 500 pages if Supabase is unreachable or env is wrong.
     user = null;
   }
 
-  const { pathname } = request.nextUrl;
-  const isLogin = pathname === "/login";
-  const isAuthCallback = pathname.startsWith("/auth/callback");
+  const gate = ownerApprovalGateEnabled();
 
-  if (
-    !user &&
-    (pathname === "/" ||
-      pathname === "/pipeline-command-center" ||
-      pathname === "/personal-stats" ||
-      pathname === "/role-applier" ||
-      pathname === "/packages" ||
-      pathname === "/team-chat" ||
-      pathname.startsWith("/team-chat/") ||
-      pathname === "/how-to" ||
-      pathname.startsWith("/how-to/"))
-  ) {
-    const redirect = NextResponse.redirect(new URL("/login", request.url));
-    return redirect;
+  if (!user && requiresSupabaseSession(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isLogin) {
+  let approved = true;
+  if (gate && user) {
+    approved = false;
+    if (isOwnerEmail(user.email)) {
+      approved = true;
+    } else if (supabase) {
+      try {
+        const { data: row, error } = await supabase
+          .from("team_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!error && row && (row.role === "team" || row.role === "owner")) {
+          approved = true;
+        }
+      } catch (e) {
+        console.error("[middleware] team_roles check failed:", e);
+        // Fail open on read errors so a Supabase outage does not hard-lock everyone.
+        approved = true;
+      }
+    }
+  }
+
+  if (user && pathname === "/login") {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (isAuthCallback) {
-    return response;
+  if (gate && user && !approved) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Owner approval required", code: "WAITING_APPROVAL" },
+        { status: 403 },
+      );
+    }
+    /* Page navigation is allowed; OwnerApprovalGate modal blocks the UI. */
+  }
+
+  if (gate && user && approved && pathname === "/waiting-approval") {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return response;
 }
-
-/**
- * Skip ALL Next.js internals and static assets so middleware never runs on
- * `_next/*` (chunks, CSS, HMR, RSC flight, etc.). A too-narrow matcher can
- * intermittently break styles after refresh or navigation in dev.
- */
-export const config = {
-  matcher: [
-    "/((?!_next/|_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
-};

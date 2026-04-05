@@ -3,6 +3,7 @@
 import type { Session } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
 import { DeskLayoutProvider } from "@/components/DeskLayoutContext";
+import { OwnerApprovalGate } from "@/components/OwnerApprovalGate";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +52,7 @@ export function AuthSessionShell({ children }: { children: React.ReactNode }) {
     >
       <DeskLayoutProvider>
         {signedIn ? (
-          children
+          <OwnerApprovalGate>{children}</OwnerApprovalGate>
         ) : (
           <div className="pointer-events-auto min-h-[100svh] w-full min-w-0 max-w-full overflow-x-hidden">
             {children}

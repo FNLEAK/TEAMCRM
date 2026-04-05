@@ -53,6 +53,19 @@ export interface Database {
         Update: Record<string, Json | undefined>;
         Relationships: [];
       };
+      team_roles: {
+        Row: {
+          user_id: string;
+          role: string;
+          account_name: string | null;
+          account_email: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: Record<string, Json | undefined>;
+        Update: Record<string, Json | undefined>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { ServicePlan } from "@/components/ui/pricing";
+import { isUserCrmAccessApproved } from "@/lib/crmAccessApproved";
 import {
   isProbablyEmail,
   normalizePhoneForSms,
@@ -57,6 +58,13 @@ export async function GET() {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 });
   }
 
+  if (!(await isUserCrmAccessApproved(supabase, user.id, user.email))) {
+    return NextResponse.json(
+      { error: "Owner approval required", code: "WAITING_APPROVAL" },
+      { status: 403 },
+    );
+  }
+
   const caps: SendPackageCapabilities = {
     emailConfigured: !!gmailAppCredentials(),
     smsConfigured: !!(
@@ -97,6 +105,13 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  }
+
+  if (!(await isUserCrmAccessApproved(supabase, user.id, user.email))) {
+    return NextResponse.json(
+      { error: "Owner approval required", code: "WAITING_APPROVAL" },
+      { status: 403 },
+    );
   }
 
   const plan = toServicePlan(rawPlan);
@@ -153,8 +168,8 @@ export async function POST(req: Request) {
 
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  const fromNum = process.env.TWILIO_FROM_NUMBER;
-  if (!sid || !token || !fromNum) {
+  const fromRaw = process.env.TWILIO_FROM_NUMBER?.trim();
+  if (!sid || !token || !fromRaw) {
     return NextResponse.json(
       {
         error: "SMS sending is not configured",
@@ -164,10 +179,22 @@ export async function POST(req: Request) {
     );
   }
 
+  // Vercel/hosting sometimes drops a leading "+" from env values; Twilio requires E.164 (e.g. +18777804236).
+  const fromE164 = normalizePhoneForSms(fromRaw);
+  if (!fromE164) {
+    return NextResponse.json(
+      {
+        error: "Invalid TWILIO_FROM_NUMBER",
+        hint: "Use E.164 (e.g. +18777804236). If Vercel ate the +, try digits only: 18777804236 — the server will add +.",
+      },
+      { status: 503 },
+    );
+  }
+
   const bodyText = packageSmsBody(plan);
   const params = new URLSearchParams();
   params.set("To", e164);
-  params.set("From", fromNum);
+  params.set("From", fromE164);
   params.set("Body", bodyText);
 
   const twilioRes = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
