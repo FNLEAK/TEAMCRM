@@ -24,8 +24,13 @@ export function getLeadSelectColumns(): string {
   if (!omitApptScheduledBy) {
     parts.push("appt_scheduled_by");
   }
-  if (process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY === "true") {
+  /** Default on (team CRM). Set NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=false if the column is not migrated yet. */
+  if (process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false") {
     parts.push("claimed_by");
+  }
+  /** For “My schedule” when scheduler FK failed — stamp from squad-streak-lead-activity.sql. Opt out with =false. */
+  if (process.env.NEXT_PUBLIC_LEADS_HAS_LAST_ACTIVITY_BY !== "false") {
+    parts.push("last_activity_by");
   }
   /** Only set to "false" if `is_high_priority` is not migrated yet — see `supabase/leads-high-priority.sql`. */
   if (process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false") {

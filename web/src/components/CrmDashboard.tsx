@@ -141,6 +141,7 @@ export function CrmDashboard({
   const [apptsToday, setApptsToday] = useState(stats.appointmentsToday);
   const [totalLeadsLive, setTotalLeadsLive] = useState(stats.totalLeads);
   const apptStatsTimer = useRef<number | null>(null);
+  const calendarBumpTimer = useRef<number | null>(null);
   const [dailyLeadUpdateCount, setDailyLeadUpdateCount] = useState(0);
   const [dailyLeadUpdateAt, setDailyLeadUpdateAt] = useState<Date | null>(null);
   const totalLeadsKnownRef = useRef(stats.totalLeads);
@@ -195,8 +196,13 @@ export function CrmDashboard({
     setCalendarRefreshKey((k) => k + 1);
   }, [refreshTotalLeadsAndNotify, scheduleApptStatsRefresh]);
 
-  const bumpCalendarOnly = useCallback(() => {
-    setCalendarRefreshKey((k) => k + 1);
+  /** Coalesce rapid Realtime UPDATEs so the calendar does not flicker / constantly refetch. */
+  const bumpCalendarOnlyDebounced = useCallback(() => {
+    if (calendarBumpTimer.current != null) window.clearTimeout(calendarBumpTimer.current);
+    calendarBumpTimer.current = window.setTimeout(() => {
+      calendarBumpTimer.current = null;
+      setCalendarRefreshKey((k) => k + 1);
+    }, 500);
   }, []);
 
   /** Avoid refetching the calendar on every `leads` column change (notes, etc.) — major flicker fix. */
@@ -220,6 +226,7 @@ export function CrmDashboard({
   useEffect(() => {
     return () => {
       if (apptStatsTimer.current != null) window.clearTimeout(apptStatsTimer.current);
+      if (calendarBumpTimer.current != null) window.clearTimeout(calendarBumpTimer.current);
     };
   }, []);
 
@@ -294,7 +301,7 @@ export function CrmDashboard({
             );
 
             if (leadRowUpdateAffectsCalendar(old, raw)) {
-              bumpCalendarOnly();
+              bumpCalendarOnlyDebounced();
             }
             if (leadRowUpdateAffectsApptTodayCount(old, raw)) {
               scheduleApptStatsRefresh();
@@ -334,7 +341,7 @@ export function CrmDashboard({
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [bumpCalendarOnly, bumpStatsAndCalendar, scheduleApptStatsRefresh]);
+  }, [bumpCalendarOnlyDebounced, bumpStatsAndCalendar, scheduleApptStatsRefresh]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 

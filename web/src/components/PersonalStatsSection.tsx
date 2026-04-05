@@ -235,7 +235,7 @@ function MomentumChart({ points, previousPoints }: { points: TrendPoint[]; previ
 }
 
 export function PersonalStatsSection({ userId }: { userId: string }) {
-  const hasClaimedBy = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY === "true";
+  const hasClaimedBy = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false";
   const showLiveBadge = hasClaimedBy;
   const [rows, setRows] = useState<Row[]>([]);
   const [trendDays, setTrendDays] = useState<7 | 14 | 30>(14);
@@ -316,8 +316,8 @@ export function PersonalStatsSection({ userId }: { userId: string }) {
 
       {!hasClaimedBy ? (
         <p className="mt-6 rounded-lg border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-sm text-amber-200/90">
-          Turn on <code className="text-amber-100">NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=true</code> and ensure a{" "}
-          <code className="text-amber-100">claimed_by</code> column so Personal Stats can filter to your leads only.
+          Add a <code className="text-amber-100">claimed_by</code> column (see profiles-and-claimed.sql). Personal Stats
+          stays hidden while <code className="text-amber-100">NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=false</code>.
         </p>
       ) : null}
 

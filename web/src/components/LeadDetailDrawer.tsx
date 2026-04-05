@@ -41,6 +41,11 @@ function normalizeStatus(s: string | null): LeadStatusValue {
   return m ?? "New";
 }
 
+/** Pipeline stages where the user performing the update becomes `claimed_by` (shows on list + drawer). */
+function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
+  return next === "Called" || next === "Interested" || next === "Appt Set";
+}
+
 function toDatetimeLocalValue(iso: string | null): string {
   if (!iso) return "";
   const d = new Date(iso);
@@ -255,7 +260,7 @@ export function LeadDetailDrawer({
 
   /** Default on: only set env to "false" if the column does not exist in your DB. */
   const hasScheduledByCol = process.env.NEXT_PUBLIC_LEADS_HAS_APPT_SCHEDULED_BY !== "false";
-  const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY === "true";
+  const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false";
   const hasHighPriorityCol = process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false";
 
   useEffect(() => {
@@ -632,8 +637,7 @@ export function LeadDetailDrawer({
         } = { status: next };
         if (hasClaimedCol && next === "Not Interested") {
           payload.claimed_by = null;
-        }
-        if (hasClaimedCol && next === "Called") {
+        } else if (hasClaimedCol && statusAssignsClaimToActor(next)) {
           payload.claimed_by = userId;
         }
         if (clearsAppt) {
@@ -664,7 +668,9 @@ export function LeadDetailDrawer({
           syncLeadInState(leadId, {
             status: next,
             ...(hasClaimedCol && next === "Not Interested" ? { claimed_by: null } : {}),
-            ...(hasClaimedCol && next === "Called" ? { claimed_by: userId } : {}),
+            ...(hasClaimedCol && next !== "Not Interested" && statusAssignsClaimToActor(next)
+              ? { claimed_by: userId }
+              : {}),
             ...(clearsAppt
               ? {
                   appt_date: null,
@@ -721,6 +727,9 @@ export function LeadDetailDrawer({
       if (hasScheduledByCol) {
         updates.appt_scheduled_by = iso ? actorId : null;
       }
+      if (hasClaimedCol && iso && actorId) {
+        updates.claimed_by = actorId;
+      }
 
       let { error } = await supabase.from("leads").update(updates).eq("id", leadId);
 
@@ -769,10 +778,14 @@ export function LeadDetailDrawer({
         patch.status = "Appt Set";
         setStatus("Appt Set");
       }
+      if (hasClaimedCol && iso && actorId) {
+        patch.claimed_by = actorId;
+      }
       syncLeadInState(leadId, patch);
       onLeadMetaChanged?.();
     },
     [
+      hasClaimedCol,
       hasScheduledByCol,
       lead,
       lead.status,

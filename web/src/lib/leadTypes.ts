@@ -22,7 +22,7 @@ export type LeadRow = {
    * Populated when the leads select embeds scheduler `profiles` (alias `scheduler_profile`).
    */
   scheduler_profile?: LeadSchedulerProfileEmbed | null;
-  /** Set when status is Claimed — requires `claimed_by` column + `NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=true` */
+  /** Set when status is Claimed — requires `claimed_by` column (opt out with NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=false). */
   claimed_by?: string | null;
   /** Optional: `squad-streak-lead-activity.sql` — last user who updated the row (Realtime may include it). */
   last_activity_by?: string | null;

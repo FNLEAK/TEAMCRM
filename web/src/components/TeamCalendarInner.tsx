@@ -32,6 +32,28 @@ function uuidKey(s: string): string {
   return s.replace(/-/g, "").toLowerCase();
 }
 
+/**
+ * “My schedule” = you scheduled it, claimed it (no scheduler on file), or you last touched the lead
+ * (covers FK-stripped `appt_scheduled_by` + activity trigger).
+ */
+function leadMatchesMySchedule(r: LeadRow, identityKeys: Set<string>): boolean {
+  const sid = r.appt_scheduled_by;
+  if (sid != null && String(sid).trim() !== "") {
+    if (identityKeys.has(uuidKey(String(sid)))) return true;
+  }
+  const noSched = sid == null || String(sid).trim() === "";
+  if (!noSched) return false;
+  const claimed = r.claimed_by;
+  if (claimed != null && String(claimed).trim() !== "" && identityKeys.has(uuidKey(String(claimed)))) {
+    return true;
+  }
+  const lastAct = r.last_activity_by;
+  if (lastAct != null && String(lastAct).trim() !== "" && identityKeys.has(uuidKey(String(lastAct)))) {
+    return true;
+  }
+  return false;
+}
+
 function formatBriefingHeading(dayStr: string): string {
   const [y, mo, d] = dayStr.split("-").map(Number);
   if (!y || !mo || !d) return dayStr;
@@ -202,8 +224,6 @@ export default function TeamCalendarInner({
           .filter(Boolean)
           .map((v) => uuidKey(v)),
       );
-      const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY === "true";
-
       const { data, error } = await supabase
         .from("leads")
         .select(getLeadSelectColumns())
@@ -220,18 +240,7 @@ export default function TeamCalendarInner({
 
       let rows: LeadRow[] = Array.isArray(data) ? (data as unknown as LeadRow[]) : [];
       if (scope === "my") {
-        rows = rows.filter((r) => {
-          const sid = r.appt_scheduled_by;
-          if (sid != null && String(sid).trim() !== "") {
-            if (identityKeys.has(uuidKey(String(sid)))) return true;
-          }
-          // Legacy rows: no scheduler recorded; still show on My schedule if this user claimed the lead.
-          if (hasClaimedCol && r.claimed_by != null && String(r.claimed_by).trim() !== "") {
-            const noSched = sid == null || String(sid).trim() === "";
-            if (noSched && identityKeys.has(uuidKey(String(r.claimed_by)))) return true;
-          }
-          return false;
-        });
+        rows = rows.filter((r) => leadMatchesMySchedule(r, identityKeys));
       }
 
       setAppointments(
@@ -289,7 +298,11 @@ export default function TeamCalendarInner({
     const month = currentMonthRef.current;
     const start = startOfWeek(startOfMonth(month));
     const end = endOfWeek(endOfMonth(month));
-    void fetchAppointments(start, end);
+    // Pad range so UTC-stored `appt_date` values still match the visible local month (KPI vs calendar skew).
+    const MS_DAY = 86400000;
+    const startPad = new Date(start.getTime() - MS_DAY * 2);
+    const endPad = new Date(end.getTime() + MS_DAY * 2);
+    void fetchAppointments(startPad, endPad);
   }, [calendarRefreshKey, scope, fetchAppointments]);
 
   /**
