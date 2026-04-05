@@ -27,9 +27,18 @@ const ROLE_SELECT_OPTIONS = [
   { value: "owner" as const, label: "Owner" },
 ];
 
+/** Shown until a real `team_roles` row exists (no fake default to Team). */
+const NEW_JOINER_SELECT_OPTIONS = [
+  { value: "pending", label: "New — assign role", disabled: true },
+  { value: "team", label: "Team" },
+  { value: "owner", label: "Owner" },
+];
+
 export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
   const [rows, setRows] = useState<ProfileRow[]>([]);
   const [roles, setRoles] = useState<Record<string, RoleValue>>({});
+  /** user_id → true only if a row exists in `team_roles` (not inferred). */
+  const [dbRolePresent, setDbRolePresent] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,10 +84,14 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
 
     const nextRows = (profilesRes.data ?? []) as ProfileRow[];
     const nextRoles: Record<string, RoleValue> = {};
+    const nextDbPresent: Record<string, boolean> = {};
     const roleNames: Record<string, string> = {};
     const roleEmails: Record<string, string> = {};
     for (const r of (rolesRes.data ?? []) as RoleRow[]) {
-      if (r.role === "owner" || r.role === "team") nextRoles[r.user_id] = r.role;
+      if (r.role === "owner" || r.role === "team") {
+        nextRoles[r.user_id] = r.role;
+        nextDbPresent[r.user_id] = true;
+      }
       const rn = (r.account_name ?? "").trim();
       const re = (r.account_email ?? "").trim().toLowerCase();
       if (rn) roleNames[r.user_id] = rn;
@@ -128,8 +141,9 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
 
     setRows(mergedRows);
     setRoles(nextRoles);
+    setDbRolePresent(nextDbPresent);
     setLoading(false);
-  }, []);
+  }, [ownerId]);
 
   useEffect(() => {
     void load();
@@ -155,6 +169,7 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
         setError(upErr.message);
       } else {
         setRoles((prev) => ({ ...prev, [userId]: role }));
+        setDbRolePresent((prev) => ({ ...prev, [userId]: true }));
         setInfo("Role updated.");
       }
       setSavingId(null);
@@ -168,7 +183,7 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
     for (const r of rows) ids.add(r.id);
     for (const rid of Object.keys(roles)) ids.add(rid);
 
-    return [...ids].map((id) => {
+    const list = [...ids].map((id) => {
       const r = rowMap.get(id);
       const p = teamProfileFromDb({
         id,
@@ -177,15 +192,23 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
         avatar_initials: r?.avatar_initials ?? null,
       });
       const usernameFromEmail = (r?.email ?? "").split("@")[0] ?? "";
+      const isNewJoiner = id !== ownerId && !dbRolePresent[id];
       return {
         id,
         display: p.fullName || p.firstName || usernameFromEmail || `member-${id.slice(0, 8)}`,
         email: r?.email ?? null,
         initials: p.initials || "·",
-        role: roles[id] ?? "team",
+        isNewJoiner,
+        selectValue: isNewJoiner ? "pending" : (roles[id] ?? "team"),
       };
     });
-  }, [rows, roles]);
+
+    list.sort((a, b) => {
+      if (a.isNewJoiner !== b.isNewJoiner) return a.isNewJoiner ? -1 : 1;
+      return a.display.localeCompare(b.display, undefined, { sensitivity: "base" });
+    });
+    return list;
+  }, [rows, roles, dbRolePresent, ownerId]);
 
   if (loading) {
     return <p className="text-sm text-zinc-500">Loading team members…</p>;
@@ -197,7 +220,7 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-white">Role Applier</h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Account made → appears here by email/username → you set Team or Owner.
+            New joiners show as <span className="text-amber-200/90">New</span> until you assign Team or Owner. They sort to the top.
           </p>
         </div>
         <button
@@ -228,11 +251,16 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
               key={m.id}
               className="rounded-lg border border-white/[0.08] bg-black/40 p-3 ring-1 ring-white/[0.04]"
             >
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-[11px] font-semibold text-zinc-200">
                   {m.initials.slice(0, 2)}
                 </span>
                 <span className="min-w-0 truncate font-medium text-zinc-200">{m.display}</span>
+                {m.isNewJoiner ? (
+                  <span className="shrink-0 rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                    New
+                  </span>
+                ) : null}
               </div>
               <p className="mt-2 break-words text-[12px] text-zinc-400">
                 <span className="text-zinc-500">Account </span>
@@ -245,10 +273,12 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
                 <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Role</p>
                 <UiSelect
                   className="w-full max-w-full"
-                  value={m.role}
+                  value={m.selectValue}
                   disabled={savingId === m.id}
-                  onChange={(v) => void onSetRole(m.id, v as RoleValue)}
-                  options={ROLE_SELECT_OPTIONS}
+                  onChange={(v) => {
+                    if (v === "team" || v === "owner") void onSetRole(m.id, v);
+                  }}
+                  options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
                 />
               </div>
             </article>
@@ -269,11 +299,16 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
               {members.map((m) => (
                 <tr key={m.id} className="border-b border-white/[0.04]">
                   <td className="py-2.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/10 text-[11px] font-semibold text-zinc-200">
                         {m.initials.slice(0, 2)}
                       </span>
                       <span className="font-medium text-zinc-200">{m.display}</span>
+                      {m.isNewJoiner ? (
+                        <span className="shrink-0 rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                          New
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="max-w-[200px] break-words py-2.5 text-[12px] text-zinc-400">{m.email ?? "—"}</td>
@@ -285,10 +320,12 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
                   <td className="py-2.5">
                     <UiSelect
                       className="w-44"
-                      value={m.role}
+                      value={m.selectValue}
                       disabled={savingId === m.id}
-                      onChange={(v) => void onSetRole(m.id, v as RoleValue)}
-                      options={ROLE_SELECT_OPTIONS}
+                      onChange={(v) => {
+                        if (v === "team" || v === "owner") void onSetRole(m.id, v);
+                      }}
+                      options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
                     />
                   </td>
                 </tr>
