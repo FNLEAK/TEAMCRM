@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { isOwnerEmail } from "@/lib/ownerRoleGate";
 
 type PrizeCard = {
   title: string;
@@ -53,8 +54,7 @@ export function RewardVaultPanel() {
         data: { user },
       } = await supabase.auth.getUser();
       if (cancelled) return;
-      const email = (user?.email ?? "").trim().toLowerCase();
-      if (email === "teamwebfriendly@gmail.com") {
+      if (isOwnerEmail(user?.email)) {
         setIsOwner(true);
         setOwnerChecked(true);
         return;

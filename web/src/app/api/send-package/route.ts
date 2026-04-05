@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import type { ServicePlan } from "@/components/ui/pricing";
 import {
@@ -39,6 +40,13 @@ export type SendPackageCapabilities = {
   smsConfigured: boolean;
 };
 
+function gmailAppCredentials(): { user: string; pass: string } | null {
+  const user = process.env.GMAIL_USER?.trim();
+  const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "") ?? "";
+  if (!user || !pass) return null;
+  return { user, pass };
+}
+
 /** Whether server-side email/SMS are wired (no secrets exposed). Requires login. */
 export async function GET() {
   const supabase = await createSupabaseServerClient();
@@ -50,7 +58,7 @@ export async function GET() {
   }
 
   const caps: SendPackageCapabilities = {
-    emailConfigured: !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL),
+    emailConfigured: !!gmailAppCredentials(),
     smsConfigured: !!(
       process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM_NUMBER
     ),
@@ -61,10 +69,10 @@ export async function GET() {
 /**
  * Server-side package delivery (no customer mail/SMS app required).
  *
- * Email: set RESEND_API_KEY and RESEND_FROM_EMAIL (verified domain in production).
- * SMS: set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER (E.164).
+ * Email: GMAIL_USER (full address) + GMAIL_APP_PASSWORD (Google App Password, 2FA).
+ * SMS: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER (E.164).
  *
- * @see https://resend.com/docs/send-with-nextjs
+ * @see https://support.google.com/mail/answer/185833
  * @see https://www.twilio.com/docs/sms
  */
 export async function POST(req: Request) {
@@ -98,13 +106,12 @@ export async function POST(req: Request) {
     if (!isProbablyEmail(toTrim)) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
-    const key = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM_EMAIL;
-    if (!key || !from) {
+    const creds = gmailAppCredentials();
+    if (!creds) {
       return NextResponse.json(
         {
           error: "Email sending is not configured",
-          hint: "Add RESEND_API_KEY and RESEND_FROM_EMAIL to your environment (see Resend dashboard).",
+          hint: "Add GMAIL_USER and GMAIL_APP_PASSWORD to your environment (Google App Password with 2-Step Verification).",
         },
         { status: 503 },
       );
@@ -113,29 +120,29 @@ export async function POST(req: Request) {
     const subject = packageEmailSubject(plan);
     const text = packageEmailBody(plan);
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [toTrim],
-        subject,
-        text,
-      }),
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: creds,
     });
 
-    const data = (await res.json().catch(() => ({}))) as { message?: string; id?: string };
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: data.message ?? "Resend rejected the request", details: data },
-        { status: 502 },
-      );
+    try {
+      const info = await transporter.sendMail({
+        from: creds.user,
+        to: toTrim,
+        subject,
+        text,
+      });
+      return NextResponse.json({
+        ok: true,
+        id: info.messageId ?? null,
+        channel: "email",
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "SMTP send failed";
+      return NextResponse.json({ error: msg }, { status: 502 });
     }
-
-    return NextResponse.json({ ok: true, id: data.id ?? null, channel: "email" });
   }
 
   // SMS via Twilio

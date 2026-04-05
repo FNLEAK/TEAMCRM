@@ -218,15 +218,15 @@ export function PackageAutoSendModal({ plan, open, onClose }: Props) {
         <div className="mt-5 rounded-xl border border-emerald-500/25 bg-emerald-950/15 p-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/90">Send from CRM (website)</p>
           <p className="mt-1 text-[11px] text-slate-500">
-            Uses Resend (email) or Twilio (SMS) on the server. Add keys in Vercel/hosting env. Only message contacts who
-            agreed to receive them.
+            Uses Gmail SMTP (email) or Twilio (SMS) on the server. Add env vars in Vercel/hosting. Only message contacts
+            who agreed to receive them.
           </p>
           {caps && (!caps.emailConfigured || !caps.smsConfigured) ? (
             <ul className="mt-2 space-y-1 text-[11px] text-amber-200/90">
               {!caps.emailConfigured ? (
                 <li>
-                  Email (CRM): add <span className="font-mono text-amber-100/95">RESEND_API_KEY</span> +{" "}
-                  <span className="font-mono text-amber-100/95">RESEND_FROM_EMAIL</span>
+                  Email (CRM): <span className="font-mono text-amber-100/95">GMAIL_USER</span> +{" "}
+                  <span className="font-mono text-amber-100/95">GMAIL_APP_PASSWORD</span> (Google App Password)
                 </li>
               ) : null}
               {!caps.smsConfigured ? (
@@ -247,7 +247,7 @@ export function PackageAutoSendModal({ plan, open, onClose }: Props) {
                 caps === null
                   ? "Loading…"
                   : !caps.emailConfigured
-                    ? "Configure Resend env vars to enable"
+                    ? "Configure GMAIL_USER + GMAIL_APP_PASSWORD to enable"
                     : !isProbablyEmail(email)
                       ? "Enter customer email above"
                       : undefined
@@ -328,7 +328,7 @@ export function PackageAutoSendModal({ plan, open, onClose }: Props) {
         </div>
 
         <p className="mt-4 text-[11px] leading-snug text-zinc-500">
-          Device options open your local SMS or mail app. CRM sending works from any browser once Resend/Twilio env vars
+          Device options open your local SMS or mail app. CRM sending works from any browser once Gmail/Twilio env vars
           are set. US numbers: 10 digits or +1…
         </p>
       </div>
