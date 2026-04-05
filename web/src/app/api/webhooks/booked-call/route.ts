@@ -4,6 +4,22 @@ import { WEBSITE_BOOKED_LEAD_STATUS } from "@/lib/webFriendlyBooking";
 
 export const runtime = "nodejs";
 
+/**
+ * Writes use `getSupabaseAdmin()` → `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS). Do not use the anon key here.
+ * If upsert fails, check Vercel → Deployment → Functions / Logs for the full PostgREST line (message, code, hint).
+ */
+function logSupabaseError(scope: string, err: { message: string; details?: string; hint?: string; code?: string }) {
+  console.error(
+    `[webhooks/booked-call] ${scope}`,
+    JSON.stringify({
+      message: err.message,
+      details: err.details ?? null,
+      hint: err.hint ?? null,
+      code: err.code ?? null,
+    }),
+  );
+}
+
 /** POST only — friend’s app sends `studio_booking.created` here. */
 export async function GET() {
   return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
@@ -112,7 +128,7 @@ export async function POST(request: Request) {
   const { error } = await admin.from("leads").upsert(row, { onConflict: "source_booking_id" });
 
   if (error) {
-    console.error("[webhooks/booked-call] upsert failed", error);
+    logSupabaseError("upsert failed (see message/code/hint in logs)", error);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 
