@@ -1,5 +1,3 @@
-import { LEAD_STATUSES } from "@/lib/leadTypes";
-
 /**
  * Leads created from the partner “web-friendly” studio booking webhook.
  *
@@ -11,18 +9,16 @@ import { LEAD_STATUSES } from "@/lib/leadTypes";
  * Never map payload `booking.status` (e.g. lowercase `"new"`) into `leads.status` unless you add an
  * explicit allow-list map — that field is recorded in notes only.
  *
- * Default without env: first canonical CRM stage (`New`) — included in this repo’s `leads-status-check.sql`.
- * For the “Website booked calls” Kanban bucket, run `supabase/leads-status-add-website-booked.sql` and set
- * `WEB_FRIENDLY_LEAD_STATUS=Website Booked` in Vercel.
+ * Default without env: `Website Booked` — not in `LEAD_STATUSES`, so rows appear in the Kanban column
+ * labeled “Website booked calls”. Requires `Website Booked` in `leads_status_check` (run
+ * `supabase/leads-status-add-website-booked.sql` or use the updated `leads-status-check.sql`).
+ * If inserts fail on constraint, set `WEB_FRIENDLY_LEAD_STATUS=New` in Vercel until the SQL is applied.
  */
 export const WEBSITE_BOOKED_LEAD_STATUS = "Website Booked";
-
-/** Safe default when `WEB_FRIENDLY_LEAD_STATUS` is unset (matches typical `leads_status_check`). */
-const WEBHOOK_SAFE_DEFAULT_STATUS = LEAD_STATUSES[0];
 
 /** Status written to `leads.status` by POST /api/webhooks/booked-call. */
 export function webhookLeadStatus(): string {
   const raw = process.env.WEB_FRIENDLY_LEAD_STATUS?.trim();
   if (raw) return raw;
-  return WEBHOOK_SAFE_DEFAULT_STATUS;
+  return WEBSITE_BOOKED_LEAD_STATUS;
 }
