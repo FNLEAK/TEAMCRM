@@ -45,6 +45,16 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatusValue = (typeof LEAD_STATUSES)[number];
 
+/** Internal bucket for statuses outside `LEAD_STATUSES` (DB may use legacy/custom values). */
+export const NON_CANONICAL_STAGE_KEY = "Other";
+
+/** User-facing name for `NON_CANONICAL_STAGE_KEY` in dashboards and filters. */
+export const NON_CANONICAL_STAGE_LABEL = "Website booked calls";
+
+export function pipelineStageDisplayLabel(stageKey: string): string {
+  return stageKey === NON_CANONICAL_STAGE_KEY ? NON_CANONICAL_STAGE_LABEL : stageKey;
+}
+
 export const PAGE_SIZE = 50;
 
 /** Max length for search input (server applies same cap). */

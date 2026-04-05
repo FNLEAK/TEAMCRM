@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
-import { isLeadHighPriority, LEAD_STATUSES } from "@/lib/leadTypes";
+import {
+  isLeadHighPriority,
+  LEAD_STATUSES,
+  NON_CANONICAL_STAGE_KEY,
+  pipelineStageDisplayLabel,
+} from "@/lib/leadTypes";
 import {
   loadCommandCenterPayload,
   loadSquadStreakMetrics,
@@ -17,7 +22,7 @@ import { HelpMarker } from "@/components/HelpMarker";
 import { UiSelect } from "@/components/UiSelect";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 
-const KANBAN_COLUMNS = [...LEAD_STATUSES, "Other"] as const;
+const KANBAN_COLUMNS = [...LEAD_STATUSES, NON_CANONICAL_STAGE_KEY] as const;
 
 const STAGE_CARD_STYLE: Record<string, string> = {
   New: "border-emerald-500/35 bg-emerald-500/10 shadow-[0_0_32px_-12px_rgba(52,211,153,0.35)]",
@@ -26,7 +31,8 @@ const STAGE_CARD_STYLE: Record<string, string> = {
   "Appt Set": "border-amber-500/35 bg-amber-500/10 shadow-[0_0_32px_-12px_rgba(251,191,36,0.25)]",
   "Pending Close": "border-amber-300/50 bg-amber-500/12 shadow-[0_0_34px_-10px_rgba(251,191,36,0.45)]",
   "Not Interested": "border-rose-500/35 bg-rose-500/10 shadow-[0_0_32px_-12px_rgba(251,113,133,0.25)]",
-  Other: "border-slate-500/40 bg-slate-500/10 shadow-[0_0_24px_-12px_rgba(148,163,184,0.2)]",
+  [NON_CANONICAL_STAGE_KEY]:
+    "border-slate-500/40 bg-slate-500/10 shadow-[0_0_24px_-12px_rgba(148,163,184,0.2)]",
 };
 
 const KANBAN_COLUMN_STYLE: Record<string, { shell: string; topLine: string; heading: string; empty: string; card: string }> = {
@@ -72,7 +78,7 @@ const KANBAN_COLUMN_STYLE: Record<string, { shell: string; topLine: string; head
     empty: "border-rose-300/20 from-rose-500/[0.07]",
     card: "hover:border-rose-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(251,113,133,0.7)]",
   },
-  Other: {
+  [NON_CANONICAL_STAGE_KEY]: {
     shell: "border-slate-400/20 bg-gradient-to-b from-slate-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_24px_-18px_rgba(148,163,184,0.8)]",
     topLine: "via-slate-300/45",
     heading: "text-slate-100/75",
@@ -86,7 +92,7 @@ function columnKey(lead: CommandCenterLead): (typeof KANBAN_COLUMNS)[number] {
   if ((LEAD_STATUSES as readonly string[]).includes(s)) {
     return s as (typeof KANBAN_COLUMNS)[number];
   }
-  return "Other";
+  return NON_CANONICAL_STAGE_KEY;
 }
 
 function hashHue(id: string): number {
@@ -354,7 +360,7 @@ export function PipelineCommandCenter({
   const stageFilterOptions = useMemo(
     () => [
       { value: "all", label: "All stages" },
-      ...KANBAN_COLUMNS.map((k) => ({ value: k, label: k })),
+      ...KANBAN_COLUMNS.map((k) => ({ value: k, label: pipelineStageDisplayLabel(k) })),
     ],
     [],
   );
@@ -385,8 +391,8 @@ export function PipelineCommandCenter({
         if (pipelineAttributionUserId(l) !== owner) return false;
       }
       if (stageFilter !== "all") {
-        if (stageFilter === "Other") {
-          if (columnKey(l) !== "Other") return false;
+        if (stageFilter === NON_CANONICAL_STAGE_KEY) {
+          if (columnKey(l) !== NON_CANONICAL_STAGE_KEY) return false;
         } else if ((l.status ?? "").trim() !== stageFilter) {
           return false;
         }
@@ -698,7 +704,7 @@ export function PipelineCommandCenter({
               className={clsx(
                 "rounded-xl border px-2.5 py-2.5 text-center",
                 layoutMobileShell ? "@sm:px-4 @sm:py-3" : "sm:px-4 sm:py-3",
-                STAGE_CARD_STYLE[s.status] ?? STAGE_CARD_STYLE.Other,
+                STAGE_CARD_STYLE[s.status] ?? STAGE_CARD_STYLE[NON_CANONICAL_STAGE_KEY],
               )}
             >
               <p
@@ -707,7 +713,7 @@ export function PipelineCommandCenter({
                   layoutMobileShell ? "@sm:text-[11px] @sm:tracking-[0.13em]" : "sm:text-[11px] sm:tracking-[0.13em]",
                 )}
               >
-                {s.status}
+                {pipelineStageDisplayLabel(s.status)}
               </p>
               <p
                 className={clsx(
@@ -833,7 +839,8 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
           >
             {KANBAN_COLUMNS.map((col) => {
               const cols = byColumn.get(col) ?? [];
-              const stageStyle = KANBAN_COLUMN_STYLE[col] ?? KANBAN_COLUMN_STYLE.Other;
+              const stageStyle =
+                KANBAN_COLUMN_STYLE[col] ?? KANBAN_COLUMN_STYLE[NON_CANONICAL_STAGE_KEY];
               return (
                 <div
                   key={col}
@@ -858,7 +865,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                         stageStyle.heading,
                       )}
                     >
-                      {col}
+                      {pipelineStageDisplayLabel(col)}
                     </p>
                     <p className="mt-0.5 text-2xl font-extrabold leading-none tabular-nums text-cyan-100 [text-shadow:0_0_12px_rgba(34,211,238,0.32)]">
                       {cols.length}

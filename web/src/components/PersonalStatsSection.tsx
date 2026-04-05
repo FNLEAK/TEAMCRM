@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
-import { LEAD_STATUSES } from "@/lib/leadTypes";
+import {
+  LEAD_STATUSES,
+  NON_CANONICAL_STAGE_KEY,
+  pipelineStageDisplayLabel,
+} from "@/lib/leadTypes";
 import { utcCalendarWeekBounds } from "@/lib/utcDayBounds";
 import { HelpMarker } from "@/components/HelpMarker";
 
@@ -24,12 +28,12 @@ function computeRows(rows: Row[], trendDays: 7 | 14 | 30 = 14) {
 
   const byStatus = new Map<string, number>();
   for (const s of LEAD_STATUSES) byStatus.set(s, 0);
-  byStatus.set("Other", 0);
+  byStatus.set(NON_CANONICAL_STAGE_KEY, 0);
   const known = new Set<string>([...LEAD_STATUSES]);
   for (const r of rows) {
     const raw = (r.status ?? "").trim();
     if (!raw) continue;
-    const key = known.has(raw) ? raw : "Other";
+    const key = known.has(raw) ? raw : NON_CANONICAL_STAGE_KEY;
     byStatus.set(key, (byStatus.get(key) ?? 0) + 1);
   }
 
@@ -147,7 +151,7 @@ const BAR_PALETTE = [
   "from-rose-700/80 to-pink-500/70",
 ];
 
-const ACTIVITY_ORDER = [...LEAD_STATUSES, "Other"] as const;
+const ACTIVITY_ORDER = [...LEAD_STATUSES, NON_CANONICAL_STAGE_KEY] as const;
 
 function ActivityBars({ byStatus }: { byStatus: Map<string, number> }) {
   const entries = ACTIVITY_ORDER.map((s) => ({ status: s, count: byStatus.get(s) ?? 0 }));
@@ -158,7 +162,7 @@ function ActivityBars({ byStatus }: { byStatus: Map<string, number> }) {
       {entries.map(({ status, count }, i) => (
         <div key={status}>
           <div className="mb-1 flex justify-between text-[11px]">
-            <span className="font-medium text-zinc-300">{status}</span>
+            <span className="font-medium text-zinc-300">{pipelineStageDisplayLabel(status)}</span>
             <span className="tabular-nums text-zinc-500">{count}</span>
           </div>
           <div className="h-3.5 overflow-hidden rounded-full bg-black/50 ring-1 ring-white/[0.12]">

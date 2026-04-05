@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { LEAD_STATUSES, teamProfileFromDb } from "@/lib/leadTypes";
+import { LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
 import { fetchProfilesByIds } from "@/lib/profileSelect";
 import { utcCalendarDayBounds, utcCalendarWeekBounds } from "@/lib/utcDayBounds";
 
@@ -342,7 +342,7 @@ export async function loadCommandCenterPayload(
   const known = stageCounts.reduce((a, x) => a + x.count, 0);
   const other = Math.max(0, leads.length - known);
   if (other > 0) {
-    stageCounts.push({ status: "Other", count: other });
+    stageCounts.push({ status: NON_CANONICAL_STAGE_KEY, count: other });
   }
 
   return {
