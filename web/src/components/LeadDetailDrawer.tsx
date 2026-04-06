@@ -28,6 +28,8 @@ import { displayProfessionalName } from "@/lib/profileDisplay";
 import { buildTelHref } from "@/lib/phone";
 import { timezoneHintFromPhone } from "@/lib/phoneTimezone";
 import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
+import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
+import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
   return Boolean(p?.fullName?.trim() || p?.firstName?.trim());
@@ -1287,10 +1289,14 @@ export function LeadDetailDrawer({
             </p>
 
             {lead.notes?.trim() ? (
-              <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2.5 text-xs text-zinc-400">
-                <span className="font-semibold text-zinc-500">Legacy note — </span>
-                {lead.notes}
-              </div>
+              isWebsiteCallBookingNotes(lead.notes) ? (
+                <WebsiteBookingNotesCard notes={lead.notes} />
+              ) : (
+                <div className="mt-3 rounded-xl border border-zinc-800/80 bg-zinc-950/50 px-3 py-2.5 text-xs text-zinc-400">
+                  <span className="font-semibold text-zinc-500">Initial note — </span>
+                  <span className="whitespace-pre-wrap text-zinc-300">{lead.notes}</span>
+                </div>
+              )
             ) : null}
 
             <div className="mt-4 space-y-2">

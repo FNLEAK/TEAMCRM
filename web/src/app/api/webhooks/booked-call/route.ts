@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { WEBSITE_BOOKED_LEAD_STATUS } from "@/lib/webFriendlyBooking";
+import { buildWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 export const runtime = "nodejs";
 
@@ -87,23 +88,15 @@ export async function POST(request: Request) {
   const topic = typeof b.topic === "string" ? b.topic.trim() : "";
   const message = typeof b.message === "string" ? b.message.trim() : "";
   const preferredAt = typeof b.preferredAt === "string" ? b.preferredAt.trim() : "";
-  /** Partner app’s booking state — text only; never copied to `leads.status` (would break `leads_status_check`). */
-  const sourceAppBookingStatus = typeof b.status === "string" ? b.status.trim() : "";
-  const createdAt = typeof b.createdAt === "string" ? b.createdAt.trim() : "";
-  const updatedAt = typeof b.updatedAt === "string" ? b.updatedAt.trim() : "";
+  const createdAtIso = typeof b.createdAt === "string" ? b.createdAt.trim() : "";
 
-  const notesLines = [
-    "[Web-friendly · studio_booking.created]",
-    email ? `Email: ${email}` : null,
-    topic ? `Topic: ${topic}` : null,
-    message ? `Message: ${message}` : null,
-    preferredAt ? `Preferred (visitor text, not validated): ${preferredAt}` : null,
-    sourceAppBookingStatus ? `Source app booking.status: ${sourceAppBookingStatus}` : null,
-    createdAt ? `Created (source): ${createdAt}` : null,
-    updatedAt ? `Updated (source): ${updatedAt}` : null,
-  ].filter(Boolean) as string[];
-
-  const notes = notesLines.join("\n").slice(0, 8000);
+  const notes = buildWebsiteCallBookingNotes({
+    email,
+    topic,
+    message,
+    preferredAt,
+    createdAtIso,
+  }).slice(0, 8000);
 
   const row = {
     source_booking_id: externalId,
