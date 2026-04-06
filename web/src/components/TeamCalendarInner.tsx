@@ -13,7 +13,7 @@ import {
   TEAM_CALENDAR_DAY_NOTE_BODY,
   teamCalendarDayNotesSelectList,
 } from "@/lib/teamDayNotes";
-import { calendarEventTitle } from "@/lib/profileDisplay";
+import { calendarEventTitle, displayProfessionalName } from "@/lib/profileDisplay";
 import {
   teamProfileFromDb,
   teamProfileFromSchedulerEmbed,
@@ -91,6 +91,8 @@ type TeamCalendarInnerProps = {
 type CalendarAppointment = {
   eventId: number;
   leadId: string;
+  /** `leads.appt_scheduled_by` — resolved to a name via `mergedProfileMap` in `calendarData`. */
+  schedulerId: string | null;
   day: Date;
   name: string;
   time: string;
@@ -256,6 +258,7 @@ export default function TeamCalendarInner({
             return {
               eventId: idx + 1,
               leadId: r.id,
+              schedulerId: sch,
               day: dt,
               name: calendarEventTitle(schedProf, company),
               time: dt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
@@ -442,16 +445,21 @@ export default function TeamCalendarInner({
           events: [],
         });
       }
+      const sid = appt.schedulerId?.trim() ?? "";
+      const scheduledBy = sid
+        ? displayProfessionalName(sid, mergedProfileMap[sid])
+        : "Not recorded";
       grouped.get(key)!.events.push({
         id: appt.eventId,
         name: appt.name,
         time: appt.time,
         datetime: appt.datetime,
         leadId: appt.leadId,
+        scheduledBy,
       });
     }
     return Array.from(grouped.values());
-  }, [appointments]);
+  }, [appointments, mergedProfileMap]);
 
   const handleCalendarDaySelect = useCallback((day: Date) => {
     setNoteDay(formatLocalCalendarDay(day));
@@ -492,7 +500,7 @@ ACTION: Click any event on the calendar to instantly open that lead's details."
               Team calendar
             </h2>
             <p className="text-sm text-zinc-200/90 [text-shadow:0_2px_18px_rgba(0,0,0,0.75)]">
-              Appointments by date · select an event to open the lead · select a day to edit the shared note below
+              Appointments show time, lead, and who scheduled · tap/click an event to open the lead · select a day for the team note below
             </p>
           </div>
         </div>

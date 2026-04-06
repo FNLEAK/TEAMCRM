@@ -33,6 +33,8 @@ export interface Event {
   time: string;
   datetime: string;
   leadId?: string;
+  /** CRM: who scheduled the appointment (`appt_scheduled_by` display name). */
+  scheduledBy?: string;
 }
 
 export interface CalendarData {
@@ -262,7 +264,12 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
                             <p className="w-full truncate text-[12.5px] font-semibold leading-tight text-zinc-100 group-hover:text-white">
                               {event.name}
                             </p>
-                            <p className="text-[11px] font-medium leading-none text-zinc-400">{event.time}</p>
+                            <p className="text-[11px] font-medium leading-none text-cyan-200/85">{event.time}</p>
+                            {event.scheduledBy ? (
+                              <p className="w-full truncate text-[10px] leading-tight text-zinc-500">
+                                Set by <span className="font-medium text-zinc-400">{event.scheduledBy}</span>
+                              </p>
+                            ) : null}
                           </button>
                         ))}
                         {entry.events.length > 2 && (
@@ -277,57 +284,81 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
             ))}
           </div>
 
-          <div className="isolate grid max-h-[min(68dvh,560px)] w-full grid-cols-7 grid-rows-5 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] @lg:hidden">
-            {days.map((day, dayIdx) => (
-              <button
-                onClick={() => selectDay(day)}
-                key={dayIdx}
-                type="button"
-                className={cn(
-                  isEqual(day, selectedDay) && "text-primary-foreground",
-                  !isEqual(day, selectedDay) &&
-                    !isToday(day) &&
-                    isSameMonth(day, firstDayCurrentMonth) &&
-                    "text-zinc-100",
-                  !isEqual(day, selectedDay) &&
-                    !isToday(day) &&
-                    !isSameMonth(day, firstDayCurrentMonth) &&
-                    "text-zinc-500",
-                  (isEqual(day, selectedDay) || isToday(day)) && "font-semibold",
-                  "flex min-h-[3.25rem] flex-col border-b border-zinc-700/80 px-1 py-1 hover:bg-cyan-500/[0.035] focus:z-10 @md:min-h-14 @md:px-2 @md:py-2",
-                  dayIdx % 7 !== 6 && "border-r border-zinc-700/80",
-                )}
-              >
-                <time
-                  dateTime={format(day, "yyyy-MM-dd")}
+          <div className="isolate grid max-h-[min(72dvh,620px)] w-full grid-cols-7 grid-rows-5 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] @lg:hidden">
+            {days.map((day, dayIdx) => {
+              const dayEvents = data
+                .filter((date) => isSameDay(date.day, day))
+                .flatMap((date) => date.events);
+              const totalEv = dayEvents.length;
+              return (
+                <div
+                  key={dayIdx}
                   className={cn(
-                    "mx-auto flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] @md:ml-auto @md:size-6 @md:text-xs",
-                    isEqual(day, selectedDay) && isToday(day) && "bg-emerald-600 text-emerald-950",
-                    isEqual(day, selectedDay) && !isToday(day) && "bg-emerald-600 text-emerald-950",
+                    "flex min-h-[4.5rem] flex-col border-b border-zinc-700/80 @md:min-h-[5.25rem]",
+                    dayIdx % 7 !== 6 && "border-r border-zinc-700/80",
                   )}
                 >
-                  {format(day, "d")}
-                </time>
-                {data.filter((date) => isSameDay(date.day, day)).length > 0 && (
-                  <div className="mt-0.5 flex min-h-0 flex-1 flex-wrap content-end justify-center gap-0.5">
-                    {data
-                      .filter((date) => isSameDay(date.day, day))
-                      .flatMap((date) => date.events)
-                      .slice(0, 4)
-                      .map((event) => (
-                        <span
+                  <button
+                    type="button"
+                    onClick={() => selectDay(day)}
+                    className={cn(
+                      "flex w-full shrink-0 items-center justify-center px-1 pt-1 @md:justify-end @md:px-2 @md:pt-1.5",
+                      isEqual(day, selectedDay) && "text-primary-foreground",
+                      !isEqual(day, selectedDay) &&
+                        !isToday(day) &&
+                        isSameMonth(day, firstDayCurrentMonth) &&
+                        "text-zinc-100",
+                      !isEqual(day, selectedDay) &&
+                        !isToday(day) &&
+                        !isSameMonth(day, firstDayCurrentMonth) &&
+                        "text-zinc-500",
+                      (isEqual(day, selectedDay) || isToday(day)) && "font-semibold",
+                      "hover:bg-cyan-500/[0.035] focus:z-10 focus:outline-none focus:ring-1 focus:ring-cyan-500/30",
+                    )}
+                  >
+                    <time
+                      dateTime={format(day, "yyyy-MM-dd")}
+                      className={cn(
+                        "flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] @md:size-6 @md:text-xs",
+                        isEqual(day, selectedDay) && isToday(day) && "bg-emerald-600 text-emerald-950",
+                        isEqual(day, selectedDay) && !isToday(day) && "bg-emerald-600 text-emerald-950",
+                      )}
+                    >
+                      {format(day, "d")}
+                    </time>
+                  </button>
+                  {totalEv > 0 ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-0.5 px-0.5 pb-1 @md:gap-1 @md:px-1.5 @md:pb-1.5">
+                      {dayEvents.slice(0, 2).map((event) => (
+                        <button
                           key={event.id}
-                          title={`${event.name} · ${event.time}`}
-                          className="h-1 w-1 shrink-0 rounded-full bg-emerald-400/90 @md:h-1.5 @md:w-1.5"
-                        />
+                          type="button"
+                          onClick={() => onSelectEvent?.(event)}
+                          className="w-full min-w-0 rounded-md border border-cyan-500/20 bg-zinc-950/80 px-1 py-0.5 text-left shadow-sm shadow-black/20 transition hover:border-cyan-400/40 hover:bg-zinc-900/90 @md:px-1.5 @md:py-1"
+                        >
+                          <p className="truncate text-[9px] font-bold leading-tight text-cyan-200/95 @md:text-[10px]">
+                            {event.time}
+                          </p>
+                          <p className="truncate text-[8px] font-medium leading-snug text-zinc-200 @md:text-[9px]">
+                            {event.name}
+                          </p>
+                          {event.scheduledBy ? (
+                            <p className="truncate text-[7.5px] leading-tight text-zinc-500 @md:text-[8px]">
+                              Set by {event.scheduledBy}
+                            </p>
+                          ) : null}
+                        </button>
                       ))}
-                    {data.filter((date) => isSameDay(date.day, day)).reduce((n, d) => n + d.events.length, 0) > 4 ? (
-                      <span className="text-[8px] font-bold leading-none text-zinc-500">+</span>
-                    ) : null}
-                  </div>
-                )}
-              </button>
-            ))}
+                      {totalEv > 2 ? (
+                        <p className="text-center text-[7.5px] font-semibold text-zinc-500 @md:text-[8px]">
+                          +{totalEv - 2} more
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
