@@ -329,6 +329,7 @@ export function CrmDashboard({
                   first_name: p.first_name ?? null,
                   full_name: p.full_name ?? null,
                   avatar_initials: p.avatar_initials ?? null,
+                  email: p.email ?? null,
                 });
               }
               return next;
@@ -745,7 +746,7 @@ function FavoriteStarCell({
 
 function ClaimedByBadge({ name }: { name: string }) {
   return (
-    <span className="crm-claimed-badge inline-flex max-w-[200px] items-center gap-1.5 rounded-full border border-rose-400/40 bg-gradient-to-r from-rose-500/20 to-fuchsia-600/15 px-2.5 py-1 text-[10px] font-semibold leading-tight text-rose-100 shadow-[0_0_20px_-4px_rgba(244,63,94,0.55)]">
+    <span className="crm-claimed-badge inline-flex max-w-[min(280px,100%)] items-center gap-1.5 rounded-full border border-rose-400/40 bg-gradient-to-r from-rose-500/20 to-fuchsia-600/15 px-2.5 py-1 text-[10px] font-semibold leading-tight text-rose-100 shadow-[0_0_20px_-4px_rgba(244,63,94,0.55)]">
       <svg className="h-3 w-3 shrink-0 text-rose-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
         <path
           strokeLinecap="round"

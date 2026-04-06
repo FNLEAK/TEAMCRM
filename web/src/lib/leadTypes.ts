@@ -1,3 +1,5 @@
+import { readableEmailLocalPart } from "@/lib/readableEmailLocal";
+
 /** Nested row from `profiles` embedded on `leads` (FK `leads_appt_scheduled_by_fkey` → `profiles.id`). */
 export type LeadSchedulerProfileEmbed = {
   full_name?: string | null;
@@ -111,6 +113,8 @@ export type TeamProfile = {
   fullName: string;
   /** Short / first token — from `first_name` or first word of `full_name` */
   firstName: string;
+  /** From `profiles.email` — used when names are empty (Claimed by, etc.) */
+  email?: string;
 };
 
 /**
@@ -153,21 +157,25 @@ export function teamProfileFromDb(p: {
   first_name?: string | null;
   full_name?: string | null;
   avatar_initials?: string | null;
+  email?: string | null;
 }): TeamProfile {
   const fn = ((p.full_name as string | null) ?? "").trim();
   const storedFirst = typeof p.first_name === "string" ? p.first_name.trim() : "";
   const firstName =
     storedFirst || (fn ? (fn.split(/\s+/).filter(Boolean)[0] ?? "") : "") || "";
   const fullName = fn || storedFirst || "";
+  const mail = typeof p.email === "string" ? p.email.trim() : "";
   const ai = (p.avatar_initials as string | null)?.trim();
   const idFrag = p.id.replace(/-/g, "").slice(0, 8);
   const fromStoredInitials = ai && ai.length > 0 ? ai.toUpperCase().slice(0, 3) : "";
   const fromName = initialsFromPersonFields(fn, storedFirst);
+  const fromMail = mail ? readableEmailLocalPart(mail) : "";
   return {
     initials: fromStoredInitials || fromName || "·",
-    label: fullName || idFrag,
+    label: fullName || fromMail || idFrag,
     fullName,
     firstName,
+    email: mail || undefined,
   };
 }
 

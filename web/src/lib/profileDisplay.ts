@@ -1,4 +1,5 @@
 import type { TeamProfile } from "@/lib/leadTypes";
+import { readableEmailLocalPart } from "@/lib/readableEmailLocal";
 
 /** Short, human-readable fallback when `profiles.first_name` is missing (never the old “Teammate” label). */
 export function anonymousUserLabel(userId: string): string {
@@ -45,6 +46,8 @@ export function displayProfessionalName(userId: string | null | undefined, profi
   if (first) return first;
   const lab = profile?.label?.trim();
   if (lab && !labelLooksLikeIdFragment(lab)) return lab;
+  const mail = profile?.email?.trim();
+  if (mail) return readableEmailLocalPart(mail);
   if (userId) return anonymousUserLabel(userId);
   return "Member";
 }
@@ -88,6 +91,8 @@ export function displayFirstName(userId: string | null | undefined, profile?: Te
     const t = lab.split(/\s+/).filter(Boolean)[0];
     if (t) return t;
   }
+  const mail = profile?.email?.trim();
+  if (mail) return readableEmailLocalPart(mail);
   if (userId) return anonymousUserLabel(userId);
   return "Member";
 }

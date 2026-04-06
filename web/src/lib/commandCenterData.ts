@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
+import { displayProfessionalName } from "@/lib/profileDisplay";
 import { fetchProfilesByIds } from "@/lib/profileSelect";
 import { utcCalendarDayBounds, utcCalendarWeekBounds } from "@/lib/utcDayBounds";
 
@@ -267,7 +268,7 @@ export async function loadCommandCenterPayload(
   const profileLabels: Record<string, string> = {};
   for (const p of profs ?? []) {
     const t = teamProfileFromDb(p);
-    profileLabels[p.id] = t.firstName || t.fullName || t.label;
+    profileLabels[p.id] = displayProfessionalName(p.id, t);
   }
 
   const ownerRoles: Record<string, "owner" | "team"> = {};
@@ -287,7 +288,7 @@ export async function loadCommandCenterPayload(
         }
         if (acc) {
           const pRow = (profs ?? []).find((x) => x.id === uid);
-          const hasProfName = !!(pRow?.full_name?.trim() || pRow?.first_name?.trim());
+          const hasProfName = !!(pRow?.full_name?.trim() || pRow?.first_name?.trim() || pRow?.email?.trim());
           if (!pRow || !hasProfName) {
             profileLabels[uid] = acc;
           }

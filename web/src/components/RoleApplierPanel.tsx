@@ -190,6 +190,7 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
         first_name: r?.first_name ?? null,
         full_name: r?.full_name ?? null,
         avatar_initials: r?.avatar_initials ?? null,
+        email: r?.email ?? null,
       });
       const usernameFromEmail = (r?.email ?? "").split("@")[0] ?? "";
       const isNewJoiner = id !== ownerId && !dbRolePresent[id];

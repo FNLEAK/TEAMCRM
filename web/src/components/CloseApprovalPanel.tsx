@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { teamProfileFromDb } from "@/lib/leadTypes";
+import { displayProfessionalName } from "@/lib/profileDisplay";
 
 type ApprovalStatus = "pending" | "approved" | "rejected";
 
@@ -167,11 +168,12 @@ export function CloseApprovalPanel({ ownerId }: { ownerId: string }) {
           first_name: p?.first_name ?? null,
           full_name: p?.full_name ?? null,
           avatar_initials: p?.avatar_initials ?? null,
+          email: p?.email ?? null,
         });
         return {
           ...r,
           company: leadsById[r.lead_id]?.company_name ?? `Lead ${r.lead_id.slice(0, 8)}`,
-          requester: tp.fullName || tp.firstName || p?.email?.split("@")[0] || r.requested_by.slice(0, 8),
+          requester: displayProfessionalName(r.requested_by, tp),
         };
       }),
     [rows, profilesById, leadsById],

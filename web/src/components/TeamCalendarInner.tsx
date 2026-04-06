@@ -284,6 +284,7 @@ export default function TeamCalendarInner({
                 first_name: row.first_name ?? null,
                 full_name: row.full_name ?? null,
                 avatar_initials: row.avatar_initials ?? null,
+                email: row.email ?? null,
               });
             }
             return next;

@@ -223,6 +223,7 @@ export default async function Page({
         first_name: p.first_name ?? null,
         full_name: p.full_name ?? null,
         avatar_initials: p.avatar_initials ?? null,
+        email: p.email ?? null,
       });
     }
   }
@@ -234,6 +235,7 @@ export default async function Page({
         label: id.replace(/-/g, "").slice(0, 8),
         fullName: "",
         firstName: "",
+        email: undefined,
       };
     }
   }

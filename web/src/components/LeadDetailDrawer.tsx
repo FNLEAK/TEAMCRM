@@ -32,7 +32,7 @@ import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
-  return Boolean(p?.fullName?.trim() || p?.firstName?.trim());
+  return Boolean(p?.fullName?.trim() || p?.firstName?.trim() || p?.email?.trim());
 }
 
 function normalizeStatus(s: string | null): LeadStatusValue {
@@ -295,6 +295,7 @@ export function LeadDetailDrawer({
           first_name: data.first_name ?? null,
           full_name: data.full_name ?? null,
           avatar_initials: data.avatar_initials ?? null,
+          email: (data as { email?: string | null }).email ?? null,
         }),
       }));
     })();
@@ -322,6 +323,7 @@ export function LeadDetailDrawer({
           first_name: data.first_name ?? null,
           full_name: data.full_name ?? null,
           avatar_initials: data.avatar_initials ?? null,
+          email: (data as { email?: string | null }).email ?? null,
         }),
       }));
     })();
@@ -348,6 +350,7 @@ export function LeadDetailDrawer({
             first_name: p.first_name ?? null,
             full_name: p.full_name ?? null,
             avatar_initials: p.avatar_initials ?? null,
+            email: p.email ?? null,
           });
         }
         return next;
@@ -608,6 +611,7 @@ export function LeadDetailDrawer({
             first_name: p.first_name ?? null,
             full_name: p.full_name ?? null,
             avatar_initials: p.avatar_initials ?? null,
+            email: p.email ?? null,
           });
         }
         return next;

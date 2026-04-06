@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Single source of truth for `profiles` selects (keeps server + client in sync with your schema). */
-export const PROFILE_COLUMNS_FULL = "id, first_name, full_name, avatar_initials" as const;
+export const PROFILE_COLUMNS_FULL = "id, first_name, full_name, avatar_initials, email" as const;
 export const PROFILE_COLUMNS_CORE = "id, first_name, full_name" as const;
 
 export type ProfileRow = {
@@ -9,6 +9,7 @@ export type ProfileRow = {
   first_name?: string | null;
   full_name?: string | null;
   avatar_initials?: string | null;
+  email?: string | null;
 };
 
 /** PostgREST / schema errors that mean a column is missing — retry without optional columns. */
