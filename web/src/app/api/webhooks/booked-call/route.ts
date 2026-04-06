@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { webhookLeadStatus } from "@/lib/webFriendlyBooking";
+import { WEBSITE_BOOKED_LEAD_STATUS } from "@/lib/webFriendlyBooking";
 
 export const runtime = "nodejs";
 
@@ -105,14 +105,12 @@ export async function POST(request: Request) {
 
   const notes = notesLines.join("\n").slice(0, 8000);
 
-  const leadStatus = webhookLeadStatus();
-
   const row = {
     source_booking_id: externalId,
     company_name: name,
     phone: phone && phone.length > 0 ? phone : null,
     website: null as string | null,
-    status: leadStatus,
+    status: WEBSITE_BOOKED_LEAD_STATUS,
     notes: notes.length > 0 ? notes : null,
     import_filename: "web-friendly",
   };

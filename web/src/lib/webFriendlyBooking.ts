@@ -9,16 +9,9 @@
  * Never map payload `booking.status` (e.g. lowercase `"new"`) into `leads.status` unless you add an
  * explicit allow-list map — that field is recorded in notes only.
  *
- * Default without env: `Website booked calls` — not in `LEAD_STATUSES`, so rows appear in the Kanban column
- * with that label. Requires that exact string (or legacy `Website Booked`) in `leads_status_check` — run
- * `supabase/leads-status-add-website-booked.sql` or use the updated `leads-status-check.sql`.
- * Override with `WEB_FRIENDLY_LEAD_STATUS` if needed (e.g. `New` while fixing the constraint).
+ * Webhook **always** writes this status (no env override) so bookings never land in the **New** column by mistake.
+ * Value is not in `LEAD_STATUSES` → Kanban bucket labeled “Website booked calls”.
+ * DB must allow this exact string in `leads_status_check` — run `supabase/leads-status-add-website-booked.sql`
+ * or the updated `leads-status-check.sql`. Remove `WEB_FRIENDLY_LEAD_STATUS` from Vercel if it is still set.
  */
 export const WEBSITE_BOOKED_LEAD_STATUS = "Website booked calls";
-
-/** Status written to `leads.status` by POST /api/webhooks/booked-call. */
-export function webhookLeadStatus(): string {
-  const raw = process.env.WEB_FRIENDLY_LEAD_STATUS?.trim();
-  if (raw) return raw;
-  return WEBSITE_BOOKED_LEAD_STATUS;
-}
