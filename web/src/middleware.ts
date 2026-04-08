@@ -9,6 +9,21 @@ import {
 } from "@/lib/crmRouteGuards";
 import { isOwnerEmail } from "@/lib/ownerRoleGate";
 
+const AUTH_TIMEOUT_MS = 1200;
+const ROLE_TIMEOUT_MS = 900;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      t = setTimeout(() => resolve(null), ms);
+    });
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (t) clearTimeout(t);
+  }
+}
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
   const { pathname } = request.nextUrl;
@@ -42,8 +57,11 @@ export async function middleware(request: NextRequest) {
       },
     });
 
-    const { data } = await supabase.auth.getUser();
-    user = data.user ?? null;
+    const authResult = (await withTimeout(
+      supabase.auth.getUser(),
+      AUTH_TIMEOUT_MS,
+    )) as Awaited<ReturnType<typeof supabase.auth.getUser>> | null;
+    user = authResult?.data?.user ?? null;
   } catch (err) {
     console.error("[middleware] Supabase auth failed:", err);
     user = null;
@@ -65,11 +83,12 @@ export async function middleware(request: NextRequest) {
       approved = true;
     } else if (supabase) {
       try {
-        const { data: row, error } = await supabase
-          .from("team_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        const roleResult = (await withTimeout(
+          supabase.from("team_roles").select("role").eq("user_id", user.id).maybeSingle(),
+          ROLE_TIMEOUT_MS,
+        )) as { data: { role?: string | null } | null; error: { message?: string } | null } | null;
+        const row = roleResult?.data ?? null;
+        const error = roleResult?.error ?? null;
         if (!error && row && (row.role === "team" || row.role === "owner")) {
           approved = true;
         }
