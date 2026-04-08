@@ -13,6 +13,7 @@
   7. leads-favorited-by.sql       — favorited_by on leads (stars)
   7b. leads-high-priority.sql     — is_high_priority (team-visible flag)
   7c. leads-job-demo-proof.sql    — selected_demo_url, demo_sent_*, demo_share_token + job_photos library
+  7d. leads-appt-lock-enforce.sql — optional: DB lock when Appt Set by another user (re-run after 7c so demo fields stay editable)
   8. appointments-squad-streak.sql — optional appointments + Realtime
   9. crm-settings.sql             — crm_settings + RLS
   10. closed-deals.sql            — closed_deals + RLS
