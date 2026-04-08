@@ -287,7 +287,7 @@ export function FullScreenCalendar({
                     !isToday(day) &&
                     !isSameMonth(day, firstDayCurrentMonth) &&
                     "bg-zinc-900/70 text-zinc-500",
-                  "relative flex min-h-[8rem] flex-col border-b border-zinc-700/80 hover:bg-cyan-500/[0.035] focus:z-10 focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                  "relative flex min-h-[9rem] flex-col border-b border-zinc-700/80 hover:bg-cyan-500/[0.035] focus:z-10 focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
                   dayIdx % 7 !== 6 && "border-r border-zinc-700/80",
                   !isEqual(day, selectedDay) && "hover:bg-zinc-900/80",
                 )}
@@ -327,14 +327,14 @@ export function FullScreenCalendar({
                               e.stopPropagation();
                               onSelectEvent?.(event);
                             }}
-                            className="group flex w-full min-w-0 flex-col items-start gap-1 rounded-xl border border-cyan-300/20 bg-zinc-900/95 px-2.5 py-2.5 text-left transition hover:border-cyan-300/45 hover:bg-zinc-900"
+                            className="group flex w-full min-w-0 flex-col items-start gap-1.5 rounded-xl border border-cyan-300/25 bg-zinc-900/95 px-3 py-3 text-left transition hover:border-cyan-300/45 hover:bg-zinc-900"
                           >
-                            <p className="text-[13px] font-semibold leading-none text-cyan-200">{event.time}</p>
-                            <p className="w-full truncate text-[13.5px] font-semibold leading-snug text-zinc-100 group-hover:text-white">
+                            <p className="text-sm font-bold leading-none text-cyan-100">{event.time}</p>
+                            <p className="w-full truncate text-[15px] font-semibold leading-snug text-zinc-100 group-hover:text-white">
                               {event.name}
                             </p>
                             {event.scheduledBy ? (
-                              <p className="w-full truncate text-xs font-medium leading-snug text-emerald-200/95">
+                              <p className="w-full truncate text-[13px] font-semibold leading-snug text-emerald-100">
                                 Set by <span className="font-semibold text-emerald-100">{event.scheduledBy}</span>
                               </p>
                             ) : null}
@@ -396,22 +396,22 @@ export function FullScreenCalendar({
                     </time>
                   </button>
                   {totalEv > 0 ? (
-                    <div className="flex min-h-0 flex-1 flex-col gap-0.5 px-0.5 pb-1 @md:gap-1 @md:px-1.5 @md:pb-1.5">
+                    <div className="flex min-h-0 flex-1 flex-col gap-1 px-1 pb-1.5 @md:gap-1.5 @md:px-1.5 @md:pb-1.5">
                       {dayEvents.slice(0, 2).map((event) => (
                         <button
                           key={event.id}
                           type="button"
                           onClick={() => onSelectEvent?.(event)}
-                          className="w-full min-w-0 rounded-md border border-cyan-500/20 bg-zinc-950/80 px-1.5 py-1 text-left shadow-sm shadow-black/20 transition hover:border-cyan-400/40 hover:bg-zinc-900/90 @md:px-2 @md:py-1.5"
+                          className="w-full min-w-0 rounded-md border border-cyan-500/30 bg-zinc-950/90 px-2 py-1.5 text-left shadow-sm shadow-black/20 transition hover:border-cyan-400/45 hover:bg-zinc-900/90 @md:px-2.5 @md:py-2"
                         >
-                          <p className="truncate text-[11px] font-bold leading-tight text-cyan-200 @md:text-xs">
+                          <p className="truncate text-xs font-bold leading-tight text-cyan-100 @md:text-[13px]">
                             {event.time}
                           </p>
-                          <p className="truncate text-[10px] font-semibold leading-snug text-zinc-100 @md:text-[11px]">
+                          <p className="truncate text-[11px] font-semibold leading-snug text-zinc-100 @md:text-[12px]">
                             {event.name}
                           </p>
                           {event.scheduledBy ? (
-                            <p className="mt-0.5 truncate text-[10px] font-medium leading-snug text-emerald-200/95 @md:text-[11px]">
+                            <p className="mt-0.5 truncate text-[11px] font-semibold leading-snug text-emerald-100 @md:text-[12px]">
                               Set by {event.scheduledBy}
                             </p>
                           ) : null}

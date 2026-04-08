@@ -32,6 +32,7 @@ import { DailyBriefingBanner } from "@/components/DailyBriefingBanner";
 import { TeamCalendarSection } from "@/components/TeamCalendarSection";
 import { WeeklyPerformanceCard, type WeeklyApptRank } from "@/components/WeeklyPerformanceCard";
 import { HelpMarker } from "@/components/HelpMarker";
+import LiveWarMap from "@/components/LiveWarMap";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { utcCalendarDayBounds } from "@/lib/utcDayBounds";
 import {
@@ -545,10 +546,10 @@ export function CrmDashboard({
             </div>
           </div>
           {canManageRoles ? (
-            <div className="mt-3 w-full sm:flex sm:justify-end">
+            <div className="mt-3 flex w-full justify-end">
               <Link
                 href="/admin-logs"
-                className="inline-flex w-full items-center justify-center rounded-md border border-cyan-400/40 bg-gradient-to-r from-cyan-600/20 via-sky-600/15 to-blue-950/40 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_24px_-12px_rgba(34,211,238,0.35)] transition hover:border-cyan-300/55 hover:from-cyan-500/30 hover:via-sky-500/20 hover:to-blue-900/50 hover:text-white sm:min-w-[11rem] sm:px-4 sm:text-sm"
+                className="inline-flex w-full items-center justify-center rounded-md border border-cyan-400/40 bg-gradient-to-r from-cyan-600/20 via-sky-600/15 to-blue-950/40 px-3 py-2.5 text-xs font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_24px_-12px_rgba(34,211,238,0.35)] transition hover:border-cyan-300/55 hover:from-cyan-500/30 hover:via-sky-500/20 hover:to-blue-900/50 hover:text-white min-[480px]:w-auto min-[480px]:py-2"
               >
                 Admin Logs
               </Link>
@@ -591,6 +592,10 @@ export function CrmDashboard({
             tone="violet"
             helpText="YOUR PRIORITIES: Star any lead in the main list to save them here for quick access."
           />
+        </section>
+
+        <section className="mb-10">
+          <LiveWarMap />
         </section>
 
         <section
