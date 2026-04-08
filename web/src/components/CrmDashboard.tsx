@@ -32,7 +32,7 @@ import { DailyBriefingBanner } from "@/components/DailyBriefingBanner";
 import { TeamCalendarSection } from "@/components/TeamCalendarSection";
 import { WeeklyPerformanceCard, type WeeklyApptRank } from "@/components/WeeklyPerformanceCard";
 import { HelpMarker } from "@/components/HelpMarker";
-import LiveWarMap from "@/components/LiveWarMap";
+import ExpandableWarMap from "@/components/ExpandableWarMap";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { utcCalendarDayBounds } from "@/lib/utcDayBounds";
 import {
@@ -595,7 +595,7 @@ export function CrmDashboard({
         </section>
 
         <section className="mb-10">
-          <LiveWarMap />
+          <ExpandableWarMap />
         </section>
 
         <section

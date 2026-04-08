@@ -1,0 +1,450 @@
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ExternalLink, Info, Map as MapIcon, MessageSquare, Trophy, X, Zap } from "lucide-react";
+import confetti from "canvas-confetti";
+import { geoAlbersUsa, geoPath } from "d3-geo";
+import { feature, mesh } from "topojson-client";
+import usAtlas from "us-atlas/states-10m.json";
+import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
+import { getLocationFromPhone } from "@/lib/phoneGeo";
+
+type ActivityType = "interested" | "demo_sent" | "deal_closed";
+
+interface MapEvent {
+  id: string;
+  type: ActivityType;
+  x: number;
+  y: number;
+  companyName: string;
+  phone: string | null;
+  website: string | null;
+  activityAtMs: number;
+}
+
+type LeadRealtimeRow = {
+  id?: string | null;
+  company_name?: string | null;
+  status?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  updated_at?: string | null;
+  created_at?: string | null;
+};
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const MAP_W = 1000;
+const MAP_H = 600;
+
+const PIN_COLORS: Record<ActivityType, string> = {
+  interested: "#22c55e",
+  demo_sent: "#3b82f6",
+  deal_closed: "#facc15",
+};
+
+function normalizeStatus(status: string | null | undefined): string {
+  return (status ?? "").trim().toLowerCase();
+}
+
+function mapStatusToEventType(status: string): ActivityType | null {
+  if (status.includes("interested")) return "interested";
+  if (status.includes("demo sent")) return "demo_sent";
+  if (status.includes("deal closed")) return "deal_closed";
+  return null;
+}
+
+function normalizeWebsite(url: string | null | undefined): string | null {
+  const t = (url ?? "").trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+function activityAgoText(activityAtMs: number): string {
+  const deltaMs = Math.max(0, Date.now() - activityAtMs);
+  const mins = Math.floor(deltaMs / 60000);
+  if (mins < 1) return "JUST NOW";
+  if (mins < 60) return `${mins} MIN AGO`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} H${hours === 1 ? "" : "RS"} AGO`;
+  return "24H+ AGO";
+}
+
+function StatusIcon({ type }: { type: ActivityType }) {
+  if (type === "deal_closed") return <Trophy size={13} className="text-yellow-300" />;
+  if (type === "demo_sent") return <Zap size={13} className="text-blue-300" />;
+  return <MessageSquare size={13} className="text-emerald-300" />;
+}
+
+export default function ExpandableWarMap() {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [events, setEvents] = useState<MapEvent[]>([]);
+  const [widgetPulseColor, setWidgetPulseColor] = useState<string>("#06b6d4");
+  const timersRef = useRef<number[]>([]);
+  const supabase = useMemo(() => createSupabaseBrowserClient(), []);
+
+  const statesGeo = useMemo(() => {
+    const states = feature(usAtlas as any, (usAtlas as any).objects.states) as any;
+    const borders = mesh(usAtlas as any, (usAtlas as any).objects.states, (a: any, b: any) => a !== b) as any;
+    const projection = geoAlbersUsa().fitSize([MAP_W, MAP_H], states);
+    const pathGen = geoPath(projection);
+    return { states, borders, pathGen, projection };
+  }, []);
+
+  const stats = useMemo(() => {
+    const counts = { interested: 0, demo_sent: 0, deal_closed: 0 };
+    for (const e of events) counts[e.type] += 1;
+    return {
+      interested: counts.interested,
+      demoSent: counts.demo_sent,
+      dealClosed: counts.deal_closed,
+      total: counts.interested + counts.demo_sent + counts.deal_closed,
+    };
+  }, [events]);
+
+  const triggerEvent = useCallback(
+    (row: LeadRealtimeRow, type: ActivityType, activityAtMs: number = Date.now()) => {
+      const leadId = row.id?.trim();
+      if (!leadId) return;
+      const geo = getLocationFromPhone(row.phone);
+      if (!geo) return;
+      const projected = statesGeo.projection([geo.lng, geo.lat]);
+      if (!projected) return;
+      const [px, py] = projected;
+      const x = (px / MAP_W) * 100;
+      const y = (py / MAP_H) * 100;
+
+      const next: MapEvent = {
+        id: leadId,
+        type,
+        x,
+        y,
+        companyName: (row.company_name ?? "").trim() || "Lead",
+        phone: row.phone ?? null,
+        website: normalizeWebsite(row.website),
+        activityAtMs,
+      };
+
+      const pulseColor = PIN_COLORS[type];
+      setWidgetPulseColor(pulseColor);
+      const reset = window.setTimeout(() => setWidgetPulseColor("#06b6d4"), 1800);
+      timersRef.current.push(reset);
+
+      if (type === "deal_closed") {
+        confetti({
+          particleCount: 120,
+          spread: 76,
+          origin: { y: 0.65 },
+          colors: ["#FFD700", "#FFA500", "#fff3b0"],
+        });
+      }
+
+      setEvents((prev) => {
+        const withoutLead = prev.filter((e) => e.id !== leadId);
+        return [next, ...withoutLead].filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS);
+      });
+    },
+    [statesGeo.projection],
+  );
+
+  useEffect(() => {
+    const hydrateLast24h = async () => {
+      const sinceIso = new Date(Date.now() - ONE_DAY_MS).toISOString();
+      const fields = "id, company_name, status, phone, website, updated_at, created_at";
+      const { data, error } = await supabase
+        .from("leads")
+        .select(fields)
+        .not("phone", "is", null)
+        .gte("updated_at", sinceIso)
+        .limit(1000);
+      if (error || !data) return;
+
+      for (const row of data as LeadRealtimeRow[]) {
+        const type = mapStatusToEventType(normalizeStatus(row.status));
+        if (!type) continue;
+        const at = Date.parse(row.updated_at ?? row.created_at ?? "") || Date.now();
+        triggerEvent(row, type, at);
+      }
+    };
+
+    const onInsert = (row: LeadRealtimeRow) => {
+      const type = mapStatusToEventType(normalizeStatus(row.status));
+      if (!type) return;
+      const at = Date.parse(row.created_at ?? row.updated_at ?? "") || Date.now();
+      triggerEvent(row, type, at);
+    };
+
+    const onUpdate = (oldRow: LeadRealtimeRow, newRow: LeadRealtimeRow) => {
+      const oldStatus = normalizeStatus(oldRow.status);
+      const newStatus = normalizeStatus(newRow.status);
+      if (!newStatus || newStatus === oldStatus) return;
+      const type = mapStatusToEventType(newStatus);
+      if (!type) return;
+      const at = Date.parse(newRow.updated_at ?? newRow.created_at ?? "") || Date.now();
+      triggerEvent(newRow, type, at);
+    };
+
+    void hydrateLast24h();
+
+    const channel = supabase
+      .channel("expandable-war-map-leads")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (p) => onInsert(p.new as LeadRealtimeRow))
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "leads" },
+        (p) => onUpdate(p.old as LeadRealtimeRow, p.new as LeadRealtimeRow),
+      )
+      .subscribe();
+
+    const pruneInterval = window.setInterval(() => {
+      setEvents((prev) => prev.filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS));
+    }, 60_000);
+
+    return () => {
+      for (const t of timersRef.current) window.clearTimeout(t);
+      timersRef.current = [];
+      window.clearInterval(pruneInterval);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, triggerEvent]);
+
+  return (
+    <>
+      <AnimatePresence>
+        {!isExpanded ? (
+          <motion.button
+            key="war-map-mini"
+            type="button"
+            onClick={() => setIsExpanded(true)}
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.85 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="fixed bottom-5 right-5 z-[70] flex h-16 w-16 items-center justify-center rounded-full border-2 bg-[#0a0a0a]/95"
+            style={{ borderColor: widgetPulseColor, boxShadow: `0 0 26px -8px ${widgetPulseColor}` }}
+            aria-label="Open Live War Room command console"
+            title="Open Live War Room"
+          >
+            <motion.span
+              className="absolute inset-0 rounded-full"
+              style={{ border: `2px solid ${widgetPulseColor}` }}
+              animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.12, 0.8] }}
+              transition={{ repeat: Infinity, duration: 1.9, ease: "easeInOut" }}
+            />
+            <MapIcon className="relative z-10 h-6 w-6 text-cyan-300" />
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isExpanded ? (
+          <motion.div
+            key="command-console-overlay"
+            className="fixed inset-0 z-[75] bg-black/35 backdrop-blur-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ duration: 0.24, ease: "easeOut" }}
+              className="mx-auto mt-[4.5vh] h-[85vh] w-[min(94vw,1700px)] overflow-hidden rounded-3xl border border-cyan-400/35 bg-[#0a0a0a]/88 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_60px_-22px_rgba(34,211,238,0.45),0_30px_80px_-36px_rgba(0,0,0,0.95)] ring-1 ring-cyan-300/20"
+            >
+              <button
+                type="button"
+                onClick={() => setIsExpanded(false)}
+                className="absolute right-6 top-6 z-30 inline-flex items-center gap-1 rounded-md border border-white/20 bg-black/45 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-cyan-400/55 hover:text-white"
+              >
+                <X size={14} />
+                Minimize
+              </button>
+
+              <div className="absolute left-6 top-6 z-20 flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
+                <div className="rounded-lg bg-cyan-500/20 p-2">
+                  <MapIcon className="h-5 w-5 text-cyan-400" />
+                </div>
+                <div>
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</h2>
+                  <p className="text-[10px] text-zinc-400">National Expansion Telemetry Console</p>
+                </div>
+              </div>
+
+              <div className="grid h-full grid-cols-[minmax(280px,360px)_1fr_minmax(280px,360px)] gap-5 p-6 pt-24">
+                <aside className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.1] via-black/35 to-black/50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+                  <h3 className="mb-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100">
+                    <Info size={14} className="text-cyan-300" />
+                    What We Capture
+                  </h3>
+
+                  <div className="space-y-6 text-sm">
+                    <div>
+                      <p className="flex items-center gap-2 text-emerald-300">
+                        <MessageSquare size={14} />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Interested</span>
+                      </p>
+                      <p className="mt-1 text-zinc-300">Lead expressed positive interest.</p>
+                      <p className="mt-1 text-xs font-semibold text-zinc-400">Count: {stats.interested}</p>
+                    </div>
+
+                    <div>
+                      <p className="flex items-center gap-2 text-blue-300">
+                        <Zap size={14} />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Demo Sent</span>
+                      </p>
+                      <p className="mt-1 text-zinc-300">AI Website Preview shared.</p>
+                      <p className="mt-1 text-xs font-semibold text-zinc-400">Count: {stats.demoSent}</p>
+                    </div>
+
+                    <div>
+                      <p className="flex items-center gap-2 text-yellow-300">
+                        <Trophy size={14} />
+                        <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Deal Closed</span>
+                      </p>
+                      <p className="mt-1 text-zinc-300">AI Website Sold & Confirmed.</p>
+                      <p className="mt-1 text-xs font-semibold text-zinc-400">Count: {stats.dealClosed}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 rounded-xl border border-cyan-300/20 bg-black/45 px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+                      Total Live Activity (Last 24h): {stats.total}
+                    </p>
+                  </div>
+                </aside>
+
+                <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <svg viewBox="0 0 1000 600" className="h-full w-full">
+                    <defs>
+                      <filter id="command-map-glow" x="-30%" y="-30%" width="160%" height="160%">
+                        <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22d3ee" floodOpacity="0.12" />
+                      </filter>
+                    </defs>
+                    <g transform="translate(0 8)" filter="url(#command-map-glow)">
+                      {statesGeo.states.features.map((f: any) => (
+                        <path
+                          key={String(f.id)}
+                          d={statesGeo.pathGen(f) ?? ""}
+                          fill="#151515"
+                          stroke="#334155"
+                          strokeWidth={0.85}
+                          vectorEffect="non-scaling-stroke"
+                        />
+                      ))}
+                      <path
+                        d={statesGeo.pathGen(statesGeo.borders) ?? ""}
+                        fill="none"
+                        stroke="#475569"
+                        strokeWidth={0.65}
+                        opacity={0.85}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    </g>
+                  </svg>
+
+                  <AnimatePresence>
+                    {events.map((event) => (
+                      <motion.div
+                        key={event.id}
+                        initial={{ scale: 0.72, opacity: 0, y: -14 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.72, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        style={{ left: `${event.x}%`, top: `${event.y}%` }}
+                        className="absolute -translate-x-1/2 -translate-y-1/2"
+                      >
+                        <PinBody type={event.type} />
+
+                        <div className="mt-2 min-w-[220px] rounded-xl border border-white/20 bg-white/[0.08] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]">
+                          <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
+                            <StatusIcon type={event.type} />
+                            <span>
+                              {event.type === "interested"
+                                ? "Interested"
+                                : event.type === "demo_sent"
+                                  ? "Demo Sent"
+                                  : "Deal Closed"}
+                            </span>
+                          </p>
+                          <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
+                          <p className="mt-1 flex items-center gap-2 text-zinc-300">
+                            <span className="truncate">{event.phone ?? "No phone"}</span>
+                            {event.website ? (
+                              <a
+                                href={event.website}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex text-cyan-300 transition hover:text-cyan-200"
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            ) : null}
+                          </p>
+                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                            Activity: {activityAgoText(event.activityAtMs)}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </section>
+
+                <aside className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.08] via-black/35 to-black/50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+                  <h3 className="mb-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100">
+                    <Zap size={14} className="text-cyan-300" />
+                    Command Intel / System Overview
+                  </h3>
+
+                  <div className="space-y-6 text-sm text-zinc-300">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-100">
+                        Powered By Supabase Realtime
+                      </p>
+                      <p className="mt-1">Map updates are instant and synchronized for the whole team.</p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-100">
+                        Area Code Pinpointing
+                      </p>
+                      <p className="mt-1">Pins are placed automatically based on the lead&apos;s phone number region.</p>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-100">
+                        Hyper-Growth Visualization
+                      </p>
+                      <p className="mt-1">Track our national AI website expansion.</p>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </>
+  );
+}
+
+function PinBody({ type }: { type: ActivityType }) {
+  const colors: Record<ActivityType, string> = {
+    interested: "bg-emerald-400 shadow-[0_0_15px_#22c55e]",
+    demo_sent: "bg-blue-400 shadow-[0_0_15px_#60a5fa]",
+    deal_closed: "bg-yellow-400 shadow-[0_0_20px_#facc15]",
+  };
+
+  return (
+    <div className={`relative h-4 w-4 rounded-full border-2 border-white ${colors[type]}`}>
+      {type === "deal_closed" ? (
+        <motion.div
+          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="absolute inset-[-8px] rounded-full border-2 border-yellow-300"
+        />
+      ) : null}
+    </div>
+  );
+}
