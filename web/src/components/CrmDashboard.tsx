@@ -594,7 +594,12 @@ export function CrmDashboard({
           />
         </section>
 
-        <section className="mb-10">
+        <section
+          className={clsx(
+            "mb-10 rounded-2xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.04] via-[#0a0d12]/95 to-[#090b10]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.35)] ring-1 ring-cyan-300/10",
+            layoutMobileShell ? "@md:px-5 @md:py-2" : "md:px-5 md:py-2",
+          )}
+        >
           <ExpandableWarMap />
         </section>
 

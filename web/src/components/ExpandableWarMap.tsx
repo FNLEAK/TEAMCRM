@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink, Info, Map as MapIcon, MessageSquare, Trophy, X, Zap } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -77,8 +78,22 @@ function StatusIcon({ type }: { type: ActivityType }) {
   return <MessageSquare size={13} className="text-emerald-300" />;
 }
 
-export default function ExpandableWarMap() {
+type ExpandableWarMapProps = {
+  /** Lets the parent collapse the dashboard card while the fixed overlay is open. */
+  onExpandedChange?: (expanded: boolean) => void;
+};
+
+export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
+
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [widgetPulseColor, setWidgetPulseColor] = useState<string>("#06b6d4");
   const [activePinId, setActivePinId] = useState<string | null>(null);
@@ -237,37 +252,39 @@ export default function ExpandableWarMap() {
     <>
       <AnimatePresence>
         {!isExpanded ? (
-          <motion.button
-            key="war-map-mini"
-            type="button"
-            onClick={() => setIsExpanded(true)}
-            initial={{ opacity: 0, scale: 0.85 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.85 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed left-1/2 top-4 z-[70] flex min-w-[18rem] -translate-x-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-left backdrop-blur-md"
-            style={{
-              borderColor: widgetPulseColor,
-              background: "rgba(10,10,10,0.88)",
-              boxShadow: `0 0 26px -10px ${widgetPulseColor}`,
-            }}
-            aria-label="Open Live War Room command console"
-            title="Open Live War Room"
-          >
-            <motion.span
-              className="absolute inset-0 rounded-2xl"
-              style={{ border: `1px solid ${widgetPulseColor}` }}
-              animate={{ opacity: [0.65, 0.18, 0.65] }}
-              transition={{ repeat: Infinity, duration: 1.9, ease: "easeInOut" }}
-            />
-            <span className="relative z-10 rounded-lg bg-cyan-500/20 p-2">
-              <MapIcon className="h-5 w-5 text-cyan-300" />
-            </span>
-            <span className="relative z-10 min-w-0">
-              <span className="block truncate text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</span>
-              <span className="block truncate text-[11px] text-zinc-400">National Expansion Telemetry Console</span>
-            </span>
-          </motion.button>
+          <div className="flex min-h-[min(28vh,280px)] w-full items-center justify-center px-1 sm:px-2">
+            <motion.button
+              key="war-map-mini"
+              type="button"
+              onClick={() => setIsExpanded(true)}
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="relative z-10 flex min-w-[min(100%,18rem)] max-w-md flex-shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left backdrop-blur-md"
+              style={{
+                borderColor: widgetPulseColor,
+                background: "rgba(10,10,10,0.88)",
+                boxShadow: `0 0 26px -10px ${widgetPulseColor}`,
+              }}
+              aria-label="Open Live War Room command console"
+              title="Open Live War Room"
+            >
+              <motion.span
+                className="pointer-events-none absolute inset-0 rounded-2xl"
+                style={{ border: `1px solid ${widgetPulseColor}` }}
+                animate={{ opacity: [0.65, 0.18, 0.65] }}
+                transition={{ repeat: Infinity, duration: 1.9, ease: "easeInOut" }}
+              />
+              <span className="relative z-10 rounded-lg bg-cyan-500/20 p-2">
+                <MapIcon className="h-5 w-5 text-cyan-300" />
+              </span>
+              <span className="relative z-10 min-w-0">
+                <span className="block truncate text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</span>
+                <span className="block truncate text-[11px] text-zinc-400">National Expansion Telemetry Console</span>
+              </span>
+            </motion.button>
+          </div>
         ) : null}
       </AnimatePresence>
 
