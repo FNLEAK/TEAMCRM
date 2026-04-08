@@ -395,6 +395,18 @@ export function CrmDashboard({
 
   const closeDrawer = useCallback(() => setDrawerLead(null), []);
 
+  const handleLeadDeleted = useCallback(
+    (leadId: string) => {
+      setLeads((prev) => prev.filter((l) => l.id !== leadId));
+      setDrawerLead((d) => (d?.id === leadId ? null : d));
+      setTotalLeadsLive((n) => Math.max(0, n - 1));
+      totalLeadsKnownRef.current = Math.max(0, totalLeadsKnownRef.current - 1);
+      bumpStatsAndCalendar();
+      startTransition(() => router.refresh());
+    },
+    [bumpStatsAndCalendar, router],
+  );
+
   const handleToggleFavorite = useCallback(
     async (e: MouseEvent<Element>, row: LeadRow) => {
       e.stopPropagation();
@@ -619,6 +631,7 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
           syncLeadInState={syncLeadInState}
           onLeadMetaChanged={bumpStatsAndCalendar}
           isOwner={canManageRoles}
+          onLeadDeleted={handleLeadDeleted}
         />
       ) : null}
     </DeskShell>

@@ -22,7 +22,7 @@ import {
   type TeamProfile,
 } from "@/lib/leadTypes";
 import clsx from "clsx";
-import { Check, Flag } from "lucide-react";
+import { Check, Flag, Loader2, Trash2 } from "lucide-react";
 import { fetchProfileById, fetchProfilesByIds } from "@/lib/profileSelect";
 import { displayProfessionalName } from "@/lib/profileDisplay";
 import { buildTelHref } from "@/lib/phone";
@@ -30,6 +30,7 @@ import { timezoneHintFromPhone } from "@/lib/phoneTimezone";
 import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
 import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
 import { LeadDemoSiteSection } from "@/components/LeadDemoSiteSection";
+import { deleteLeadAction } from "@/app/actions/deleteLeadAction";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
@@ -122,6 +123,8 @@ type LeadDetailDrawerProps = {
   onLeadMetaChanged?: () => void;
   /** Account owner (same as Role Applier access) — only owners can set demo site URL. */
   isOwner: boolean;
+  /** Called after an owner successfully deletes this lead (remove from list + close drawer). */
+  onLeadDeleted?: (leadId: string) => void;
 };
 
 type PresencePhase = "connecting" | "connected" | "error";
@@ -217,6 +220,7 @@ export function LeadDetailDrawer({
   syncLeadInState,
   onLeadMetaChanged,
   isOwner,
+  onLeadDeleted,
 }: LeadDetailDrawerProps) {
   const [status, setStatus] = useState<LeadStatusValue>(() => normalizeStatus(lead.status));
   const [statusBusy, setStatusBusy] = useState(false);
@@ -239,6 +243,8 @@ export function LeadDetailDrawer({
   const [activityProfileExtras, setActivityProfileExtras] = useState<Record<string, TeamProfile>>({});
   const [presenceProfileExtras, setPresenceProfileExtras] = useState<Record<string, TeamProfile>>({});
   const [highPriorityBusy, setHighPriorityBusy] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const leadId = lead.id;
   const apptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -991,14 +997,27 @@ export function LeadDetailDrawer({
               </p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-emerald-950/40 p-2 text-zinc-400 transition hover:border-emerald-800/50 hover:bg-emerald-950/20 hover:text-white"
-            aria-label="Close"
-          >
-            <CloseIcon />
-          </button>
+          <div className="flex shrink-0 items-start gap-1.5">
+            {isOwner ? (
+              <button
+                type="button"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="rounded-lg border border-rose-950/50 p-2 text-rose-400/90 transition hover:border-rose-800/60 hover:bg-rose-950/30 hover:text-rose-200"
+                aria-label="Delete lead"
+                title="Delete lead (owners only)"
+              >
+                <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-emerald-950/40 p-2 text-zinc-400 transition hover:border-emerald-800/50 hover:bg-emerald-950/20 hover:text-white"
+              aria-label="Close"
+            >
+              <CloseIcon />
+            </button>
+          </div>
         </div>
 
         <div className="border-b border-emerald-950/20 bg-[#080808]/95 px-6 py-3">
@@ -1374,6 +1393,67 @@ export function LeadDetailDrawer({
         {closeToast ? (
           <div className="pointer-events-none absolute bottom-20 left-6 right-6 z-20 rounded-lg border border-amber-400/45 bg-[#120f08]/95 px-3 py-2 text-sm font-semibold text-amber-100 shadow-[0_0_20px_-6px_rgba(251,191,36,0.7)]">
             {closeToast}
+          </div>
+        ) : null}
+
+        {deleteDialogOpen ? (
+          <div className="fixed inset-0 z-[240] flex items-center justify-center p-4">
+            <button
+              type="button"
+              aria-label="Cancel delete"
+              disabled={deleteBusy}
+              className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+              onClick={() => {
+                if (!deleteBusy) setDeleteDialogOpen(false);
+              }}
+            />
+            <div
+              className="relative z-10 w-full max-w-md rounded-2xl border border-rose-500/35 bg-[#0c0c0e] p-5 shadow-[0_0_60px_-20px_rgba(244,63,94,0.45)] ring-1 ring-black/40"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-lead-title"
+            >
+              <h3 id="delete-lead-title" className="text-lg font-semibold text-zinc-50">
+                Delete this lead?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+                <span className="font-medium text-zinc-200">{lead.company_name ?? "This company"}</span> will be
+                permanently removed. Related activity may be removed by the database. This cannot be undone.
+              </p>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  disabled={deleteBusy}
+                  onClick={() => setDeleteDialogOpen(false)}
+                  className="rounded-xl border border-zinc-600/70 px-4 py-2.5 text-sm font-medium text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900/60 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteBusy}
+                  onClick={() => {
+                    void (async () => {
+                      setDeleteBusy(true);
+                      setCloseToast(null);
+                      const r = await deleteLeadAction(leadId);
+                      setDeleteBusy(false);
+                      if (!r.ok) {
+                        setCloseToast(r.error ?? "Could not delete lead.");
+                        return;
+                      }
+                      setDeleteDialogOpen(false);
+                      onLeadDeleted?.(leadId);
+                      onClose();
+                    })();
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-500/50 bg-rose-600/25 px-4 py-2.5 text-sm font-semibold text-rose-100 transition hover:bg-rose-600/40 disabled:opacity-50"
+                >
+                  {deleteBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+                  Delete lead
+                </button>
+              </div>
+            </div>
           </div>
         ) : null}
 
