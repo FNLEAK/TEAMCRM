@@ -140,17 +140,19 @@ export function CommandCenterBar({ onDataChanged, compact, canManageRoles }: Com
             </button>
           </div>
           {canManageRoles ? (
-            <Link
-              href="/admin-logs"
-              className={clsx(
-                "inline-flex w-full items-center justify-center rounded-md border border-amber-500/40 bg-gradient-to-r from-amber-950/50 to-amber-900/20 font-semibold text-amber-100/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-400/55 hover:from-amber-900/55 hover:to-amber-950/40",
-                compact
-                  ? "px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
-                  : "px-4 py-2.5 text-sm",
-              )}
-            >
-              Admin Logs
-            </Link>
+            <div className="mt-2 w-full border-t border-cyan-500/25 pt-3 shadow-[inset_0_1px_0_rgba(34,211,238,0.08)]">
+              <Link
+                href="/admin-logs"
+                className={clsx(
+                  "inline-flex w-full items-center justify-center rounded-md border border-cyan-400/40 bg-gradient-to-r from-cyan-600/20 via-sky-600/15 to-blue-950/40 font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_24px_-12px_rgba(34,211,238,0.35)] transition hover:border-cyan-300/55 hover:from-cyan-500/30 hover:via-sky-500/20 hover:to-blue-900/50 hover:text-white",
+                  compact
+                    ? "px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                    : "px-4 py-2.5 text-sm",
+                )}
+              >
+                Admin Logs
+              </Link>
+            </div>
           ) : null}
         </div>
       </div>
