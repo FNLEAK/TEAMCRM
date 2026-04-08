@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import Link from "next/link";
 import clsx from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
@@ -14,14 +13,11 @@ type CommandCenterBarProps = {
   onDataChanged: () => void;
   /** Hides the label and tightens layout for the dashboard header row. */
   compact?: boolean;
-  /** Account owners — show Admin Logs entry. */
-  canManageRoles?: boolean;
 };
 
 export function CommandCenterBar({
   onDataChanged,
   compact,
-  canManageRoles,
 }: CommandCenterBarProps) {
   const { isMobileShell: layoutMobileShell } = useDeskLayout();
   const [toast, setToast] = useState<ToastState>(null);
@@ -143,19 +139,6 @@ export function CommandCenterBar({
               Recent imports
             </button>
           </div>
-          {canManageRoles ? (
-            <Link
-              href="/admin-logs"
-              className={clsx(
-                "inline-flex items-center justify-center rounded-md border border-cyan-400/40 bg-gradient-to-r from-cyan-600/20 via-sky-600/15 to-blue-950/40 font-semibold text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_24px_-12px_rgba(34,211,238,0.35)] transition hover:border-cyan-300/55 hover:from-cyan-500/30 hover:via-sky-500/20 hover:to-blue-900/50 hover:text-white",
-                compact
-                  ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
-                  : "px-4 py-2.5 text-sm",
-              )}
-            >
-              Admin Logs
-            </Link>
-          ) : null}
         </div>
       </div>
 

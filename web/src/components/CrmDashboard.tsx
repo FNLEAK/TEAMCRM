@@ -540,10 +540,31 @@ export function CrmDashboard({
               <CommandCenterBar
                 onDataChanged={refresh}
                 compact
-                canManageRoles={canManageRoles}
               />
             </div>
           </div>
+          {canManageRoles ? (
+            <div
+              className={clsx(
+                "mt-3 flex w-full shrink-0 flex-col items-stretch gap-3",
+                layoutMobileShell
+                  ? "@sm:flex-row @sm:items-center @sm:justify-end @lg:w-auto"
+                  : "sm:flex-row sm:items-center sm:justify-end lg:w-auto",
+              )}
+            >
+              <Link
+                href="/admin-logs"
+                className={clsx(
+                  "inline-flex w-full items-center justify-center rounded-md border border-cyan-400/40 bg-gradient-to-r from-cyan-600/20 via-sky-600/15 to-blue-950/40 font-medium text-cyan-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition hover:border-cyan-300/55 hover:from-cyan-500/30 hover:via-sky-500/20 hover:to-blue-900/50 hover:text-white",
+                  layoutMobileShell
+                    ? "px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                    : "px-3 py-2.5 text-xs min-[480px]:w-auto min-[480px]:py-2",
+                )}
+              >
+                Admin Logs
+              </Link>
+            </div>
+          ) : null}
           <div className="mt-4 inline-flex max-w-2xl flex-col gap-1 rounded-xl border border-violet-300/25 bg-gradient-to-r from-violet-500/[0.14] to-black/45 px-3 py-2 backdrop-blur-sm">
             <p className="text-base font-semibold tracking-tight text-zinc-100 [text-shadow:0_2px_18px_rgba(0,0,0,0.75)]">
               Welcome,{" "}
