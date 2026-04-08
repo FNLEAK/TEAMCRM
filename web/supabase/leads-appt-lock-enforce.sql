@@ -27,15 +27,42 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  old_row jsonb;
+  new_row jsonb;
+  sans_demo jsonb;
+  sans_demo_new jsonb;
 begin
-  if tg_op = 'UPDATE'
-     and coalesce(trim(new.status), '') = 'Appt Set'
+  if tg_op <> 'UPDATE' then
+    return new;
+  end if;
+
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  if coalesce(trim(new.status), '') = 'Appt Set'
      and new.appt_scheduled_by is not null
      and auth.uid() is distinct from new.appt_scheduled_by
      and not public.can_edit_appt_locked_lead()
   then
-    raise exception 'Lead is appointment-locked by another teammate.';
+    old_row := to_jsonb(old::public.leads);
+    new_row := to_jsonb(new::public.leads);
+    sans_demo :=
+        old_row
+        - 'demo_site_url'
+        - 'demo_site_sent'
+        - 'demo_site_sent_at';
+    sans_demo_new :=
+        new_row
+        - 'demo_site_url'
+        - 'demo_site_sent'
+        - 'demo_site_sent_at';
+    if sans_demo is distinct from sans_demo_new then
+      raise exception 'Lead is appointment-locked by another teammate.';
+    end if;
   end if;
+
   return new;
 end;
 $$;

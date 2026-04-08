@@ -57,5 +57,15 @@ export function mergeLeadFromRealtime(prev: LeadRow, raw: Record<string, unknown
         ? prev.import_filename
         : (raw.import_filename as string | null | undefined),
     created_at: (raw.created_at as string | null | undefined) ?? prev.created_at,
+    demo_site_url:
+      raw.demo_site_url === undefined ? prev.demo_site_url : (raw.demo_site_url as string | null),
+    demo_site_sent:
+      raw.demo_site_sent === undefined
+        ? prev.demo_site_sent
+        : (raw.demo_site_sent as boolean | null),
+    demo_site_sent_at:
+      raw.demo_site_sent_at === undefined
+        ? prev.demo_site_sent_at
+        : (raw.demo_site_sent_at as string | null),
   };
 }

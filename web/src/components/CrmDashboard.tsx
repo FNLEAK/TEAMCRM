@@ -618,6 +618,7 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
           onClose={closeDrawer}
           syncLeadInState={syncLeadInState}
           onLeadMetaChanged={bumpStatsAndCalendar}
+          isOwner={canManageRoles}
         />
       ) : null}
     </DeskShell>
