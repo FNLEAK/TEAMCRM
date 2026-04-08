@@ -2,6 +2,34 @@
 -- so `leads` has expected columns. Then enable Realtime optional.
 --
 -- Logs: lead create/update/delete, timeline notes, close-deal requests (if closed_deals exists).
+--
+-- Bootstrap: RLS below calls `is_current_user_team_owner()` (normally created in team-roles.sql).
+-- If that migration was never run, this block creates the table stub + function so this file succeeds.
+
+create table if not exists public.team_roles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  role text not null check (role in ('owner', 'team')),
+  account_name text,
+  account_email text,
+  updated_by uuid references auth.users (id),
+  updated_at timestamptz not null default now()
+);
+
+create or replace function public.is_current_user_team_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.team_roles tr
+    where tr.user_id = auth.uid() and tr.role = 'owner'
+  );
+$$;
+
+revoke all on function public.is_current_user_team_owner() from public;
+grant execute on function public.is_current_user_team_owner() to authenticated;
 
 create table if not exists public.crm_admin_audit_log (
   id uuid primary key default gen_random_uuid(),
