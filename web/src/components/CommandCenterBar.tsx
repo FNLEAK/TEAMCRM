@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
@@ -13,9 +14,11 @@ type CommandCenterBarProps = {
   onDataChanged: () => void;
   /** Hides the label and tightens layout for the dashboard header row. */
   compact?: boolean;
+  /** Account owners — show Admin Logs entry. */
+  canManageRoles?: boolean;
 };
 
-export function CommandCenterBar({ onDataChanged, compact }: CommandCenterBarProps) {
+export function CommandCenterBar({ onDataChanged, compact, canManageRoles }: CommandCenterBarProps) {
   const { isMobileShell: layoutMobileShell } = useDeskLayout();
   const [toast, setToast] = useState<ToastState>(null);
   const toastTimer = useRef<number | null>(null);
@@ -84,47 +87,71 @@ export function CommandCenterBar({ onDataChanged, compact }: CommandCenterBarPro
         ) : null}
         <div
           className={clsx(
-            "flex gap-2",
+            "flex flex-col gap-2",
             compact
               ? layoutMobileShell
-                ? "w-full flex-col @min-[480px]:w-auto @min-[480px]:flex-row @min-[480px]:flex-wrap"
-                : "w-full flex-col min-[480px]:w-auto min-[480px]:flex-row min-[480px]:flex-wrap"
-              : "flex-wrap justify-end",
+                ? "w-full @min-[480px]:flex-row @min-[480px]:flex-wrap @min-[480px]:items-stretch"
+                : "w-full min-[480px]:flex-row min-[480px]:flex-wrap min-[480px]:items-stretch"
+              : "w-full",
           )}
         >
-          <button
-            type="button"
-            onClick={() => setSingleOpen(true)}
-            className={`rounded-md border border-emerald-700/50 bg-emerald-900/30 font-medium text-emerald-100 transition hover:border-emerald-600/60 hover:bg-emerald-900/45 ${
+          <div
+            className={clsx(
+              "flex gap-2",
               compact
-                ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
-                : "px-4 py-2.5 text-sm"
-            }`}
+                ? layoutMobileShell
+                  ? "w-full flex-col @min-[480px]:w-auto @min-[480px]:flex-row @min-[480px]:flex-wrap"
+                  : "w-full flex-col min-[480px]:w-auto min-[480px]:flex-row min-[480px]:flex-wrap"
+                : "flex-wrap justify-end",
+            )}
           >
-            Add single lead
-          </button>
-          <button
-            type="button"
-            onClick={() => setBulkOpen(true)}
-            className={`rounded-md border border-white/10 bg-[#0a0a0a] font-medium text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.04] ${
-              compact
-                ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
-                : "px-4 py-2.5 text-sm"
-            }`}
-          >
-            Bulk import (CSV)
-          </button>
-          <button
-            type="button"
-            onClick={() => setHistoryOpen(true)}
-            className={`rounded-md border border-white/10 bg-[#0a0a0a] font-medium text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.04] ${
-              compact
-                ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
-                : "px-4 py-2.5 text-sm"
-            }`}
-          >
-            Recent imports
-          </button>
+            <button
+              type="button"
+              onClick={() => setSingleOpen(true)}
+              className={`rounded-md border border-emerald-700/50 bg-emerald-900/30 font-medium text-emerald-100 transition hover:border-emerald-600/60 hover:bg-emerald-900/45 ${
+                compact
+                  ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                  : "px-4 py-2.5 text-sm"
+              }`}
+            >
+              Add single lead
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkOpen(true)}
+              className={`rounded-md border border-white/10 bg-[#0a0a0a] font-medium text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.04] ${
+                compact
+                  ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                  : "px-4 py-2.5 text-sm"
+              }`}
+            >
+              Bulk import (CSV)
+            </button>
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className={`rounded-md border border-white/10 bg-[#0a0a0a] font-medium text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.04] ${
+                compact
+                  ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                  : "px-4 py-2.5 text-sm"
+              }`}
+            >
+              Recent imports
+            </button>
+          </div>
+          {canManageRoles ? (
+            <Link
+              href="/admin-logs"
+              className={clsx(
+                "inline-flex w-full items-center justify-center rounded-md border border-amber-500/40 bg-gradient-to-r from-amber-950/50 to-amber-900/20 font-semibold text-amber-100/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-amber-400/55 hover:from-amber-900/55 hover:to-amber-950/40",
+                compact
+                  ? "px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                  : "px-4 py-2.5 text-sm",
+              )}
+            >
+              Admin Logs
+            </Link>
+          ) : null}
         </div>
       </div>
 

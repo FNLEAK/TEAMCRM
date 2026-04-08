@@ -536,7 +536,7 @@ export function CrmDashboard({
                   : "sm:flex-row sm:items-center sm:justify-end lg:w-auto",
               )}
             >
-              <CommandCenterBar onDataChanged={refresh} compact />
+              <CommandCenterBar onDataChanged={refresh} compact canManageRoles={canManageRoles} />
             </div>
           </div>
           <div className="mt-4 inline-flex max-w-2xl flex-col gap-1 rounded-xl border border-violet-300/25 bg-gradient-to-r from-violet-500/[0.14] to-black/45 px-3 py-2 backdrop-blur-sm">

@@ -17,6 +17,7 @@
   8. appointments-squad-streak.sql — optional appointments + Realtime
   9. crm-settings.sql             — crm_settings + RLS
   10. closed-deals.sql            — closed_deals + RLS
+  10b. crm-admin-audit-log.sql    — owner-only Admin Logs table + triggers (after team-roles, crm-engine, leads-import-batch, closed-deals)
   11. team-calendar-day-notes.sql (+ team-calendar-day-notes-rls-fix.sql if needed)
   11b. team-calendar-day-notes-updated-by-fk-fix.sql — if `updated_by` FK points at profiles but app sends auth uid
   12. team-chat-messages.sql      — DM + team room + RLS + Realtime publication lines
