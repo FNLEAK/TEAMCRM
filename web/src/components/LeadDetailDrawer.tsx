@@ -14,6 +14,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import {
   isApptLeadLockedForViewer,
   isApptSetStatus,
+  isNewLeadStatus,
   LEAD_STATUSES,
   statusAssignsClaimToActor,
   teamProfileFromDb,
@@ -649,7 +650,7 @@ export function LeadDetailDrawer({
           appt_date?: string | null;
           appt_scheduled_by?: string | null;
         } = { status: next };
-        if (hasClaimedCol && next === "Not Interested") {
+        if (hasClaimedCol && (next === "Not Interested" || next === "New")) {
           payload.claimed_by = null;
         } else if (hasClaimedCol && statusAssignsClaimToActor(next)) {
           payload.claimed_by = userId;
@@ -681,8 +682,11 @@ export function LeadDetailDrawer({
           }
           syncLeadInState(leadId, {
             status: next,
-            ...(hasClaimedCol && next === "Not Interested" ? { claimed_by: null } : {}),
-            ...(hasClaimedCol && next !== "Not Interested" && statusAssignsClaimToActor(next)
+            ...(hasClaimedCol && (next === "Not Interested" || next === "New") ? { claimed_by: null } : {}),
+            ...(hasClaimedCol &&
+            next !== "Not Interested" &&
+            next !== "New" &&
+            statusAssignsClaimToActor(next)
               ? { claimed_by: userId }
               : {}),
             ...(clearsAppt
@@ -985,7 +989,7 @@ export function LeadDetailDrawer({
             <h2 className="mt-1.5 break-words text-xl font-semibold tracking-tight text-zinc-50">
               {lead.company_name ?? "Untitled company"}
             </h2>
-            {lead.claimed_by ? (
+            {lead.claimed_by && !isNewLeadStatus(lead.status) ? (
               <p className="crm-claimed-badge mt-3 inline-flex w-fit items-center gap-2 rounded-full border border-rose-400/35 bg-gradient-to-r from-rose-500/15 to-fuchsia-900/20 px-3 py-1.5 text-xs font-medium text-rose-100/95">
                 <LockMini />
                 <span>
@@ -1079,8 +1083,8 @@ export function LeadDetailDrawer({
               Tap a stage — saves right away, no reload.
               {hasClaimedCol ? (
                 <span className="block pt-1 text-zinc-500">
-                  Called, Interested, Appt Set, and Pending Close record you as the teammate on this lead (Claimed by —
-                  visible to everyone).
+                  New leads stay unclaimed. Called, Interested, Appt Set, and Pending Close record you as the teammate
+                  (Claimed by — uses the name from their profile). Moving back to New clears the claim.
                 </span>
               ) : null}
             </p>

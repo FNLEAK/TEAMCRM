@@ -46,6 +46,7 @@ import {
   isApptLeadLockedForViewer,
   isFavoritedBy,
   isLeadHighPriority,
+  isNewLeadStatus,
   normalizeFavoritedIds,
   teamProfileFromDb,
   type LeadRow,
@@ -145,6 +146,8 @@ export function CrmDashboard({
   const [dailyLeadUpdateCount, setDailyLeadUpdateCount] = useState(0);
   const [dailyLeadUpdateAt, setDailyLeadUpdateAt] = useState<Date | null>(null);
   const totalLeadsKnownRef = useRef(stats.totalLeads);
+  /** Avoid repeat client fetches for `claimed_by` profiles that still lack name/email after first try. */
+  const claimedProfileFetchAttemptedRef = useRef<Set<string>>(new Set());
 
   const drawerLeadLive = drawerLead
     ? (leads.find((l) => l.id === drawerLead.id) ?? drawerLead)
@@ -246,7 +249,7 @@ export function CrmDashboard({
   const viewerDisplayName = useMemo(() => {
     const fromProfile = displayProfessionalName(userId, mergedProfileMap[userId]);
     const w = welcomeFirstName.trim();
-    if (fromProfile.startsWith("Member ") && w) return w;
+    if ((fromProfile === "Teammate" || fromProfile.startsWith("Member ")) && w) return w;
     return fromProfile;
   }, [userId, mergedProfileMap, welcomeFirstName]);
 
@@ -263,7 +266,41 @@ export function CrmDashboard({
 
   useEffect(() => {
     setProfileExtras({});
+    claimedProfileFetchAttemptedRef.current.clear();
   }, [profileMap]);
+
+  useEffect(() => {
+    const need: string[] = [];
+    for (const row of leads) {
+      const id = row.claimed_by?.trim();
+      if (!id || isNewLeadStatus(row.status)) continue;
+      if (claimedProfileFetchAttemptedRef.current.has(id)) continue;
+      const p = mergedProfileMap[id];
+      if (p?.fullName?.trim() || p?.firstName?.trim() || p?.email?.trim()) continue;
+      need.push(id);
+    }
+    const uniq = [...new Set(need)];
+    if (uniq.length === 0) return;
+    const supabase = createSupabaseBrowserClient();
+    void fetchProfilesByIds(supabase, uniq).then(({ data, error }) => {
+      for (const id of uniq) claimedProfileFetchAttemptedRef.current.add(id);
+      if (error || !data?.length) return;
+      setProfileExtras((prev) => {
+        const next = { ...prev };
+        for (const pr of data) {
+          const id = pr.id as string;
+          next[id] = teamProfileFromDb({
+            id,
+            first_name: pr.first_name ?? null,
+            full_name: pr.full_name ?? null,
+            avatar_initials: pr.avatar_initials ?? null,
+            email: pr.email ?? null,
+          });
+        }
+        return next;
+      });
+    });
+  }, [leads, mergedProfileMap]);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -1039,7 +1076,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
                             Priority
                           </span>
                         ) : null}
-                        {row.claimed_by ? (
+                        {row.claimed_by && !isNewLeadStatus(row.status) ? (
                           <ClaimedByBadge
                             name={displayProfessionalName(
                               row.claimed_by,

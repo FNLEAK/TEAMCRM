@@ -1,10 +1,12 @@
 import type { TeamProfile } from "@/lib/leadTypes";
 import { readableEmailLocalPart } from "@/lib/readableEmailLocal";
 
-/** Short, human-readable fallback when `profiles.first_name` is missing (never the old “Teammate” label). */
-export function anonymousUserLabel(userId: string): string {
-  const hex = userId.replace(/-/g, "");
-  return `Member ${hex.slice(-4)}`;
+/**
+ * Last-resort label when `profiles` has no name or email (avoid random id fragments in UI).
+ * Prefer loading `profiles` via `fetchProfilesByIds` / `teamProfileFromDb` so real names show.
+ */
+export function anonymousUserLabel(_userId: string): string {
+  return "Teammate";
 }
 
 function labelLooksLikeIdFragment(label: string): boolean {

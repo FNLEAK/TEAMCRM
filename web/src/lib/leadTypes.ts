@@ -61,6 +61,11 @@ export function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
   );
 }
 
+/** Unclaimed pool — no “Claimed by” badge; saving New clears `claimed_by` when that column is enabled. */
+export function isNewLeadStatus(status: string | null | undefined): boolean {
+  return (status ?? "").trim().toLowerCase() === "new";
+}
+
 /** Internal bucket for statuses outside `LEAD_STATUSES` (DB may use legacy/custom values). */
 export const NON_CANONICAL_STAGE_KEY = "Other";
 
