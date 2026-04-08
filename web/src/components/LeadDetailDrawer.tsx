@@ -29,7 +29,6 @@ import { buildTelHref } from "@/lib/phone";
 import { timezoneHintFromPhone } from "@/lib/phoneTimezone";
 import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
 import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
-import { LeadJobDemoSection } from "@/components/LeadJobDemoSection";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
@@ -265,7 +264,6 @@ export function LeadDetailDrawer({
   const hasScheduledByCol = process.env.NEXT_PUBLIC_LEADS_HAS_APPT_SCHEDULED_BY !== "false";
   const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false";
   const hasHighPriorityCol = process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false";
-  const hasJobDemoCol = process.env.NEXT_PUBLIC_LEADS_HAS_JOB_DEMO !== "false";
 
   useEffect(() => {
     setStatus(normalizeStatus(lead.status));
@@ -1283,17 +1281,6 @@ export function LeadDetailDrawer({
               <span className="font-mono text-xs text-zinc-500">{lead.id}</span>
             </DetailItem>
           </dl>
-
-          {hasJobDemoCol ? (
-            <LeadJobDemoSection
-              leadId={leadId}
-              lead={lead}
-              disabled={apptStatusLocked}
-              syncLeadInState={syncLeadInState}
-              onBanner={setCloseToast}
-              onLeadMetaChanged={onLeadMetaChanged}
-            />
-          ) : null}
 
           {/* —— Activity timeline —— */}
           <section className="mt-8 rounded-2xl border border-emerald-950/30 bg-[#080808]/80 p-4 ring-1 ring-black/25">

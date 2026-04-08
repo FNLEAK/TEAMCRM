@@ -34,11 +34,6 @@ export type LeadRow = {
   created_at?: string | null;
   /** Team-visible — see `supabase/leads-high-priority.sql`. Omit from API if env disables column. */
   is_high_priority?: boolean | null;
-  /** Job proof / demo — see `supabase/leads-job-demo-proof.sql`. Omit selects if `NEXT_PUBLIC_LEADS_HAS_JOB_DEMO=false`. */
-  selected_demo_url?: string | null;
-  demo_sent_status?: boolean | null;
-  demo_sent_at?: string | null;
-  demo_share_token?: string | null;
 };
 
 /** Canonical pipeline values (store exact casing in DB for consistent pills). */
@@ -93,14 +88,6 @@ export function isApptSetStatus(status: string | null | undefined): boolean {
 
 export function isLeadHighPriority(row: Pick<LeadRow, "is_high_priority">): boolean {
   return row.is_high_priority === true;
-}
-
-export function leadHasPinnedDemo(row: Pick<LeadRow, "selected_demo_url">): boolean {
-  return Boolean(row.selected_demo_url?.trim());
-}
-
-export function isLeadDemoSent(row: Pick<LeadRow, "demo_sent_status">): boolean {
-  return row.demo_sent_status === true;
 }
 
 /**

@@ -57,19 +57,5 @@ export function mergeLeadFromRealtime(prev: LeadRow, raw: Record<string, unknown
         ? prev.import_filename
         : (raw.import_filename as string | null | undefined),
     created_at: (raw.created_at as string | null | undefined) ?? prev.created_at,
-    selected_demo_url:
-      raw.selected_demo_url === undefined
-        ? prev.selected_demo_url
-        : (raw.selected_demo_url as string | null),
-    demo_sent_status:
-      raw.demo_sent_status === undefined
-        ? prev.demo_sent_status
-        : (raw.demo_sent_status as boolean | null),
-    demo_sent_at:
-      raw.demo_sent_at === undefined ? prev.demo_sent_at : (raw.demo_sent_at as string | null),
-    demo_share_token:
-      raw.demo_share_token === undefined
-        ? prev.demo_share_token
-        : (raw.demo_share_token as string | null),
   };
 }

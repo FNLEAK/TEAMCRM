@@ -3,11 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
-import { CheckCircle, XCircle } from "lucide-react";
 import {
-  isLeadDemoSent,
   isLeadHighPriority,
-  leadHasPinnedDemo,
   LEAD_STATUSES,
   NON_CANONICAL_STAGE_KEY,
   pipelineStageDisplayLabel,
@@ -190,7 +187,6 @@ export function PipelineCommandCenter({
 
   const { leads, profileLabels, ownerRoles, metrics, stageCounts } = cc;
   const { isMobileShell: layoutMobileShell } = useDeskLayout();
-  const showJobDemoCol = process.env.NEXT_PUBLIC_LEADS_HAS_JOB_DEMO !== "false";
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
@@ -918,29 +914,6 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                               <span className="truncate text-[13px] font-semibold text-slate-100">
                                 {lead.company_name ?? "Untitled"}
                               </span>
-                              {showJobDemoCol && leadHasPinnedDemo(lead) ? (
-                                isLeadDemoSent(lead) ? (
-                                  <span className="mt-0.5 shrink-0" title="Demo sent">
-                                    <CheckCircle
-                                      className="h-3.5 w-3.5 text-emerald-400"
-                                      strokeWidth={2.5}
-                                      aria-label="Demo sent"
-                                    />
-                                  </span>
-                                ) : (
-                                  <span
-                                    className="relative mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center"
-                                    title="Demo not sent"
-                                  >
-                                    <span className="absolute h-2.5 w-2.5 rounded-full bg-rose-500/50 crm-live-dot" />
-                                    <XCircle
-                                      className="relative h-3.5 w-3.5 text-rose-400/90"
-                                      strokeWidth={2.5}
-                                      aria-label="Demo not sent"
-                                    />
-                                  </span>
-                                )
-                              ) : null}
                             </div>
                             <span
                               className={clsx("h-2.5 w-2.5 shrink-0 rounded-full", presenceDotClass(`${lead.id}-p`))}
