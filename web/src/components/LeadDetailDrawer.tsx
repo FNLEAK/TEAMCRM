@@ -1274,14 +1274,16 @@ export function LeadDetailDrawer({
               )}
             </DetailItem>
             {hasDemoSiteCol ? (
-              <LeadDemoSiteSection
-                leadId={leadId}
-                lead={lead}
-                isOwner={isOwner}
-                syncLeadInState={syncLeadInState}
-                onBanner={setCloseToast}
-                onLeadMetaChanged={onLeadMetaChanged}
-              />
+              <div className="col-span-full sm:col-span-2">
+                <LeadDemoSiteSection
+                  leadId={leadId}
+                  lead={lead}
+                  isOwner={isOwner}
+                  syncLeadInState={syncLeadInState}
+                  onBanner={setCloseToast}
+                  onLeadMetaChanged={onLeadMetaChanged}
+                />
+              </div>
             ) : null}
             <DetailItem label="Created">
               <span className="text-zinc-300">
