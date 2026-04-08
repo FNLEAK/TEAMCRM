@@ -3,14 +3,18 @@
 import { useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   ArrowLeft,
   ClipboardList,
   FileText,
   GitBranch,
   Layers,
+  MessageSquare,
   Shield,
   Sparkles,
+  Trophy,
+  Zap,
 } from "lucide-react";
 import { displayProfessionalName } from "@/lib/profileDisplay";
 import type { TeamProfile } from "@/lib/leadTypes";
@@ -242,6 +246,19 @@ function actionLabel(action: string): string {
   }
 }
 
+function statusPillTone(status: string): string {
+  const s = status.trim().toLowerCase();
+  if (s === "interested") return "border-emerald-400/45 bg-emerald-500/20 text-emerald-200";
+  if (s === "demo sent") return "border-sky-400/45 bg-sky-500/20 text-sky-200";
+  if (s.includes("deal") || s.includes("closed")) return "border-amber-400/50 bg-amber-500/20 text-amber-100";
+  if (s === "new") return "border-zinc-400/35 bg-zinc-500/15 text-zinc-200";
+  return "border-cyan-400/35 bg-cyan-500/15 text-cyan-200";
+}
+
+function prettyStatus(status: string): string {
+  return status.trim().replace(/\s+/g, " ").toUpperCase();
+}
+
 export function AdminLogsClient({
   logs,
   actors,
@@ -272,9 +289,20 @@ export function AdminLogsClient({
     return keys.map((k) => ({ day: k, items: map.get(k)! }));
   }, [filtered]);
 
+  const pulseSeries = useMemo(() => {
+    const buckets = new Array(12).fill(0);
+    if (filtered.length === 0) return buckets;
+    for (let i = 0; i < filtered.length; i += 1) {
+      const idx = i % buckets.length;
+      buckets[idx] += 1;
+    }
+    return buckets;
+  }, [filtered]);
+
   return (
     <div className="min-h-svh bg-[var(--color-canvas,#030304)]">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="fixed inset-0 bg-black/35 backdrop-blur-[10px]" />
+      <div className="relative mx-auto mt-[4.5vh] h-[86vh] w-[min(94vw,1700px)] overflow-hidden rounded-3xl border border-cyan-400/35 bg-[#050505]/92 p-4 shadow-[0_0_10px_rgba(34,211,238,0.28),0_28px_80px_-38px_rgba(0,0,0,0.95)]">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <Link
@@ -331,8 +359,39 @@ export function AdminLogsClient({
           ))}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-          <div className="max-h-[72vh] space-y-4 overflow-y-auto pr-1">
+        <div className="grid h-[calc(100%-8.5rem)] gap-5 lg:grid-cols-[minmax(170px,220px)_1fr_minmax(300px,380px)]">
+          <aside className="rounded-2xl border border-cyan-400/25 bg-[linear-gradient(180deg,rgba(34,211,238,0.12),rgba(5,5,5,0.9))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100">Activity Pulse</p>
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-300">
+                <span className="inline-flex h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                Live
+              </span>
+            </div>
+            <div className="mt-4 flex h-16 items-end gap-1.5">
+              {pulseSeries.map((v, idx) => {
+                const h = 6 + (v % 9) * 5;
+                return (
+                  <div
+                    key={idx}
+                    className="w-2.5 rounded-sm bg-gradient-to-t from-cyan-500/25 to-emerald-300/70 shadow-[0_0_10px_-4px_rgba(34,211,238,0.75)]"
+                    style={{ height: `${h}px` }}
+                  />
+                );
+              })}
+            </div>
+            <div className="mt-4 rounded-lg border border-white/10 bg-black/35 p-2">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-zinc-400">System Health</p>
+              <p className="mt-1 text-xs font-semibold text-zinc-200">Realtime stream synchronized</p>
+            </div>
+          </aside>
+
+          <div className="min-h-0 rounded-2xl border border-cyan-400/20 bg-black/30 p-3">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100">Tactical Stream</p>
+              <p className="text-[10px] uppercase tracking-[0.12em] text-zinc-500">{filtered.length} events</p>
+            </div>
+            <div className="max-h-full space-y-4 overflow-y-auto pr-1">
             {byDay.length === 0 ? (
               <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-6 py-16 text-center">
                 <Layers className="mx-auto h-10 w-10 text-zinc-600" aria-hidden />
@@ -355,21 +414,93 @@ export function AdminLogsClient({
                       year: "numeric",
                     })}
                   </h2>
-                  <ul className="space-y-1.5">
+                  <ul className="space-y-2">
                     {items.map((row) => {
                       const actorId = row.actor_id;
                       const actorName = actorId
                         ? displayProfessionalName(actorId, actors[actorId])
                         : "System";
                       const t = new Date(row.created_at);
-                      const timeStr = t.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                      const timeStr = t.toLocaleTimeString(undefined, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      });
+                      const d = (row.details ?? {}) as Record<string, unknown>;
+                      const statusDelta = d.status as { from?: unknown; to?: unknown } | undefined;
+                      const fromStatus = statusDelta?.from ? String(statusDelta.from) : null;
+                      const toStatus = statusDelta?.to ? String(statusDelta.to) : null;
+                      const isDealLike = row.action === "deal_request";
                       return (
-                        <li
+                        <motion.li
                           key={row.id}
-                          className="group rounded-xl border border-white/[0.06] bg-gradient-to-br from-[#0c0e12] to-[#08090b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-cyan-500/20"
+                          layout
+                          initial={{ opacity: 0, y: -26 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ type: "spring", stiffness: 180, damping: 20, mass: 0.8 }}
+                          className={clsx(
+                            "group rounded-xl border px-3 py-3 backdrop-blur-md transition",
+                            "border-cyan-400/30 bg-[#050505]/85 shadow-[0_0_10px_rgba(34,211,238,0.25)]",
+                            isDealLike && "shadow-[0_0_14px_rgba(250,204,21,0.26)]",
+                          )}
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
+                            <div className="min-w-[7.5rem] shrink-0">
+                              <p className="inline-flex rounded-md border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-200 shadow-[0_0_10px_-5px_rgba(34,211,238,0.8)]">
+                                {actorName}
+                              </p>
+                            </div>
                             <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-white">{row.company_name || "Untitled lead"}</p>
+                              <div className="mt-1 flex flex-wrap items-center gap-2">
+                                {row.action === "lead_created" ? (
+                                  <>
+                                    <span className={clsx("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusPillTone("new"))}>
+                                      NEW
+                                    </span>
+                                    {toStatus ? (
+                                      <>
+                                        <span className="text-cyan-300/70">-&gt;</span>
+                                        <span className={clsx("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusPillTone(toStatus))}>
+                                          {prettyStatus(toStatus)}
+                                        </span>
+                                      </>
+                                    ) : null}
+                                  </>
+                                ) : row.action === "lead_updated" && fromStatus && toStatus ? (
+                                  <>
+                                    <span className={clsx("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusPillTone(fromStatus))}>
+                                      {prettyStatus(fromStatus)}
+                                    </span>
+                                    <span className="text-cyan-300/70">-&gt;</span>
+                                    <span className={clsx("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusPillTone(toStatus))}>
+                                      {prettyStatus(toStatus)}
+                                    </span>
+                                  </>
+                                ) : row.action === "deal_request" ? (
+                                  <span className={clsx("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold", statusPillTone("deal closed"))}>
+                                    DEAL
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={clsx(
+                                      "inline-flex items-center rounded-lg border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                                      actionStyle(row.action),
+                                    )}
+                                  >
+                                    {actionLabel(row.action)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.08em] text-zinc-500">
+                                <span>{timeStr}</span>
+                                <span>|</span>
+                                <span>
+                                  Ref: <span className="text-zinc-400">{row.lead_id ? shortLeadRef(row.lead_id) : "n/a"}</span>
+                                </span>
+                              </div>
+                            </div>
+                            <div className="shrink-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span
                                   className={clsx(
@@ -379,40 +510,26 @@ export function AdminLogsClient({
                                 >
                                   {actionLabel(row.action)}
                                 </span>
-                                <span className="text-[11px] tabular-nums text-zinc-500">{timeStr}</span>
                               </div>
-                              <AuditEventBody row={row} actors={actors} />
-                              {row.lead_id ? (
-                                <p className="mt-1 text-[10px] text-zinc-600" title={row.lead_id}>
-                                  Lead ref{" "}
-                                  <span className="font-mono text-zinc-500">{shortLeadRef(row.lead_id)}</span>
-                                  <span className="sr-only">Full id: {row.lead_id}</span>
-                                </p>
-                              ) : null}
-                            </div>
-                            <div className="shrink-0 text-right">
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Actor</p>
-                              <p className="mt-0.5 max-w-[10rem] truncate text-sm font-medium text-emerald-200/90">
-                                {actorName}
-                              </p>
                             </div>
                           </div>
-                        </li>
+                        </motion.li>
                       );
                     })}
                   </ul>
                 </section>
               ))
             )}
+            </div>
           </div>
 
-          <aside className="space-y-4 lg:sticky lg:top-8 lg:self-start">
-            <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-cyan-500/[0.07] to-transparent px-4 py-4">
+          <aside className="space-y-4 min-h-0 overflow-y-auto pr-1">
+            <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.09] via-black/40 to-black/50 px-4 py-4 backdrop-blur-xl">
               <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200/80">
-                <ClipboardList className="h-4 w-4" aria-hidden />
+                <Zap className="h-4 w-4 text-cyan-300" aria-hidden />
                 What we capture
               </h3>
-              <ul className="mt-3 space-y-2 text-xs leading-relaxed text-zinc-400">
+              <ul className="mt-3 space-y-3 text-xs leading-relaxed text-zinc-300">
                 <li className="flex gap-2">
                   <span className="text-emerald-400">●</span>
                   Lead creates + key updates (status, claim, schedule, imports)
@@ -428,6 +545,27 @@ export function AdminLogsClient({
                 <li className="flex gap-2">
                   <span className="text-amber-400">●</span>
                   Deal requests + amount
+                </li>
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.06] via-black/40 to-black/50 px-4 py-4 backdrop-blur-xl">
+              <h3 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200/80">
+                <ClipboardList className="h-4 w-4 text-cyan-300" aria-hidden />
+                System overview
+              </h3>
+              <ul className="mt-3 space-y-3 text-xs leading-relaxed text-zinc-300">
+                <li>
+                  <p className="font-semibold uppercase tracking-[0.12em] text-zinc-100">Realtime syncing</p>
+                  <p>Supabase streams audit rows instantly to all operators.</p>
+                </li>
+                <li>
+                  <p className="font-semibold uppercase tracking-[0.12em] text-zinc-100">Area code mapping</p>
+                  <p>Lead geography feeds the tactical map and region intelligence.</p>
+                </li>
+                <li>
+                  <p className="font-semibold uppercase tracking-[0.12em] text-zinc-100">Secure auditing</p>
+                  <p>Immutable timeline preserves actor, status transitions, and metadata.</p>
                 </li>
               </ul>
             </div>

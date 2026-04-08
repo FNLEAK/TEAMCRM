@@ -81,7 +81,9 @@ export default function ExpandableWarMap() {
   const [isExpanded, setIsExpanded] = useState(false);
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [widgetPulseColor, setWidgetPulseColor] = useState<string>("#06b6d4");
+  const [activePinId, setActivePinId] = useState<string | null>(null);
   const timersRef = useRef<number[]>([]);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const statesGeo = useMemo(() => {
@@ -138,12 +140,34 @@ export default function ExpandableWarMap() {
           origin: { y: 0.65 },
           colors: ["#FFD700", "#FFA500", "#fff3b0"],
         });
+        try {
+          const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+          if (Ctx) {
+            if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+            const ctx = audioCtxRef.current;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.value = 182;
+            gain.gain.value = 0.0001;
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            const now = ctx.currentTime;
+            gain.gain.exponentialRampToValueAtTime(0.025, now + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+            osc.start(now);
+            osc.stop(now + 0.24);
+          }
+        } catch {
+          // Non-blocking enhancement.
+        }
       }
 
       setEvents((prev) => {
         const withoutLead = prev.filter((e) => e.id !== leadId);
         return [next, ...withoutLead].filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS);
       });
+      setActivePinId(leadId);
     },
     [statesGeo.projection],
   );
@@ -221,18 +245,28 @@ export default function ExpandableWarMap() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.85 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="fixed bottom-5 right-5 z-[70] flex h-16 w-16 items-center justify-center rounded-full border-2 bg-[#0a0a0a]/95"
-            style={{ borderColor: widgetPulseColor, boxShadow: `0 0 26px -8px ${widgetPulseColor}` }}
+            className="fixed left-1/2 top-4 z-[70] flex min-w-[18rem] -translate-x-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-left backdrop-blur-md"
+            style={{
+              borderColor: widgetPulseColor,
+              background: "rgba(10,10,10,0.88)",
+              boxShadow: `0 0 26px -10px ${widgetPulseColor}`,
+            }}
             aria-label="Open Live War Room command console"
             title="Open Live War Room"
           >
             <motion.span
-              className="absolute inset-0 rounded-full"
-              style={{ border: `2px solid ${widgetPulseColor}` }}
-              animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.12, 0.8] }}
+              className="absolute inset-0 rounded-2xl"
+              style={{ border: `1px solid ${widgetPulseColor}` }}
+              animate={{ opacity: [0.65, 0.18, 0.65] }}
               transition={{ repeat: Infinity, duration: 1.9, ease: "easeInOut" }}
             />
-            <MapIcon className="relative z-10 h-6 w-6 text-cyan-300" />
+            <span className="relative z-10 rounded-lg bg-cyan-500/20 p-2">
+              <MapIcon className="h-5 w-5 text-cyan-300" />
+            </span>
+            <span className="relative z-10 min-w-0">
+              <span className="block truncate text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</span>
+              <span className="block truncate text-[11px] text-zinc-400">National Expansion Telemetry Console</span>
+            </span>
           </motion.button>
         ) : null}
       </AnimatePresence>
@@ -250,8 +284,14 @@ export default function ExpandableWarMap() {
               initial={{ opacity: 0, scale: 0.94, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 12 }}
-              transition={{ duration: 0.24, ease: "easeOut" }}
+            transition={{ type: "spring", stiffness: 190, damping: 22, mass: 0.85 }}
               className="mx-auto mt-[4.5vh] h-[85vh] w-[min(94vw,1700px)] overflow-hidden rounded-3xl border border-cyan-400/35 bg-[#0a0a0a]/88 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_60px_-22px_rgba(34,211,238,0.45),0_30px_80px_-36px_rgba(0,0,0,0.95)] ring-1 ring-cyan-300/20"
+            style={{
+              background: "rgba(5,5,5,0.92)",
+              borderWidth: "0.5px",
+              borderColor: "rgba(34,211,238,0.6)",
+              boxShadow: "0 0 10px rgba(34,211,238,0.28), 0 30px 80px -36px rgba(0,0,0,0.95)",
+            }}
             >
               <button
                 type="button"
@@ -272,7 +312,7 @@ export default function ExpandableWarMap() {
                 </div>
               </div>
 
-              <div className="grid h-full grid-cols-[minmax(280px,360px)_1fr_minmax(280px,360px)] gap-5 p-6 pt-24">
+              <div className="grid h-full grid-cols-[minmax(330px,440px)_1fr_minmax(280px,380px)] gap-5 p-6 pt-24">
                 <aside className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.1] via-black/35 to-black/50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
                   <h3 className="mb-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100">
                     <Info size={14} className="text-cyan-300" />
@@ -348,44 +388,66 @@ export default function ExpandableWarMap() {
                     {events.map((event) => (
                       <motion.div
                         key={event.id}
-                        initial={{ scale: 0.72, opacity: 0, y: -14 }}
+                        initial={{ scale: 0.72, opacity: 0, y: -38 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.72, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        transition={{ type: "spring", stiffness: 270, damping: 17, mass: 0.6 }}
                         style={{ left: `${event.x}%`, top: `${event.y}%` }}
                         className="absolute -translate-x-1/2 -translate-y-1/2"
+                        onMouseEnter={() => setActivePinId(event.id)}
+                        onMouseLeave={() => setActivePinId((curr) => (curr === event.id ? null : curr))}
                       >
-                        <PinBody type={event.type} />
+                        <button
+                          type="button"
+                          onClick={() => setActivePinId((curr) => (curr === event.id ? null : event.id))}
+                          className="cursor-pointer"
+                        >
+                          <PinBody type={event.type} />
+                        </button>
 
-                        <div className="mt-2 min-w-[220px] rounded-xl border border-white/20 bg-white/[0.08] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]">
-                          <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
-                            <StatusIcon type={event.type} />
-                            <span>
-                              {event.type === "interested"
-                                ? "Interested"
-                                : event.type === "demo_sent"
-                                  ? "Demo Sent"
-                                  : "Deal Closed"}
-                            </span>
-                          </p>
-                          <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
-                          <p className="mt-1 flex items-center gap-2 text-zinc-300">
-                            <span className="truncate">{event.phone ?? "No phone"}</span>
-                            {event.website ? (
-                              <a
-                                href={event.website}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex text-cyan-300 transition hover:text-cyan-200"
-                              >
-                                <ExternalLink size={12} />
-                              </a>
-                            ) : null}
-                          </p>
-                          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
-                            Activity: {activityAgoText(event.activityAtMs)}
-                          </p>
-                        </div>
+                        <AnimatePresence>
+                          {activePinId === event.id ? (
+                            <motion.div
+                              initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                              transition={{ duration: 0.16, ease: "easeOut" }}
+                              className="mt-2 min-w-[240px] rounded-xl border border-white/25 bg-white/[0.09] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]"
+                            >
+                              <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
+                                <StatusIcon type={event.type} />
+                                <span>
+                                  {event.type === "interested"
+                                    ? "Interested"
+                                    : event.type === "demo_sent"
+                                      ? "Demo Sent"
+                                      : "Deal Closed"}
+                                </span>
+                                <span className="text-zinc-500">|</span>
+                              </p>
+                              <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
+                              <p className="mt-1 flex items-center gap-2 text-zinc-300">
+                                <span className="truncate">{event.phone ?? "No phone"}</span>
+                                {event.website ? (
+                                  <a
+                                    href={event.website}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex text-cyan-300 transition hover:text-cyan-200"
+                                  >
+                                    <ExternalLink size={12} />
+                                  </a>
+                                ) : null}
+                              </p>
+                              <p className="mt-1 rounded border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-300">
+                                Latency: 12ms | Synced
+                              </p>
+                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                                Activity: {activityAgoText(event.activityAtMs)}
+                              </p>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
                       </motion.div>
                     ))}
                   </AnimatePresence>
