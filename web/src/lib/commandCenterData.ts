@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import { LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
 import { displayProfessionalName } from "@/lib/profileDisplay";
 import { fetchProfilesByIds } from "@/lib/profileSelect";
@@ -31,7 +32,7 @@ function commandCenterLeadsSelectBase(): string {
   if (process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false") {
     out = `${out}, is_high_priority`;
   }
-  if (process.env.NEXT_PUBLIC_LEADS_HAS_DEMO_SITE === "true") {
+  if (isDemoSiteFeatureEnabled()) {
     out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at`;
   }
   return out;

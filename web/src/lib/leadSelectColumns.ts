@@ -1,3 +1,5 @@
+import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
+
 /**
  * Shared SELECT list for `leads` (server + client) — keep in sync with `LeadRow`.
  *
@@ -38,8 +40,7 @@ export function getLeadSelectColumns(): string {
   }
   parts.push("created_at");
 
-  /** Opt-in only — avoids broken lead list if DB columns are not migrated yet (see leads-demo-site.sql). */
-  if (process.env.NEXT_PUBLIC_LEADS_HAS_DEMO_SITE === "true") {
+  if (isDemoSiteFeatureEnabled()) {
     parts.push("demo_site_url", "demo_site_sent", "demo_site_sent_at");
   }
 

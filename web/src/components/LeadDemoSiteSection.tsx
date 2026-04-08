@@ -1,14 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import clsx from "clsx";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { setDemoSiteSentAction, setDemoSiteUrlAction } from "@/app/actions/leadDemoSiteActions";
 import { hasDemoSiteUrl, isDemoSiteSent, type LeadRow } from "@/lib/leadTypes";
 
 function demoHref(raw: string): string {
   const t = raw.trim();
   return t.startsWith("http") ? t : `https://${t}`;
+}
+
+/** Same dt/dd shape as LeadDetailDrawer `DetailItem` — sits inside the lead info `<dl>` grid. */
+function GridField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-[11px] font-medium uppercase tracking-wide text-zinc-500">{label}</dt>
+      <dd className="mt-1 text-zinc-200">{children}</dd>
+    </div>
+  );
 }
 
 export function LeadDemoSiteSection({
@@ -101,95 +111,95 @@ export function LeadDemoSiteSection({
   };
 
   return (
-    <section className="mt-6 rounded-xl border border-zinc-800/80 bg-zinc-950/35 p-3">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-500/85">Demo site</h3>
-      <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-        {isOwner
-          ? "Paste a link to the custom demo page for this lead. Team members can open it and mark when the customer has received it."
-          : "Owner-set link for this account. Tap the link to open; use the switch when the customer has been sent the demo."}
-      </p>
-
-      {hasUrl ? (
-        <a
-          href={demoHref(lead.demo_site_url!)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 flex items-center gap-2 break-all rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-3 py-2.5 text-sm font-medium text-emerald-300/95 transition hover:border-emerald-600/45 hover:bg-emerald-950/35 hover:text-emerald-200"
-        >
-          <ExternalLink className="h-4 w-4 shrink-0 opacity-80" strokeWidth={2.25} aria-hidden />
-          <span>{lead.demo_site_url}</span>
-        </a>
-      ) : (
-        <p className="mt-3 rounded-lg border border-zinc-800/80 bg-[#09090b]/60 px-3 py-2 text-xs text-zinc-500">
-          No demo link yet.
-        </p>
-      )}
-
-      {isOwner ? (
-        <div className="mt-3 space-y-2 border-t border-zinc-800/60 pt-3">
-          <label htmlFor={`demo-site-url-${leadId}`} className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
-            Set demo URL <span className="text-amber-200/80">(owners only)</span>
-          </label>
-          <input
-            id={`demo-site-url-${leadId}`}
-            type="url"
-            inputMode="url"
-            placeholder="https://demo.example.com/…"
-            disabled={urlBusy}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="h-10 w-full rounded-lg border border-zinc-700/70 bg-[#0c0c0e] px-3 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500/45 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
-          />
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={urlBusy}
-              onClick={() => void saveUrl()}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-emerald-950 transition hover:bg-emerald-500 disabled:opacity-45"
+    <>
+      <GridField label="Demo site">
+        <div className="space-y-2">
+          {hasUrl ? (
+            <a
+              href={demoHref(lead.demo_site_url!)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="break-all font-medium text-emerald-300/90 hover:text-emerald-200 hover:underline"
             >
-              {urlBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save link"}
-            </button>
-            {hasUrl ? (
-              <button
-                type="button"
-                disabled={urlBusy}
-                onClick={() => void clearUrl()}
-                className="rounded-lg border border-zinc-600/70 px-4 py-2 text-xs font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-45"
-              >
-                Remove
-              </button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="mt-4 flex items-start justify-between gap-3 border-t border-zinc-800/60 pt-4">
-        <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">Sent to customer</p>
-          <p className="mt-1 text-[11px] leading-snug text-zinc-500">Turn on after you share the demo link with them.</p>
-          {sent && sentAt ? <p className="mt-1 text-[10px] text-zinc-600">Marked {sentAt}</p> : null}
-        </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={sent}
-          disabled={sentBusy || (!hasUrl && !sent)}
-          title={!hasUrl && !sent ? "Add a demo link first" : undefined}
-          onClick={() => void toggleSent(!sent)}
-          className={clsx(
-            "relative h-7 w-12 shrink-0 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 disabled:opacity-50",
-            sent ? "border-emerald-400/50 bg-emerald-600/35" : "border-zinc-600/60 bg-zinc-800/80",
+              {lead.demo_site_url}
+            </a>
+          ) : (
+            <span className="text-zinc-600">—</span>
           )}
-        >
-          <span
+          {isOwner ? (
+            <div className="border-t border-zinc-800/70 pt-2">
+              <label htmlFor={`demo-site-url-${leadId}`} className="sr-only">
+                Demo site URL
+              </label>
+              <input
+                id={`demo-site-url-${leadId}`}
+                type="url"
+                inputMode="url"
+                placeholder="https://… (owners only)"
+                disabled={urlBusy}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="h-9 w-full rounded-lg border border-zinc-700/70 bg-[#0c0c0e] px-2.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500/45 focus:outline-none focus:ring-2 focus:ring-emerald-500/15"
+              />
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={urlBusy}
+                  onClick={() => void saveUrl()}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-950 transition hover:bg-emerald-500 disabled:opacity-45"
+                >
+                  {urlBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                </button>
+                {hasUrl ? (
+                  <button
+                    type="button"
+                    disabled={urlBusy}
+                    onClick={() => void clearUrl()}
+                    className="rounded-lg border border-zinc-600/70 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition hover:border-zinc-500 hover:text-zinc-200 disabled:opacity-45"
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </GridField>
+
+      <GridField label="Demo sent">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={sent}
+            disabled={sentBusy || (!hasUrl && !sent)}
+            title={!hasUrl && !sent ? "Owner must add a demo link first" : undefined}
+            onClick={() => void toggleSent(!sent)}
             className={clsx(
-              "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] duration-200",
-              sent ? "left-[calc(100%-1.625rem)]" : "left-0.5",
+              "relative h-7 w-12 shrink-0 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/40 disabled:opacity-50",
+              sent ? "border-emerald-400/50 bg-emerald-600/35" : "border-zinc-600/60 bg-zinc-800/80",
             )}
-          />
-          <span className="sr-only">{sent ? "Sent" : "Not sent"}</span>
-        </button>
-      </div>
-    </section>
+          >
+            <span
+              className={clsx(
+                "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] duration-200",
+                sent ? "left-[calc(100%-1.625rem)]" : "left-0.5",
+              )}
+            />
+            <span className="sr-only">{sent ? "Sent to customer" : "Not sent"}</span>
+          </button>
+          <span className="text-xs text-zinc-500">
+            {sent ? (
+              <>
+                <span className="text-emerald-400/90">Sent</span>
+                {sentAt ? <span className="text-zinc-600"> · {sentAt}</span> : null}
+              </>
+            ) : (
+              "Not sent"
+            )}
+          </span>
+        </div>
+      </GridField>
+    </>
   );
 }
