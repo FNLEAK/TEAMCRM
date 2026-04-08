@@ -94,8 +94,15 @@ export function isLeadHighPriority(row: Pick<LeadRow, "is_high_priority">): bool
   return row.is_high_priority === true;
 }
 
+/** Safe for odd DB/Realtime shapes — avoids calling `.trim` on non-strings. */
+export function normalizeDemoSiteUrl(raw: LeadRow["demo_site_url"]): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw;
+  return String(raw);
+}
+
 export function hasDemoSiteUrl(row: Pick<LeadRow, "demo_site_url">): boolean {
-  return Boolean(row.demo_site_url?.trim());
+  return Boolean(normalizeDemoSiteUrl(row.demo_site_url).trim());
 }
 
 export function isDemoSiteSent(row: Pick<LeadRow, "demo_site_sent">): boolean {

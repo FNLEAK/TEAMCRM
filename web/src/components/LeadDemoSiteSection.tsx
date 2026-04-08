@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { setDemoSiteSentAction, setDemoSiteUrlAction } from "@/app/actions/leadDemoSiteActions";
-import { hasDemoSiteUrl, isDemoSiteSent, type LeadRow } from "@/lib/leadTypes";
+import { hasDemoSiteUrl, isDemoSiteSent, normalizeDemoSiteUrl, type LeadRow } from "@/lib/leadTypes";
 
-function demoHref(raw: string): string {
-  const t = raw.trim();
+function demoHref(raw: LeadRow["demo_site_url"]): string {
+  const t = normalizeDemoSiteUrl(raw).trim();
+  if (!t) return "#";
   return t.startsWith("http") ? t : `https://${t}`;
 }
 
@@ -26,12 +27,12 @@ export function LeadDemoSiteSection({
   onBanner: (message: string | null) => void;
   onLeadMetaChanged?: () => void;
 }) {
-  const [draft, setDraft] = useState(() => (lead.demo_site_url ?? "").trim());
+  const [draft, setDraft] = useState(() => normalizeDemoSiteUrl(lead.demo_site_url).trim());
   const [urlBusy, setUrlBusy] = useState(false);
   const [sentBusy, setSentBusy] = useState(false);
 
   useEffect(() => {
-    setDraft((lead.demo_site_url ?? "").trim());
+    setDraft(normalizeDemoSiteUrl(lead.demo_site_url).trim());
   }, [leadId, lead.demo_site_url]);
 
   const hasUrl = hasDemoSiteUrl(lead);
@@ -47,36 +48,46 @@ export function LeadDemoSiteSection({
     if (!isOwner || urlBusy) return;
     setUrlBusy(true);
     onBanner(null);
-    const r = await setDemoSiteUrlAction(leadId, draft);
-    setUrlBusy(false);
-    if (!r.ok) {
-      onBanner(r.error ?? "Could not save demo link.");
-      return;
+    try {
+      const r = await setDemoSiteUrlAction(leadId, draft);
+      if (!r.ok) {
+        onBanner(r.error ?? "Could not save demo link.");
+        return;
+      }
+      const next = draft.trim() || null;
+      syncLeadInState(leadId, { demo_site_url: next });
+      onLeadMetaChanged?.();
+      onBanner(next ? "Demo site link saved." : "Cleared.");
+    } catch {
+      onBanner("Could not save demo link. Check your connection and try again.");
+    } finally {
+      setUrlBusy(false);
     }
-    const next = draft.trim() || null;
-    syncLeadInState(leadId, { demo_site_url: next });
-    onLeadMetaChanged?.();
-    onBanner(next ? "Demo site link saved." : "Cleared.");
   };
 
   const clearUrl = async () => {
     if (!isOwner || urlBusy) return;
     setUrlBusy(true);
     onBanner(null);
-    const r = await setDemoSiteUrlAction(leadId, null);
-    setUrlBusy(false);
-    if (!r.ok) {
-      onBanner(r.error ?? "Could not remove link.");
-      return;
+    try {
+      const r = await setDemoSiteUrlAction(leadId, null);
+      if (!r.ok) {
+        onBanner(r.error ?? "Could not remove link.");
+        return;
+      }
+      setDraft("");
+      syncLeadInState(leadId, {
+        demo_site_url: null,
+        demo_site_sent: false,
+        demo_site_sent_at: null,
+      });
+      onLeadMetaChanged?.();
+      onBanner("Demo site link removed.");
+    } catch {
+      onBanner("Could not remove link. Check your connection and try again.");
+    } finally {
+      setUrlBusy(false);
     }
-    setDraft("");
-    syncLeadInState(leadId, {
-      demo_site_url: null,
-      demo_site_sent: false,
-      demo_site_sent_at: null,
-    });
-    onLeadMetaChanged?.();
-    onBanner("Demo site link removed.");
   };
 
   const setSent = async (next: boolean) => {
@@ -88,17 +99,22 @@ export function LeadDemoSiteSection({
     if (next === sent) return;
     setSentBusy(true);
     onBanner(null);
-    const r = await setDemoSiteSentAction(leadId, next);
-    setSentBusy(false);
-    if (!r.ok) {
-      onBanner(r.error ?? "Could not update status.");
-      return;
+    try {
+      const r = await setDemoSiteSentAction(leadId, next);
+      if (!r.ok) {
+        onBanner(r.error ?? "Could not update status.");
+        return;
+      }
+      syncLeadInState(leadId, {
+        demo_site_sent: next,
+        demo_site_sent_at: r.demo_site_sent_at ?? (next ? new Date().toISOString() : null),
+      });
+      onLeadMetaChanged?.();
+    } catch {
+      onBanner("Could not update status. Check your connection and try again.");
+    } finally {
+      setSentBusy(false);
     }
-    syncLeadInState(leadId, {
-      demo_site_sent: next,
-      demo_site_sent_at: r.demo_site_sent_at ?? (next ? new Date().toISOString() : null),
-    });
-    onLeadMetaChanged?.();
   };
 
   return (
@@ -115,7 +131,7 @@ export function LeadDemoSiteSection({
       {hasUrl ? (
         <div className="mt-3 space-y-2">
           <a
-            href={demoHref(lead.demo_site_url!)}
+            href={demoHref(lead.demo_site_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex w-full items-center justify-center gap-2 rounded-lg border border-emerald-600/45 bg-emerald-500/[0.12] py-2.5 text-sm font-semibold text-emerald-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-emerald-500/55 hover:bg-emerald-500/[0.18]"
@@ -123,7 +139,9 @@ export function LeadDemoSiteSection({
             <ExternalLink className="h-4 w-4 shrink-0 opacity-90" strokeWidth={2.25} aria-hidden />
             Open demo site
           </a>
-          <p className="break-all text-center text-[11px] text-zinc-500">{lead.demo_site_url}</p>
+          <p className="break-all text-center text-[11px] text-zinc-500">
+            {normalizeDemoSiteUrl(lead.demo_site_url)}
+          </p>
         </div>
       ) : (
         <p className="mt-3 rounded-lg border border-dashed border-zinc-700/60 bg-[#09090b]/50 px-3 py-2.5 text-center text-xs text-zinc-500">
