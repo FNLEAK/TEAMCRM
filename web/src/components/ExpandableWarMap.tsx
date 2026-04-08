@@ -248,45 +248,58 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
     };
   }, [supabase, triggerEvent]);
 
+  const fab = portalReady ? (
+    <AnimatePresence>
+      {!isExpanded ? (
+        <motion.button
+          key="war-map-fab"
+          type="button"
+          onClick={() => setIsExpanded(true)}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.6 }}
+          transition={{ type: "spring", stiffness: 400, damping: 28 }}
+          className="fixed bottom-6 right-6 z-[70] flex h-16 w-16 items-center justify-center rounded-full md:bottom-8 md:right-8"
+          style={{
+            boxShadow: `0 0 0 1px rgba(255,255,255,0.12), 0 0 40px -6px ${widgetPulseColor}, 0 12px 40px -16px rgba(0,0,0,0.9)`,
+          }}
+          aria-label="Open Live War Room command console"
+          title="Open Live War Room"
+        >
+          <motion.span
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{ border: `2px solid ${widgetPulseColor}` }}
+            animate={{ opacity: [0.35, 0.95, 0.35], scale: [1, 1.08, 1] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+          />
+          <motion.span
+            className="pointer-events-none absolute inset-[-10px] rounded-full border"
+            style={{ borderColor: widgetPulseColor }}
+            animate={{ opacity: [0.12, 0.45, 0.12], scale: [1, 1.15, 1] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut", delay: 0.15 }}
+          />
+          <motion.span
+            className="pointer-events-none absolute inset-[-22px] rounded-full"
+            style={{
+              background: `radial-gradient(circle, ${widgetPulseColor}22 0%, transparent 65%)`,
+            }}
+            animate={{ opacity: [0.4, 1, 0.4], scale: [0.92, 1.1, 0.92] }}
+            transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+          />
+          <span
+            className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-zinc-900/95 to-black/95 ring-1 ring-white/15"
+            style={{ boxShadow: `inset 0 1px 0 rgba(255,255,255,0.12), 0 0 24px -4px ${widgetPulseColor}` }}
+          >
+            <MapIcon className="h-6 w-6 text-cyan-200" strokeWidth={1.75} />
+          </span>
+        </motion.button>
+      ) : null}
+    </AnimatePresence>
+  ) : null;
+
   return (
     <>
-      <AnimatePresence>
-        {!isExpanded ? (
-          <div className="flex min-h-[min(28vh,280px)] w-full items-center justify-center px-1 sm:px-2">
-            <motion.button
-              key="war-map-mini"
-              type="button"
-              onClick={() => setIsExpanded(true)}
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative z-10 flex min-w-[min(100%,18rem)] max-w-md flex-shrink-0 items-center gap-3 rounded-2xl border px-4 py-3 text-left backdrop-blur-md"
-              style={{
-                borderColor: widgetPulseColor,
-                background: "rgba(10,10,10,0.88)",
-                boxShadow: `0 0 26px -10px ${widgetPulseColor}`,
-              }}
-              aria-label="Open Live War Room command console"
-              title="Open Live War Room"
-            >
-              <motion.span
-                className="pointer-events-none absolute inset-0 rounded-2xl"
-                style={{ border: `1px solid ${widgetPulseColor}` }}
-                animate={{ opacity: [0.65, 0.18, 0.65] }}
-                transition={{ repeat: Infinity, duration: 1.9, ease: "easeInOut" }}
-              />
-              <span className="relative z-10 rounded-lg bg-cyan-500/20 p-2">
-                <MapIcon className="h-5 w-5 text-cyan-300" />
-              </span>
-              <span className="relative z-10 min-w-0">
-                <span className="block truncate text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</span>
-                <span className="block truncate text-[11px] text-zinc-400">National Expansion Telemetry Console</span>
-              </span>
-            </motion.button>
-          </div>
-        ) : null}
-      </AnimatePresence>
+      {portalReady && typeof document !== "undefined" ? createPortal(fab, document.body) : null}
 
       <AnimatePresence>
         {isExpanded ? (
@@ -313,23 +326,13 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
               <button
                 type="button"
                 onClick={() => setIsExpanded(false)}
-                className="absolute right-6 top-6 z-30 inline-flex items-center gap-1 rounded-md border border-white/20 bg-black/45 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-cyan-400/55 hover:text-white"
+                className="absolute right-6 top-6 z-40 inline-flex items-center gap-1 rounded-md border border-white/20 bg-black/45 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-cyan-400/55 hover:text-white"
               >
                 <X size={14} />
                 Minimize
               </button>
 
-              <div className="absolute left-6 top-6 z-20 flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 px-4 py-3 backdrop-blur-md">
-                <div className="rounded-lg bg-cyan-500/20 p-2">
-                  <MapIcon className="h-5 w-5 text-cyan-400" />
-                </div>
-                <div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-white">Live War Room</h2>
-                  <p className="text-[10px] text-zinc-400">National Expansion Telemetry Console</p>
-                </div>
-              </div>
-
-              <div className="grid h-full grid-cols-[minmax(330px,440px)_1fr_minmax(280px,380px)] gap-5 p-6 pt-24">
+              <div className="grid h-full grid-cols-[minmax(330px,440px)_1fr_minmax(280px,380px)] gap-5 p-6 pt-6">
                 <aside className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.1] via-black/35 to-black/50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
                   <h3 className="mb-6 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-100">
                     <Info size={14} className="text-cyan-300" />
@@ -373,7 +376,16 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                 </aside>
 
                 <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <svg viewBox="0 0 1000 600" className="h-full w-full">
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-3 sm:p-4">
+                    <div className="w-full max-w-[20rem] rounded-xl border border-cyan-400/25 bg-black/50 px-3 py-2.5 text-center shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur-md ring-1 ring-white/10 sm:max-w-[22rem] sm:px-4 sm:py-3">
+                      <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 sm:mb-2 sm:h-9 sm:w-9">
+                        <MapIcon className="h-4 w-4 text-cyan-300 sm:h-5 sm:w-5" />
+                      </div>
+                      <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-white sm:text-[11px]">Live War Room</h2>
+                      <p className="mt-0.5 text-[9px] text-zinc-400 sm:mt-1 sm:text-[10px]">National Expansion Telemetry Console</p>
+                    </div>
+                  </div>
+                  <svg viewBox="0 0 1000 600" className="relative z-0 h-full w-full">
                     <defs>
                       <filter id="command-map-glow" x="-30%" y="-30%" width="160%" height="160%">
                         <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22d3ee" floodOpacity="0.12" />
@@ -410,7 +422,7 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                         exit={{ scale: 0.72, opacity: 0 }}
                         transition={{ type: "spring", stiffness: 270, damping: 17, mass: 0.6 }}
                         style={{ left: `${event.x}%`, top: `${event.y}%` }}
-                        className="absolute -translate-x-1/2 -translate-y-1/2"
+                        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
                         onMouseEnter={() => setActivePinId(event.id)}
                         onMouseLeave={() => setActivePinId((curr) => (curr === event.id ? null : curr))}
                       >
