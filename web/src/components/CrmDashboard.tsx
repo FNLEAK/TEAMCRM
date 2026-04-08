@@ -44,8 +44,10 @@ import { fetchProfilesByIds } from "@/lib/profileSelect";
 import {
   COMPANY_SEARCH_MAX_LEN,
   isApptLeadLockedForViewer,
+  isLeadDemoSent,
   isFavoritedBy,
   isLeadHighPriority,
+  leadHasPinnedDemo,
   normalizeFavoritedIds,
   teamProfileFromDb,
   type LeadRow,
@@ -53,6 +55,7 @@ import {
   PAGE_SIZE,
   SEARCH_DEBOUNCE_MS,
 } from "@/lib/leadTypes";
+import { CheckCircle, XCircle } from "lucide-react";
 
 const MemoTeamCalendarSection = memo(TeamCalendarSection);
 const MemoWeeklyPerformanceCard = memo(WeeklyPerformanceCard);
@@ -958,6 +961,9 @@ const LeadsTableSection = memo(function LeadsTableSection({
   onRowClick: (row: LeadRow) => void;
   onToggleFavorite: (e: MouseEvent<Element>, row: LeadRow) => void | Promise<void>;
 }) {
+  const showJobDemoCol = process.env.NEXT_PUBLIC_LEADS_HAS_JOB_DEMO !== "false";
+  const tableColSpan = showJobDemoCol ? 6 : 5;
+
   return (
     <>
       <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] max-md:overflow-y-visible md:max-h-[58vh] md:overflow-y-auto">
@@ -976,6 +982,14 @@ const LeadsTableSection = memo(function LeadsTableSection({
               <th className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#090b10] px-4 py-2.5 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 Status
               </th>
+              {showJobDemoCol ? (
+                <th
+                  className="sticky top-0 z-10 w-12 border-b border-white/[0.08] bg-[#090b10] px-2 py-2.5 text-center font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                  title="Job demo sent to customer"
+                >
+                  Demo
+                </th>
+              ) : null}
               <th className="sticky top-0 z-10 w-[4.5rem] border-b border-white/[0.08] bg-[#090b10] px-4 py-2.5 text-center font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 Team
               </th>
@@ -984,7 +998,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
           <tbody className="divide-y divide-cyan-300/[0.08]">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-20 text-center text-sm text-zinc-500">
+                <td colSpan={tableColSpan} className="px-5 py-20 text-center text-sm text-zinc-500">
                   {hasSearch
                     ? `No companies match “${searchQuery}”.`
                     : `No leads on this page${favoritesOnly ? " (favorites only)" : ""}.`}
@@ -1070,6 +1084,35 @@ const LeadsTableSection = memo(function LeadsTableSection({
                     <td className="px-4 py-2 align-top">
                       <StatusPill status={row.status} />
                     </td>
+                    {showJobDemoCol ? (
+                      <td className="px-2 py-2 text-center align-top">
+                        {leadHasPinnedDemo(row) ? (
+                          isLeadDemoSent(row) ? (
+                            <span className="mx-auto block w-fit" title="Demo sent to customer">
+                              <CheckCircle
+                                className="h-4 w-4 text-emerald-400"
+                                strokeWidth={2.25}
+                                aria-label="Demo sent"
+                              />
+                            </span>
+                          ) : (
+                            <span
+                              className="relative mx-auto flex h-4 w-4 items-center justify-center"
+                              title="Demo pinned — not marked sent yet"
+                            >
+                              <span className="absolute inline-flex h-3 w-3 rounded-full bg-rose-500/45 crm-live-dot" />
+                              <XCircle
+                                className="relative h-4 w-4 text-rose-400/90"
+                                strokeWidth={2.25}
+                                aria-label="Demo not sent"
+                              />
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-zinc-700">—</span>
+                        )}
+                      </td>
+                    ) : null}
                     <td className="px-4 py-2 text-center align-top">
                       <FavoriteStarCell
                         row={row}

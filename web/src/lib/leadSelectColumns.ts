@@ -38,6 +38,10 @@ export function getLeadSelectColumns(): string {
   }
   parts.push("created_at");
 
+  if (process.env.NEXT_PUBLIC_LEADS_HAS_JOB_DEMO !== "false") {
+    parts.push("selected_demo_url", "demo_sent_status", "demo_sent_at", "demo_share_token");
+  }
+
   let select = parts.join(", ");
   if (!omitApptScheduledBy && embedScheduler) {
     const fkHint =
