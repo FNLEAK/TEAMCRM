@@ -376,8 +376,8 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                 </aside>
 
                 <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-3 sm:p-4">
-                    <div className="w-full max-w-[20rem] rounded-xl border border-cyan-400/25 bg-black/50 px-3 py-2.5 text-center shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur-md ring-1 ring-white/10 sm:max-w-[22rem] sm:px-4 sm:py-3">
+                  <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex w-[min(94%,22rem)] -translate-x-1/2 justify-center px-2 sm:top-4">
+                    <div className="w-full rounded-xl border border-cyan-400/25 bg-black/50 px-3 py-2.5 text-center shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur-md ring-1 ring-white/10 sm:px-4 sm:py-3">
                       <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 sm:mb-2 sm:h-9 sm:w-9">
                         <MapIcon className="h-4 w-4 text-cyan-300 sm:h-5 sm:w-5" />
                       </div>
