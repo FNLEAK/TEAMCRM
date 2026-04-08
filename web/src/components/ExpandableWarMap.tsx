@@ -94,6 +94,38 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
   useEffect(() => {
     onExpandedChange?.(isExpanded);
   }, [isExpanded, onExpandedChange]);
+
+  const [mapZoom, setMapZoom] = useState(1);
+  const [mapPan, setMapPan] = useState({ x: 0, y: 0 });
+  const mapPanRef = useRef(mapPan);
+  const mapDragRef = useRef<{ ox: number; oy: number; px: number; py: number } | null>(null);
+  const mapViewportRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    mapPanRef.current = mapPan;
+  }, [mapPan]);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      setMapZoom(1);
+      setMapPan({ x: 0, y: 0 });
+    }
+  }, [isExpanded]);
+
+  useEffect(() => {
+    if (!isExpanded) return;
+    const el = mapViewportRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const factor = Math.exp(-e.deltaY * 0.0012);
+      setMapZoom((z) => Math.min(5, Math.max(1, z * factor)));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [isExpanded]);
+
   const [events, setEvents] = useState<MapEvent[]>([]);
   const [widgetPulseColor, setWidgetPulseColor] = useState<string>("#06b6d4");
   const [activePinId, setActivePinId] = useState<string | null>(null);
@@ -375,8 +407,8 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                   </div>
                 </aside>
 
-                <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                  <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex w-[min(94%,22rem)] -translate-x-1/2 justify-center px-2 sm:top-4">
+                <section className="relative min-h-[220px] overflow-hidden rounded-2xl border border-white/10 bg-black/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="pointer-events-none absolute left-1/2 top-3 z-30 flex w-[min(94%,22rem)] -translate-x-1/2 justify-center px-2 sm:top-4">
                     <div className="w-full rounded-xl border border-cyan-400/25 bg-black/50 px-3 py-2.5 text-center shadow-[0_0_40px_-12px_rgba(34,211,238,0.35)] backdrop-blur-md ring-1 ring-white/10 sm:px-4 sm:py-3">
                       <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/20 sm:mb-2 sm:h-9 sm:w-9">
                         <MapIcon className="h-4 w-4 text-cyan-300 sm:h-5 sm:w-5" />
@@ -385,101 +417,150 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                       <p className="mt-0.5 text-[9px] text-zinc-400 sm:mt-1 sm:text-[10px]">National Expansion Telemetry Console</p>
                     </div>
                   </div>
-                  <svg viewBox="0 0 1000 600" className="relative z-0 h-full w-full">
-                    <defs>
-                      <filter id="command-map-glow" x="-30%" y="-30%" width="160%" height="160%">
-                        <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22d3ee" floodOpacity="0.12" />
-                      </filter>
-                    </defs>
-                    <g transform="translate(0 8)" filter="url(#command-map-glow)">
-                      {statesGeo.states.features.map((f: any) => (
-                        <path
-                          key={String(f.id)}
-                          d={statesGeo.pathGen(f) ?? ""}
-                          fill="#151515"
-                          stroke="#334155"
-                          strokeWidth={0.85}
-                          vectorEffect="non-scaling-stroke"
-                        />
-                      ))}
-                      <path
-                        d={statesGeo.pathGen(statesGeo.borders) ?? ""}
-                        fill="none"
-                        stroke="#475569"
-                        strokeWidth={0.65}
-                        opacity={0.85}
-                        vectorEffect="non-scaling-stroke"
-                      />
-                    </g>
-                  </svg>
 
-                  <AnimatePresence>
-                    {events.map((event) => (
-                      <motion.div
-                        key={event.id}
-                        initial={{ scale: 0.72, opacity: 0, y: -38 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.72, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 270, damping: 17, mass: 0.6 }}
-                        style={{ left: `${event.x}%`, top: `${event.y}%` }}
-                        className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
-                        onMouseEnter={() => setActivePinId(event.id)}
-                        onMouseLeave={() => setActivePinId((curr) => (curr === event.id ? null : curr))}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setActivePinId((curr) => (curr === event.id ? null : event.id))}
-                          className="cursor-pointer"
-                        >
-                          <PinBody type={event.type} />
-                        </button>
+                  <p className="pointer-events-none absolute bottom-2 left-2 z-30 text-[9px] font-medium uppercase tracking-wider text-zinc-500">
+                    Scroll to zoom · drag to pan
+                  </p>
 
+                  <div
+                    ref={mapViewportRef}
+                    className="absolute inset-0 z-0 cursor-grab touch-none select-none active:cursor-grabbing"
+                    onPointerDown={(e) => {
+                      if (e.button !== 0) return;
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                      mapDragRef.current = {
+                        ox: e.clientX,
+                        oy: e.clientY,
+                        px: mapPanRef.current.x,
+                        py: mapPanRef.current.y,
+                      };
+                    }}
+                    onPointerMove={(e) => {
+                      const d = mapDragRef.current;
+                      if (!d) return;
+                      setMapPan({
+                        x: d.px + (e.clientX - d.ox),
+                        y: d.py + (e.clientY - d.oy),
+                      });
+                    }}
+                    onPointerUp={(e) => {
+                      mapDragRef.current = null;
+                      try {
+                        e.currentTarget.releasePointerCapture(e.pointerId);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    onPointerCancel={() => {
+                      mapDragRef.current = null;
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0 h-full w-full will-change-transform"
+                      style={{
+                        transform: `translate(${mapPan.x}px, ${mapPan.y}px) scale(${mapZoom})`,
+                        transformOrigin: "center center",
+                      }}
+                    >
+                      <svg viewBox="0 0 1000 600" className="relative z-0 h-full w-full" preserveAspectRatio="xMidYMid meet">
+                        <defs>
+                          <filter id="command-map-glow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22d3ee" floodOpacity="0.12" />
+                          </filter>
+                        </defs>
+                        <g transform="translate(0 8)" filter="url(#command-map-glow)">
+                          {statesGeo.states.features.map((f: any) => (
+                            <path
+                              key={String(f.id)}
+                              d={statesGeo.pathGen(f) ?? ""}
+                              fill="#151515"
+                              stroke="#334155"
+                              strokeWidth={0.85}
+                              vectorEffect="non-scaling-stroke"
+                            />
+                          ))}
+                          <path
+                            d={statesGeo.pathGen(statesGeo.borders) ?? ""}
+                            fill="none"
+                            stroke="#475569"
+                            strokeWidth={0.65}
+                            opacity={0.85}
+                            vectorEffect="non-scaling-stroke"
+                          />
+                        </g>
+                      </svg>
+
+                      <div className="absolute inset-0 z-[1]">
                         <AnimatePresence>
-                          {activePinId === event.id ? (
+                          {events.map((event) => (
                             <motion.div
-                              initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                              transition={{ duration: 0.16, ease: "easeOut" }}
-                              className="mt-2 min-w-[240px] rounded-xl border border-white/25 bg-white/[0.09] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]"
+                              key={event.id}
+                              initial={{ scale: 0.72, opacity: 0, y: -38 }}
+                              animate={{ scale: 1, opacity: 1, y: 0 }}
+                              exit={{ scale: 0.72, opacity: 0 }}
+                              transition={{ type: "spring", stiffness: 270, damping: 17, mass: 0.6 }}
+                              style={{ left: `${event.x}%`, top: `${event.y}%` }}
+                              className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+                              onMouseEnter={() => setActivePinId(event.id)}
+                              onMouseLeave={() => setActivePinId((curr) => (curr === event.id ? null : curr))}
                             >
-                              <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
-                                <StatusIcon type={event.type} />
-                                <span>
-                                  {event.type === "interested"
-                                    ? "Interested"
-                                    : event.type === "demo_sent"
-                                      ? "Demo Sent"
-                                      : "Deal Closed"}
-                                </span>
-                                <span className="text-zinc-500">|</span>
-                              </p>
-                              <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
-                              <p className="mt-1 flex items-center gap-2 text-zinc-300">
-                                <span className="truncate">{event.phone ?? "No phone"}</span>
-                                {event.website ? (
-                                  <a
-                                    href={event.website}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex text-cyan-300 transition hover:text-cyan-200"
+                              <button
+                                type="button"
+                                onClick={() => setActivePinId((curr) => (curr === event.id ? null : event.id))}
+                                className="cursor-pointer"
+                              >
+                                <PinBody type={event.type} />
+                              </button>
+
+                              <AnimatePresence>
+                                {activePinId === event.id ? (
+                                  <motion.div
+                                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                                    transition={{ duration: 0.16, ease: "easeOut" }}
+                                    className="mt-2 min-w-[240px] rounded-xl border border-white/25 bg-white/[0.09] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]"
                                   >
-                                    <ExternalLink size={12} />
-                                  </a>
+                                    <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
+                                      <StatusIcon type={event.type} />
+                                      <span>
+                                        {event.type === "interested"
+                                          ? "Interested"
+                                          : event.type === "demo_sent"
+                                            ? "Demo Sent"
+                                            : "Deal Closed"}
+                                      </span>
+                                      <span className="text-zinc-500">|</span>
+                                    </p>
+                                    <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
+                                    <p className="mt-1 flex items-center gap-2 text-zinc-300">
+                                      <span className="truncate">{event.phone ?? "No phone"}</span>
+                                      {event.website ? (
+                                        <a
+                                          href={event.website}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex text-cyan-300 transition hover:text-cyan-200"
+                                        >
+                                          <ExternalLink size={12} />
+                                        </a>
+                                      ) : null}
+                                    </p>
+                                    <p className="mt-1 rounded border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-300">
+                                      Latency: 12ms | Synced
+                                    </p>
+                                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                                      Activity: {activityAgoText(event.activityAtMs)}
+                                    </p>
+                                  </motion.div>
                                 ) : null}
-                              </p>
-                              <p className="mt-1 rounded border border-white/10 bg-black/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-300">
-                                Latency: 12ms | Synced
-                              </p>
-                              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-zinc-400">
-                                Activity: {activityAgoText(event.activityAtMs)}
-                              </p>
+                              </AnimatePresence>
                             </motion.div>
-                          ) : null}
+                          ))}
                         </AnimatePresence>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                      </div>
+                    </div>
+                  </div>
                 </section>
 
                 <aside className="rounded-2xl border border-cyan-500/25 bg-gradient-to-b from-cyan-500/[0.08] via-black/35 to-black/50 p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
