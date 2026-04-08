@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import clsx from "clsx";
 import Link from "next/link";
 import {
@@ -19,6 +19,37 @@ import type { ClosedDealAuditRow } from "@/lib/loadAdminAuditLogs";
 
 type FilterKey = "all" | "leads" | "notes" | "deals";
 
+/** Same pattern as loadAdminAuditLogs — resolve profile UUIDs in audit payloads. */
+const USER_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function shortLeadRef(id: string): string {
+  const t = id.trim();
+  if (t.length <= 12) return t;
+  return `${t.slice(0, 4)}…${t.slice(-4)}`;
+}
+
+function clipText(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max - 1)}…`;
+}
+
+function displayAuditValue(raw: unknown, actors: Record<string, TeamProfile>): string {
+  if (raw == null || raw === "null") return "—";
+  const s = String(raw).trim();
+  if (!s) return "—";
+  if (USER_UUID_RE.test(s)) {
+    return displayProfessionalName(s, actors[s]);
+  }
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    }
+  }
+  return clipText(s, 56);
+}
+
 const FILTER_DEF: { id: FilterKey; label: string; match: (a: string) => boolean }[] = [
   { id: "all", label: "All activity", match: () => true },
   {
@@ -30,51 +61,146 @@ const FILTER_DEF: { id: FilterKey; label: string; match: (a: string) => boolean 
   { id: "deals", label: "Deal requests", match: (a) => a === "deal_request" },
 ];
 
-function formatAuditSummary(row: CrmAuditLogRow): string {
+type ChangeRow = { label: string; from: string; to: string };
+
+function buildLeadUpdateChanges(d: Record<string, unknown>, actors: Record<string, TeamProfile>): ChangeRow[] {
+  const rows: ChangeRow[] = [];
+  const push = (label: string, key: string) => {
+    const v = d[key] as { from?: unknown; to?: unknown } | undefined;
+    if (!v || (v.from === undefined && v.to === undefined)) return;
+    rows.push({
+      label,
+      from: displayAuditValue(v.from, actors),
+      to: displayAuditValue(v.to, actors),
+    });
+  };
+  push("Status", "status");
+  push("Claim", "claimed_by");
+  push("Appointment", "appt_date");
+  push("Company", "company_name");
+  push("Phone", "phone");
+  push("Website", "website");
+  push("Scheduler", "appt_scheduled_by");
+  push("Import file", "import_filename");
+  return rows;
+}
+
+function AuditEventBody({
+  row,
+  actors,
+}: {
+  row: CrmAuditLogRow;
+  actors: Record<string, TeamProfile>;
+}): ReactNode {
   const { action, details, company_name: co } = row;
   const company = co?.trim() || "Untitled lead";
+  const d = (details ?? {}) as Record<string, unknown>;
 
   if (action === "lead_created") {
-    const st = details?.status != null ? String(details.status) : "";
-    return `Added lead · ${company}${st ? ` · status ${st}` : ""}`;
+    const st = d.status != null ? String(d.status) : "";
+    return (
+      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+        <p>
+          <span className="text-zinc-500">New lead</span>{" "}
+          <span className="font-medium text-white">{company}</span>
+          {st ? (
+            <>
+              {" "}
+              <span className="text-zinc-500">· starting at</span>{" "}
+              <span className="text-emerald-200/90">{st}</span>
+            </>
+          ) : null}
+        </p>
+      </div>
+    );
   }
+
   if (action === "lead_deleted") {
-    return `Deleted lead · ${company}`;
+    const lastClaim = d.claimed_by != null ? displayAuditValue(d.claimed_by, actors) : null;
+    return (
+      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+        <p>
+          <span className="text-rose-300/90">Removed</span>{" "}
+          <span className="font-medium text-white">{company}</span>
+        </p>
+        {lastClaim && lastClaim !== "—" ? (
+          <p className="text-xs text-zinc-500">
+            Last claim: <span className="text-zinc-300">{lastClaim}</span>
+          </p>
+        ) : null}
+      </div>
+    );
   }
+
   if (action === "note_added") {
-    const preview = details?.preview != null ? String(details.preview) : "";
-    return `Note on ${company}${preview ? ` · “${preview.slice(0, 90)}${preview.length > 90 ? "…" : ""}”` : ""}`;
+    const preview = d.preview != null ? String(d.preview) : "";
+    return (
+      <div className="mt-2 text-sm text-zinc-200">
+        <p className="text-zinc-500">
+          Note on <span className="font-medium text-white">{company}</span>
+        </p>
+        {preview ? (
+          <p className="mt-1.5 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2.5 py-2 text-[13px] leading-relaxed text-zinc-300">
+            “{clipText(preview, 220)}”
+          </p>
+        ) : null}
+      </div>
+    );
   }
+
   if (action === "deal_request") {
-    const amt = details?.amount != null ? Number(details.amount) : null;
-    const st = details?.approval_status != null ? String(details.approval_status) : "";
+    const amt = d.amount != null ? Number(d.amount) : null;
+    const st = d.approval_status != null ? String(d.approval_status) : "";
     const amtStr =
       amt != null && Number.isFinite(amt)
         ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amt)
         : "";
-    return `Close / deal request · ${company}${amtStr ? ` · ${amtStr}` : ""}${st ? ` · ${st}` : ""}`;
+    return (
+      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+        <p className="font-medium text-white">{company}</p>
+        <p className="text-xs text-zinc-400">
+          {amtStr ? <span className="text-amber-200/90">{amtStr}</span> : null}
+          {amtStr && st ? <span className="text-zinc-600"> · </span> : null}
+          {st ? <span className="capitalize">{st}</span> : null}
+        </p>
+      </div>
+    );
   }
+
   if (action === "lead_updated") {
-    const parts: string[] = [];
-    const d = details ?? {};
-    const pushChange = (label: string, key: string) => {
-      const v = d[key] as { from?: unknown; to?: unknown } | undefined;
-      if (v && (v.from !== undefined || v.to !== undefined)) {
-        parts.push(`${label}: ${String(v.from ?? "—")} → ${String(v.to ?? "—")}`);
-      }
-    };
-    pushChange("Status", "status");
-    pushChange("Claimed by", "claimed_by");
-    pushChange("Appointment", "appt_date");
-    pushChange("Company", "company_name");
-    pushChange("Scheduler", "appt_scheduled_by");
-    pushChange("Import file", "import_filename");
-    if (parts.length === 0) {
-      return `Updated ${company}`;
+    const changes = buildLeadUpdateChanges(d, actors);
+    if (changes.length === 0) {
+      return <p className="mt-2 text-sm text-zinc-400">Updated {company}</p>;
     }
-    return `${company} · ${parts.join(" · ")}`;
+    return (
+      <div className="mt-2 space-y-2">
+        <p className="text-sm font-medium text-white">{company}</p>
+        <ul className="space-y-2">
+          {changes.map((c) => (
+            <li
+              key={c.label}
+              className="flex flex-col gap-1 rounded-lg border border-white/[0.05] bg-black/25 px-2.5 py-2 sm:flex-row sm:items-center sm:gap-3"
+            >
+              <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
+                {c.label}
+              </span>
+              <div className="min-w-0 text-[13px] leading-snug">
+                <span className="text-zinc-500">{c.from}</span>
+                <span className="mx-2 text-zinc-600">→</span>
+                <span className="font-medium text-zinc-100">{c.to}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   }
-  return `${action} · ${company}`;
+
+  return (
+    <p className="mt-2 text-sm text-zinc-300">
+      {action} · {company}
+    </p>
+  );
 }
 
 function actionStyle(action: string): string {
@@ -250,9 +376,13 @@ export function AdminLogsClient({
                                 </span>
                                 <span className="text-[11px] tabular-nums text-zinc-500">{timeStr}</span>
                               </div>
-                              <p className="mt-2 text-sm leading-relaxed text-zinc-200">{formatAuditSummary(row)}</p>
+                              <AuditEventBody row={row} actors={actors} />
                               {row.lead_id ? (
-                                <p className="mt-1 font-mono text-[10px] text-zinc-600">Lead id · {row.lead_id}</p>
+                                <p className="mt-2 text-[10px] text-zinc-600" title={row.lead_id}>
+                                  Lead ref{" "}
+                                  <span className="font-mono text-zinc-500">{shortLeadRef(row.lead_id)}</span>
+                                  <span className="sr-only">Full id: {row.lead_id}</span>
+                                </p>
                               ) : null}
                             </div>
                             <div className="shrink-0 text-right">

@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabaseServer";
 import { canManageRoles } from "@/lib/roleAccess";
 import { OWNER_EMAIL, isOwnerEmail } from "@/lib/ownerRoleGate";
 import {
+  collectAuditRelatedUserIds,
   loadActorProfiles,
   loadAdminAuditLogs,
   loadRecentClosedDealsForAdmin,
@@ -46,8 +47,7 @@ export default async function AdminLogsPage() {
   }
 
   const { rows, tableMissing, error } = await loadAdminAuditLogs(supabase);
-  const actorIds = [...new Set(rows.map((r) => r.actor_id).filter(Boolean))] as string[];
-  const actors = await loadActorProfiles(supabase, actorIds);
+  const actors = await loadActorProfiles(supabase, collectAuditRelatedUserIds(rows));
 
   let fallbackDeals = (await loadRecentClosedDealsForAdmin(supabase)).rows;
   if (!tableMissing) {

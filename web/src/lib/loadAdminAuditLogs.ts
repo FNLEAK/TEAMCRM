@@ -3,6 +3,44 @@ import { fetchProfilesByIds } from "@/lib/profileSelect";
 import { teamProfileFromDb, type TeamProfile } from "@/lib/leadTypes";
 import type { CrmAuditLogRow } from "@/lib/adminAuditTypes";
 
+/** Match auth user / profile UUIDs in audit JSON (not every random uuid field). */
+const USER_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function addUuidIfUserLike(set: Set<string>, v: unknown): void {
+  if (typeof v !== "string") return;
+  if (USER_UUID_RE.test(v)) set.add(v);
+}
+
+/** Scan `details` for user ids so Admin Logs can show names instead of raw UUIDs. */
+export function collectAuditRelatedUserIds(rows: CrmAuditLogRow[]): string[] {
+  const out = new Set<string>();
+  for (const r of rows) {
+    if (r.actor_id) out.add(r.actor_id);
+    const d = r.details;
+    if (!d || typeof d !== "object") continue;
+    const rec = d as Record<string, unknown>;
+
+    const scanPair = (v: unknown) => {
+      if (v == null) return;
+      if (typeof v === "object" && !Array.isArray(v)) {
+        const o = v as Record<string, unknown>;
+        addUuidIfUserLike(out, o.from);
+        addUuidIfUserLike(out, o.to);
+      }
+    };
+
+    scanPair(rec.claimed_by);
+    scanPair(rec.appt_scheduled_by);
+
+    for (const key of ["claimed_by", "appt_scheduled_by", "requested_by"]) {
+      const v = rec[key];
+      if (typeof v === "string") addUuidIfUserLike(out, v);
+    }
+  }
+  return [...out];
+}
+
 export type ClosedDealAuditRow = {
   id: string;
   lead_id: string;
