@@ -29,6 +29,7 @@ import { buildTelHref } from "@/lib/phone";
 import { timezoneHintFromPhone } from "@/lib/phoneTimezone";
 import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
 import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
+import { LeadDemoSiteSection } from "@/components/LeadDemoSiteSection";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
@@ -118,6 +119,8 @@ type LeadDetailDrawerProps = {
   onClose: () => void;
   syncLeadInState: (id: string, patch: Partial<LeadRow>) => void;
   onLeadMetaChanged?: () => void;
+  /** Account owner (same as Role Applier access) — only owners can set demo site URL. */
+  isOwner: boolean;
 };
 
 type PresencePhase = "connecting" | "connected" | "error";
@@ -212,6 +215,7 @@ export function LeadDetailDrawer({
   onClose,
   syncLeadInState,
   onLeadMetaChanged,
+  isOwner,
 }: LeadDetailDrawerProps) {
   const [status, setStatus] = useState<LeadStatusValue>(() => normalizeStatus(lead.status));
   const [statusBusy, setStatusBusy] = useState(false);
@@ -264,6 +268,7 @@ export function LeadDetailDrawer({
   const hasScheduledByCol = process.env.NEXT_PUBLIC_LEADS_HAS_APPT_SCHEDULED_BY !== "false";
   const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false";
   const hasHighPriorityCol = process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false";
+  const hasDemoSiteCol = process.env.NEXT_PUBLIC_LEADS_HAS_DEMO_SITE === "true";
 
   useEffect(() => {
     setStatus(normalizeStatus(lead.status));
@@ -1281,6 +1286,17 @@ export function LeadDetailDrawer({
               <span className="font-mono text-xs text-zinc-500">{lead.id}</span>
             </DetailItem>
           </dl>
+
+          {hasDemoSiteCol ? (
+            <LeadDemoSiteSection
+              leadId={leadId}
+              lead={lead}
+              isOwner={isOwner}
+              syncLeadInState={syncLeadInState}
+              onBanner={setCloseToast}
+              onLeadMetaChanged={onLeadMetaChanged}
+            />
+          ) : null}
 
           {/* —— Activity timeline —— */}
           <section className="mt-8 rounded-2xl border border-emerald-950/30 bg-[#080808]/80 p-4 ring-1 ring-black/25">

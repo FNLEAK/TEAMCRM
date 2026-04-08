@@ -12,6 +12,8 @@
   6. leads-import-batch.sql       — import_batch_id/filename + get_recent_import_batches RPC + delete policy
   7. leads-favorited-by.sql       — favorited_by on leads (stars)
   7b. leads-high-priority.sql     — is_high_priority (team-visible flag)
+  7c. leads-demo-site.sql         — demo_site_* columns; then set NEXT_PUBLIC_LEADS_HAS_DEMO_SITE=true in web/.env.local
+  7d. leads-appt-lock-enforce.sql — re-run if you use appointment lock so demo fields stay editable when locked
   8. appointments-squad-streak.sql — optional appointments + Realtime
   9. crm-settings.sql             — crm_settings + RLS
   10. closed-deals.sql            — closed_deals + RLS

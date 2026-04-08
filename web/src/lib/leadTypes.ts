@@ -34,6 +34,10 @@ export type LeadRow = {
   created_at?: string | null;
   /** Team-visible — see `supabase/leads-high-priority.sql`. Omit from API if env disables column. */
   is_high_priority?: boolean | null;
+  /** Owner-set demo URL — see `supabase/leads-demo-site.sql`. Enable app UI: `NEXT_PUBLIC_LEADS_HAS_DEMO_SITE=true` after SQL. */
+  demo_site_url?: string | null;
+  demo_site_sent?: boolean | null;
+  demo_site_sent_at?: string | null;
 };
 
 /** Canonical pipeline values (store exact casing in DB for consistent pills). */
@@ -88,6 +92,14 @@ export function isApptSetStatus(status: string | null | undefined): boolean {
 
 export function isLeadHighPriority(row: Pick<LeadRow, "is_high_priority">): boolean {
   return row.is_high_priority === true;
+}
+
+export function hasDemoSiteUrl(row: Pick<LeadRow, "demo_site_url">): boolean {
+  return Boolean(row.demo_site_url?.trim());
+}
+
+export function isDemoSiteSent(row: Pick<LeadRow, "demo_site_sent">): boolean {
+  return row.demo_site_sent === true;
 }
 
 /**

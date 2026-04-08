@@ -19,13 +19,22 @@ export type CommandCenterLead = {
   import_filename: string | null;
   created_at: string | null;
   is_high_priority?: boolean | null;
+  demo_site_url?: string | null;
+  demo_site_sent?: boolean | null;
+  demo_site_sent_at?: string | null;
 };
 
 function commandCenterLeadsSelectBase(): string {
   const base =
     "id, company_name, phone, website, status, notes, appt_date, claimed_by, appt_scheduled_by, import_filename, created_at";
-  if (process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY === "false") return base;
-  return `${base}, is_high_priority`;
+  let out = base;
+  if (process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false") {
+    out = `${out}, is_high_priority`;
+  }
+  if (process.env.NEXT_PUBLIC_LEADS_HAS_DEMO_SITE === "true") {
+    out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at`;
+  }
+  return out;
 }
 
 const SELECT = commandCenterLeadsSelectBase();
