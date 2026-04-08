@@ -24,7 +24,7 @@ export type LeadRow = {
    * Populated when the leads select embeds scheduler `profiles` (alias `scheduler_profile`).
    */
   scheduler_profile?: LeadSchedulerProfileEmbed | null;
-  /** Set when status is Claimed — requires `claimed_by` column (opt out with NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=false). */
+  /** Who last “owns” outreach — set when status moves to Called / Interested / Appt Set / Pending Close (see `statusAssignsClaimToActor`). Requires `claimed_by` column unless `NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY=false`. */
   claimed_by?: string | null;
   /** Optional: `squad-streak-lead-activity.sql` — last user who updated the row (Realtime may include it). */
   last_activity_by?: string | null;
@@ -50,6 +50,16 @@ export const LEAD_STATUSES = [
   "Not Interested",
 ] as const;
 export type LeadStatusValue = (typeof LEAD_STATUSES)[number];
+
+/** Pipeline stages where the teammate who saves the update becomes `claimed_by` (list + drawer “Claimed by …”). */
+export function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
+  return (
+    next === "Called" ||
+    next === "Interested" ||
+    next === "Appt Set" ||
+    next === "Pending Close"
+  );
+}
 
 /** Internal bucket for statuses outside `LEAD_STATUSES` (DB may use legacy/custom values). */
 export const NON_CANONICAL_STAGE_KEY = "Other";

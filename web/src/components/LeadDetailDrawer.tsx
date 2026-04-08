@@ -15,6 +15,7 @@ import {
   isApptLeadLockedForViewer,
   isApptSetStatus,
   LEAD_STATUSES,
+  statusAssignsClaimToActor,
   teamProfileFromDb,
   teamProfileFromSchedulerEmbed,
   type LeadRow,
@@ -44,11 +45,6 @@ function normalizeStatus(s: string | null): LeadStatusValue {
   if (t.toLowerCase() === "pending close") return "Pending Close";
   const m = LEAD_STATUSES.find((x) => x.toLowerCase() === t.toLowerCase());
   return m ?? "New";
-}
-
-/** Pipeline stages where the user performing the update becomes `claimed_by` (shows on list + drawer). */
-function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
-  return next === "Called" || next === "Interested" || next === "Appt Set";
 }
 
 function toDatetimeLocalValue(iso: string | null): string {
@@ -899,10 +895,11 @@ export function LeadDetailDrawer({
     setCloseBusy(true);
     const supabase = createSupabaseBrowserClient();
 
-    const { error: statusErr } = await supabase
-      .from("leads")
-      .update({ status: "Pending Close" })
-      .eq("id", leadId);
+    const pendingCloseUpdate: { status: string; claimed_by?: string | null } = { status: "Pending Close" };
+    if (hasClaimedCol && userId) {
+      pendingCloseUpdate.claimed_by = userId;
+    }
+    const { error: statusErr } = await supabase.from("leads").update(pendingCloseUpdate).eq("id", leadId);
     if (statusErr) {
       setCloseBusy(false);
       setCloseToast(formatLeadsUpdateErrorForToast(statusErr));
@@ -929,7 +926,10 @@ export function LeadDetailDrawer({
     }
 
     setStatus("Pending Close");
-    syncLeadInState(leadId, { status: "Pending Close" });
+    syncLeadInState(leadId, {
+      status: "Pending Close",
+      ...(hasClaimedCol && userId ? { claimed_by: userId } : {}),
+    });
     onLeadMetaChanged?.();
 
     setCloseBusy(false);
@@ -941,7 +941,7 @@ export function LeadDetailDrawer({
         ? "Lead moved to Pending Close, but closed_deals insert failed (check table schema/RLS)."
         : "Close request sent! Waiting for Owner approval.",
     );
-  }, [closeAmount, closeBusy, closeNotes, lead, leadId, onLeadMetaChanged, syncLeadInState, userId]);
+  }, [closeAmount, closeBusy, closeNotes, hasClaimedCol, lead, leadId, onLeadMetaChanged, syncLeadInState, userId]);
 
   useEffect(() => {
     if (!closeToast) return;
@@ -1077,6 +1077,12 @@ export function LeadDetailDrawer({
             </h3>
             <p className="mt-0.5 text-[11px] leading-snug text-zinc-500">
               Tap a stage — saves right away, no reload.
+              {hasClaimedCol ? (
+                <span className="block pt-1 text-zinc-500">
+                  Called, Interested, Appt Set, and Pending Close record you as the teammate on this lead (Claimed by —
+                  visible to everyone).
+                </span>
+              ) : null}
             </p>
             <div
               className="mt-2.5 overflow-hidden rounded-lg border border-zinc-800/70 bg-[#09090b] divide-y divide-zinc-800/80"
