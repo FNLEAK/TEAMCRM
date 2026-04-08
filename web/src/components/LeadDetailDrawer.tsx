@@ -998,17 +998,6 @@ export function LeadDetailDrawer({
             ) : null}
           </div>
           <div className="flex shrink-0 items-start gap-1.5">
-            {isOwner ? (
-              <button
-                type="button"
-                onClick={() => setDeleteDialogOpen(true)}
-                className="rounded-lg border border-rose-950/50 p-2 text-rose-400/90 transition hover:border-rose-800/60 hover:bg-rose-950/30 hover:text-rose-200"
-                aria-label="Delete lead"
-                title="Delete lead (owners only)"
-              >
-                <Trash2 className="h-5 w-5" strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -1458,6 +1447,17 @@ export function LeadDetailDrawer({
         ) : null}
 
         <div className="border-t border-emerald-950/25 bg-[#09090b]/90 px-6 py-4">
+          {isOwner ? (
+            <button
+              type="button"
+              onClick={() => setDeleteDialogOpen(true)}
+              className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/40 bg-rose-950/25 py-2.5 text-sm font-semibold text-rose-100 transition hover:border-rose-400/50 hover:bg-rose-950/40"
+              aria-label="Delete this lead"
+            >
+              <Trash2 className="h-4 w-4 shrink-0 opacity-90" strokeWidth={2.25} aria-hidden />
+              Delete
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onClose}
