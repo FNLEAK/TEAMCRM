@@ -13,12 +13,15 @@ import {
   isSameMonth,
   isToday,
   parse,
+  startOfMonth,
   startOfToday,
   startOfWeek,
 } from "date-fns";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   PlusCircleIcon,
   SearchIcon,
 } from "lucide-react";
@@ -47,6 +50,8 @@ interface FullScreenCalendarProps {
   onSelectDay?: (day: Date) => void;
   onSelectEvent?: (event: Event) => void;
   onMonthChange?: (monthStart: Date) => void;
+  /** CRM: appointments are created on leads — use this to scroll to leads or open add flow. */
+  onNewEvent?: () => void;
 }
 
 const colStartClasses = [
@@ -59,7 +64,13 @@ const colStartClasses = [
   "col-start-7",
 ];
 
-export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthChange }: FullScreenCalendarProps) {
+export function FullScreenCalendar({
+  data,
+  onSelectDay,
+  onSelectEvent,
+  onMonthChange,
+  onNewEvent,
+}: FullScreenCalendarProps) {
   const today = startOfToday();
   const [selectedDay, setSelectedDay] = React.useState(today);
   const [currentMonth, setCurrentMonth] = React.useState(format(today, "MMM-yyyy"));
@@ -75,19 +86,33 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
   function previousMonth() {
     const firstDayNextMonth = add(firstDayCurrentMonth, { months: -1 });
     setCurrentMonth(format(firstDayNextMonth, "MMM-yyyy"));
-    onMonthChange?.(firstDayNextMonth);
   }
 
   function nextMonth() {
     const firstDayNextMonth = add(firstDayCurrentMonth, { months: 1 });
     setCurrentMonth(format(firstDayNextMonth, "MMM-yyyy"));
-    onMonthChange?.(firstDayNextMonth);
+  }
+
+  function previousYear() {
+    const next = startOfMonth(add(firstDayCurrentMonth, { years: -1 }));
+    setCurrentMonth(format(next, "MMM-yyyy"));
+  }
+
+  function nextYear() {
+    const next = startOfMonth(add(firstDayCurrentMonth, { years: 1 }));
+    setCurrentMonth(format(next, "MMM-yyyy"));
+  }
+
+  function jumpToMonthYyyyMm(yyyyMm: string) {
+    if (!yyyyMm) return;
+    const d = parse(`${yyyyMm}-01`, "yyyy-MM-dd", new Date());
+    if (Number.isNaN(d.getTime())) return;
+    setCurrentMonth(format(startOfMonth(d), "MMM-yyyy"));
   }
 
   function goToToday() {
     setCurrentMonth(format(today, "MMM-yyyy"));
     setSelectedDay(today);
-    onMonthChange?.(today);
     onSelectDay?.(today);
   }
 
@@ -123,7 +148,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
         </div>
 
         <div className="flex w-full flex-col items-stretch gap-3 @md:flex-row @md:items-center @md:gap-6">
-          <Button variant="outline" size="icon" className="hidden border-cyan-300/20 bg-black/35 @lg:flex">
+          <Button type="button" variant="outline" size="icon" className="hidden border-cyan-300/20 bg-black/35 @lg:flex">
             <SearchIcon size={16} strokeWidth={2} aria-hidden="true" />
           </Button>
 
@@ -131,6 +156,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
 
           <div className="inline-flex w-full min-w-0 -space-x-px rounded-lg shadow-sm shadow-black/5 @md:w-auto rtl:space-x-reverse">
             <Button
+              type="button"
               onClick={previousMonth}
               className="rounded-none border-cyan-300/20 bg-black/35 shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10"
               variant="outline"
@@ -140,6 +166,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
               <ChevronLeftIcon size={16} strokeWidth={2} aria-hidden="true" />
             </Button>
             <Button
+              type="button"
               onClick={goToToday}
               className="w-full rounded-none border-cyan-300/20 bg-black/35 shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10 @md:w-auto"
               variant="outline"
@@ -147,6 +174,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
               Today
             </Button>
             <Button
+              type="button"
               onClick={nextMonth}
               className="rounded-none border-cyan-300/20 bg-black/35 shadow-none first:rounded-s-lg last:rounded-e-lg focus-visible:z-10"
               variant="outline"
@@ -157,10 +185,50 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
             </Button>
           </div>
 
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 @md:w-auto">
+            <Button
+              type="button"
+              onClick={previousYear}
+              variant="outline"
+              size="icon"
+              className="shrink-0 border-cyan-300/20 bg-black/35"
+              aria-label="Previous year"
+              title="Previous year"
+            >
+              <ChevronsLeftIcon size={16} strokeWidth={2} aria-hidden="true" />
+            </Button>
+            <label htmlFor="crm-cal-jump-month" className="sr-only">
+              Jump to month and year
+            </label>
+            <input
+              id="crm-cal-jump-month"
+              type="month"
+              value={format(firstDayCurrentMonth, "yyyy-MM")}
+              onChange={(e) => jumpToMonthYyyyMm(e.target.value)}
+              className="h-9 min-w-0 flex-1 rounded-md border border-cyan-300/25 bg-black/50 px-2 text-sm text-zinc-100 shadow-inner shadow-black/30 [color-scheme:dark] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 @md:min-w-[10.5rem] @md:flex-none"
+            />
+            <Button
+              type="button"
+              onClick={nextYear}
+              variant="outline"
+              size="icon"
+              className="shrink-0 border-cyan-300/20 bg-black/35"
+              aria-label="Next year"
+              title="Next year"
+            >
+              <ChevronsRightIcon size={16} strokeWidth={2} aria-hidden="true" />
+            </Button>
+          </div>
+
           <Separator orientation="vertical" className="hidden h-6 bg-cyan-300/20 @md:block" />
           <Separator orientation="horizontal" className="block w-full bg-cyan-300/20 @md:hidden" />
 
-          <Button className="w-full gap-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-emerald-950 shadow-[0_0_22px_-10px_rgba(16,185,129,0.75)] hover:from-emerald-400 hover:to-cyan-400 @md:w-auto">
+          <Button
+            type="button"
+            onClick={() => onNewEvent?.()}
+            title="Appointments are set on a lead: open the Leads list, pick a lead, set status to Appt Set and choose date & time."
+            className="w-full gap-2 bg-gradient-to-r from-emerald-500 to-cyan-500 text-emerald-950 shadow-[0_0_22px_-10px_rgba(16,185,129,0.75)] hover:from-emerald-400 hover:to-cyan-400 @md:w-auto"
+          >
             <PlusCircleIcon size={16} strokeWidth={2} aria-hidden="true" />
             <span>New Event</span>
           </Button>
@@ -168,7 +236,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
       </div>
 
       <div className="@lg:flex @lg:flex-auto @lg:flex-col">
-        <div className="grid grid-cols-7 border-b border-zinc-700/80 text-center text-[10px] font-semibold leading-tight text-zinc-300 @lg:flex-none @lg:text-xs @lg:leading-6">
+        <div className="grid grid-cols-7 border-b border-zinc-700/80 text-center text-[11px] font-semibold leading-tight text-zinc-300 @lg:flex-none @lg:text-sm @lg:leading-6">
           <div className="border-r border-zinc-700/80 py-1.5 @lg:py-2.5">
             <span className="@lg:hidden">S</span>
             <span className="hidden @lg:inline">Sun</span>
@@ -219,7 +287,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
                     !isToday(day) &&
                     !isSameMonth(day, firstDayCurrentMonth) &&
                     "bg-zinc-900/70 text-zinc-500",
-                  "relative flex min-h-[6.5rem] flex-col border-b border-zinc-700/80 hover:bg-cyan-500/[0.035] focus:z-10 focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
+                  "relative flex min-h-[8rem] flex-col border-b border-zinc-700/80 hover:bg-cyan-500/[0.035] focus:z-10 focus:outline-none focus:ring-2 focus:ring-cyan-500/30",
                   dayIdx % 7 !== 6 && "border-r border-zinc-700/80",
                   !isEqual(day, selectedDay) && "hover:bg-zinc-900/80",
                 )}
@@ -259,21 +327,21 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
                               e.stopPropagation();
                               onSelectEvent?.(event);
                             }}
-                            className="group flex w-full min-w-0 flex-col items-start gap-1.5 rounded-xl border border-cyan-300/20 bg-zinc-900/95 px-2.5 py-2 text-left transition hover:border-cyan-300/45 hover:bg-zinc-900"
+                            className="group flex w-full min-w-0 flex-col items-start gap-1 rounded-xl border border-cyan-300/20 bg-zinc-900/95 px-2.5 py-2.5 text-left transition hover:border-cyan-300/45 hover:bg-zinc-900"
                           >
-                            <p className="w-full truncate text-[12.5px] font-semibold leading-tight text-zinc-100 group-hover:text-white">
+                            <p className="text-[13px] font-semibold leading-none text-cyan-200">{event.time}</p>
+                            <p className="w-full truncate text-[13.5px] font-semibold leading-snug text-zinc-100 group-hover:text-white">
                               {event.name}
                             </p>
-                            <p className="text-[11px] font-medium leading-none text-cyan-200/85">{event.time}</p>
                             {event.scheduledBy ? (
-                              <p className="w-full truncate text-[10px] leading-tight text-zinc-500">
-                                Set by <span className="font-medium text-zinc-400">{event.scheduledBy}</span>
+                              <p className="w-full truncate text-xs font-medium leading-snug text-emerald-200/95">
+                                Set by <span className="font-semibold text-emerald-100">{event.scheduledBy}</span>
                               </p>
                             ) : null}
                           </button>
                         ))}
                         {entry.events.length > 2 && (
-                          <div className="px-1 text-[11px] font-medium text-zinc-400">
+                          <div className="px-1 text-xs font-medium text-zinc-400">
                             + {entry.events.length - 2} more
                           </div>
                         )}
@@ -284,7 +352,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
             ))}
           </div>
 
-          <div className="isolate grid max-h-[min(72dvh,620px)] w-full grid-cols-7 grid-rows-5 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] @lg:hidden">
+          <div className="isolate grid max-h-[min(78dvh,680px)] w-full grid-cols-7 grid-rows-5 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] @lg:hidden">
             {days.map((day, dayIdx) => {
               const dayEvents = data
                 .filter((date) => isSameDay(date.day, day))
@@ -294,7 +362,7 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
                 <div
                   key={dayIdx}
                   className={cn(
-                    "flex min-h-[4.5rem] flex-col border-b border-zinc-700/80 @md:min-h-[5.25rem]",
+                    "flex min-h-[5.25rem] flex-col border-b border-zinc-700/80 @md:min-h-[6rem]",
                     dayIdx % 7 !== 6 && "border-r border-zinc-700/80",
                   )}
                 >
@@ -334,23 +402,23 @@ export function FullScreenCalendar({ data, onSelectDay, onSelectEvent, onMonthCh
                           key={event.id}
                           type="button"
                           onClick={() => onSelectEvent?.(event)}
-                          className="w-full min-w-0 rounded-md border border-cyan-500/20 bg-zinc-950/80 px-1 py-0.5 text-left shadow-sm shadow-black/20 transition hover:border-cyan-400/40 hover:bg-zinc-900/90 @md:px-1.5 @md:py-1"
+                          className="w-full min-w-0 rounded-md border border-cyan-500/20 bg-zinc-950/80 px-1.5 py-1 text-left shadow-sm shadow-black/20 transition hover:border-cyan-400/40 hover:bg-zinc-900/90 @md:px-2 @md:py-1.5"
                         >
-                          <p className="truncate text-[9px] font-bold leading-tight text-cyan-200/95 @md:text-[10px]">
+                          <p className="truncate text-[11px] font-bold leading-tight text-cyan-200 @md:text-xs">
                             {event.time}
                           </p>
-                          <p className="truncate text-[8px] font-medium leading-snug text-zinc-200 @md:text-[9px]">
+                          <p className="truncate text-[10px] font-semibold leading-snug text-zinc-100 @md:text-[11px]">
                             {event.name}
                           </p>
                           {event.scheduledBy ? (
-                            <p className="truncate text-[7.5px] leading-tight text-zinc-500 @md:text-[8px]">
+                            <p className="mt-0.5 truncate text-[10px] font-medium leading-snug text-emerald-200/95 @md:text-[11px]">
                               Set by {event.scheduledBy}
                             </p>
                           ) : null}
                         </button>
                       ))}
                       {totalEv > 2 ? (
-                        <p className="text-center text-[7.5px] font-semibold text-zinc-500 @md:text-[8px]">
+                        <p className="text-center text-[10px] font-semibold text-zinc-400 @md:text-xs">
                           +{totalEv - 2} more
                         </p>
                       ) : null}

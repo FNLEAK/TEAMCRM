@@ -99,14 +99,14 @@ function AuditEventBody({
   if (action === "lead_created") {
     const st = d.status != null ? String(d.status) : "";
     return (
-      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+      <div className="mt-1.5 space-y-1 text-sm text-zinc-200">
         <p>
-          <span className="text-zinc-500">New lead</span>{" "}
+          <span className="text-zinc-500">Added</span>{" "}
           <span className="font-medium text-white">{company}</span>
           {st ? (
             <>
               {" "}
-              <span className="text-zinc-500">· starting at</span>{" "}
+              <span className="text-zinc-500">· status</span>{" "}
               <span className="text-emerald-200/90">{st}</span>
             </>
           ) : null}
@@ -118,7 +118,7 @@ function AuditEventBody({
   if (action === "lead_deleted") {
     const lastClaim = d.claimed_by != null ? displayAuditValue(d.claimed_by, actors) : null;
     return (
-      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+      <div className="mt-1.5 space-y-1 text-sm text-zinc-200">
         <p>
           <span className="text-rose-300/90">Removed</span>{" "}
           <span className="font-medium text-white">{company}</span>
@@ -135,13 +135,13 @@ function AuditEventBody({
   if (action === "note_added") {
     const preview = d.preview != null ? String(d.preview) : "";
     return (
-      <div className="mt-2 text-sm text-zinc-200">
+      <div className="mt-1.5 text-sm text-zinc-200">
         <p className="text-zinc-500">
           Note on <span className="font-medium text-white">{company}</span>
         </p>
         {preview ? (
-          <p className="mt-1.5 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2.5 py-2 text-[13px] leading-relaxed text-zinc-300">
-            “{clipText(preview, 220)}”
+          <p className="mt-1 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2 py-1.5 text-xs leading-relaxed text-zinc-300">
+            “{clipText(preview, 130)}”
           </p>
         ) : null}
       </div>
@@ -156,7 +156,7 @@ function AuditEventBody({
         ? new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(amt)
         : "";
     return (
-      <div className="mt-2 space-y-1 text-sm text-zinc-200">
+      <div className="mt-1.5 space-y-1 text-sm text-zinc-200">
         <p className="font-medium text-white">{company}</p>
         <p className="text-xs text-zinc-400">
           {amtStr ? <span className="text-amber-200/90">{amtStr}</span> : null}
@@ -170,21 +170,23 @@ function AuditEventBody({
   if (action === "lead_updated") {
     const changes = buildLeadUpdateChanges(d, actors);
     if (changes.length === 0) {
-      return <p className="mt-2 text-sm text-zinc-400">Updated {company}</p>;
+      return <p className="mt-1.5 text-sm text-zinc-400">Updated {company}</p>;
     }
+    const visibleChanges = changes.slice(0, 2);
+    const hiddenCount = Math.max(0, changes.length - visibleChanges.length);
     return (
-      <div className="mt-2 space-y-2">
+      <div className="mt-1.5 space-y-1.5">
         <p className="text-sm font-medium text-white">{company}</p>
-        <ul className="space-y-2">
-          {changes.map((c) => (
+        <ul className="space-y-1.5">
+          {visibleChanges.map((c) => (
             <li
               key={c.label}
-              className="flex flex-col gap-1 rounded-lg border border-white/[0.05] bg-black/25 px-2.5 py-2 sm:flex-row sm:items-center sm:gap-3"
+              className="flex flex-col gap-0.5 rounded-lg border border-white/[0.05] bg-black/25 px-2 py-1.5 sm:flex-row sm:items-center sm:gap-2"
             >
               <span className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-500">
                 {c.label}
               </span>
-              <div className="min-w-0 text-[13px] leading-snug">
+              <div className="min-w-0 text-xs leading-snug">
                 <span className="text-zinc-500">{c.from}</span>
                 <span className="mx-2 text-zinc-600">→</span>
                 <span className="font-medium text-zinc-100">{c.to}</span>
@@ -192,6 +194,9 @@ function AuditEventBody({
             </li>
           ))}
         </ul>
+        {hiddenCount > 0 ? (
+          <p className="text-[11px] text-zinc-500">+{hiddenCount} more change{hiddenCount === 1 ? "" : "s"}</p>
+        ) : null}
       </div>
     );
   }
@@ -327,7 +332,7 @@ export function AdminLogsClient({
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-          <div className="space-y-8">
+          <div className="max-h-[72vh] space-y-4 overflow-y-auto pr-1">
             {byDay.length === 0 ? (
               <div className="rounded-2xl border border-zinc-800/80 bg-zinc-950/40 px-6 py-16 text-center">
                 <Layers className="mx-auto h-10 w-10 text-zinc-600" aria-hidden />
@@ -350,7 +355,7 @@ export function AdminLogsClient({
                       year: "numeric",
                     })}
                   </h2>
-                  <ul className="space-y-2">
+                  <ul className="space-y-1.5">
                     {items.map((row) => {
                       const actorId = row.actor_id;
                       const actorName = actorId
@@ -361,7 +366,7 @@ export function AdminLogsClient({
                       return (
                         <li
                           key={row.id}
-                          className="group rounded-2xl border border-white/[0.06] bg-gradient-to-br from-[#0c0e12] to-[#08090b] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-cyan-500/20"
+                          className="group rounded-xl border border-white/[0.06] bg-gradient-to-br from-[#0c0e12] to-[#08090b] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition hover:border-cyan-500/20"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -378,7 +383,7 @@ export function AdminLogsClient({
                               </div>
                               <AuditEventBody row={row} actors={actors} />
                               {row.lead_id ? (
-                                <p className="mt-2 text-[10px] text-zinc-600" title={row.lead_id}>
+                                <p className="mt-1 text-[10px] text-zinc-600" title={row.lead_id}>
                                   Lead ref{" "}
                                   <span className="font-mono text-zinc-500">{shortLeadRef(row.lead_id)}</span>
                                   <span className="sr-only">Full id: {row.lead_id}</span>
@@ -410,11 +415,11 @@ export function AdminLogsClient({
               <ul className="mt-3 space-y-2 text-xs leading-relaxed text-zinc-400">
                 <li className="flex gap-2">
                   <span className="text-emerald-400">●</span>
-                  New leads, edits to status, claim, schedule, imports
+                  Lead creates + key updates (status, claim, schedule, imports)
                 </li>
                 <li className="flex gap-2">
                   <span className="text-violet-400">●</span>
-                  Notes added on a lead (preview only)
+                  Notes (short preview)
                 </li>
                 <li className="flex gap-2">
                   <span className="text-rose-400">●</span>
@@ -422,7 +427,7 @@ export function AdminLogsClient({
                 </li>
                 <li className="flex gap-2">
                   <span className="text-amber-400">●</span>
-                  Deal / close requests with amount
+                  Deal requests + amount
                 </li>
               </ul>
             </div>

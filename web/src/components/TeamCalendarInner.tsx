@@ -482,6 +482,10 @@ export default function TeamCalendarInner({
     [fetchAppointments],
   );
 
+  const handleCalendarNewEvent = useCallback(() => {
+    document.getElementById("crm-leads-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <div
       className={`relative @container min-w-0 crm-calendar-shell text-zinc-100 ${scope === "team" ? "crm-cal-team-heat" : ""}`}
@@ -543,6 +547,7 @@ ACTION: Click any event on the calendar to instantly open that lead's details."
           onSelectDay={handleCalendarDaySelect}
           onSelectEvent={handleCalendarEventSelect}
           onMonthChange={handleCalendarMonthChange}
+          onNewEvent={handleCalendarNewEvent}
         />
       </div>
 

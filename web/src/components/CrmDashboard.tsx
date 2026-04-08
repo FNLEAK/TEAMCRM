@@ -593,7 +593,10 @@ export function CrmDashboard({
           />
         </section>
 
-        <section className="relative overflow-visible rounded-xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.035] via-[#0a0d12]/95 to-[#090b10]/95 ring-1 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.45)]">
+        <section
+          id="crm-leads-section"
+          className="relative overflow-visible rounded-xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.035] via-[#0a0d12]/95 to-[#090b10]/95 ring-1 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.45)]"
+        >
           <div className="flex flex-col gap-1 border-b border-white/[0.08] px-3.5 py-2">
             <div className="flex min-h-[1.5rem] flex-wrap items-center justify-center gap-2.5 text-center">
               <h2 className="text-[19px] font-semibold tracking-tight text-zinc-100">Leads</h2>
