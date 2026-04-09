@@ -1,5 +1,6 @@
 -- Who is currently building the demo for this lead (owners only — avoids two owners duplicating work).
--- Run after `leads-demo-site.sql`. Keep `NEXT_PUBLIC_LEADS_HAS_DEMO_SITE=true` so the app selects these columns.
+-- Run after `leads-demo-site.sql`. Keep `NEXT_PUBLIC_LEADS_HAS_DEMO_SITE=true`.
+-- Then set NEXT_PUBLIC_LEADS_HAS_DEMO_BUILD_CLAIM=true in Vercel / .env.local so the app selects these columns.
 
 alter table public.leads
   add column if not exists demo_build_claimed_by uuid references auth.users (id) on delete set null,

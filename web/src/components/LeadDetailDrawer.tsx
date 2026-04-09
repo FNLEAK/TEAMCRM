@@ -33,6 +33,7 @@ import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
 import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
 import { LeadDemoSiteSection } from "@/components/LeadDemoSiteSection";
 import { deleteLeadAction } from "@/app/actions/deleteLeadAction";
+import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
@@ -342,6 +343,7 @@ export function LeadDetailDrawer({
   }, [lead.claimed_by, leadId, profileMap, activityProfileExtras]);
 
   useEffect(() => {
+    if (!isDemoBuildClaimFeatureEnabled()) return;
     const cid = lead.demo_build_claimed_by;
     if (!cid) return;
     const combined = profileMap[cid] ?? activityProfileExtras[cid];

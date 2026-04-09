@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
+import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
   demoBuildClaimedByUserId,
@@ -995,7 +996,10 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                                 </span>
                               )
                             ) : null}
-                            {col === "Interested" && isDemoSiteFeatureEnabled() && demoBuilderLabel ? (
+                            {col === "Interested" &&
+                            isDemoSiteFeatureEnabled() &&
+                            isDemoBuildClaimFeatureEnabled() &&
+                            demoBuilderLabel ? (
                               <span
                                 className="inline-flex max-w-full rounded-md border border-sky-400/40 bg-sky-500/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-sky-100/90"
                                 title="Owner building this demo"

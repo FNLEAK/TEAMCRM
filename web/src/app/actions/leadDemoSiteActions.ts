@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { canManageRoles } from "@/lib/roleAccess";
 import { createSupabaseServerClient } from "@/lib/supabaseServer";
 
@@ -58,6 +59,13 @@ export async function setDemoSiteSentAction(
 
 /** Owners only. Sets you as the person building this lead’s demo; fails if another owner already claimed. */
 export async function claimDemoBuildAction(leadId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isDemoBuildClaimFeatureEnabled()) {
+    return {
+      ok: false,
+      error:
+        "Demo build coordination is off. Run `web/supabase/leads-demo-build-claim.sql` in Supabase, then set NEXT_PUBLIC_LEADS_HAS_DEMO_BUILD_CLAIM=true.",
+    };
+  }
   const id = leadId?.trim();
   if (!id) return { ok: false, error: "Invalid lead." };
 
@@ -108,6 +116,13 @@ export async function claimDemoBuildAction(leadId: string): Promise<{ ok: boolea
 
 /** Owners only. Clears the demo-build lock (claimer or partner owner — avoids stuck locks). */
 export async function releaseDemoBuildAction(leadId: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isDemoBuildClaimFeatureEnabled()) {
+    return {
+      ok: false,
+      error:
+        "Demo build coordination is off. Run `web/supabase/leads-demo-build-claim.sql` in Supabase, then set NEXT_PUBLIC_LEADS_HAS_DEMO_BUILD_CLAIM=true.",
+    };
+  }
   const id = leadId?.trim();
   if (!id) return { ok: false, error: "Invalid lead." };
 

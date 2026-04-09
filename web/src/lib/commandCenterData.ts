@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import { LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
 import { displayProfessionalName } from "@/lib/profileDisplay";
@@ -35,7 +36,10 @@ function commandCenterLeadsSelectBase(): string {
     out = `${out}, is_high_priority`;
   }
   if (isDemoSiteFeatureEnabled()) {
-    out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at, demo_build_claimed_by, demo_build_claimed_at`;
+    out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at`;
+    if (isDemoBuildClaimFeatureEnabled()) {
+      out = `${out}, demo_build_claimed_by, demo_build_claimed_at`;
+    }
   }
   return out;
 }
@@ -275,7 +279,9 @@ export async function loadCommandCenterPayload(
     if (r.claimed_by) ownerIds.add(r.claimed_by);
     if (r.appt_scheduled_by) ownerIds.add(r.appt_scheduled_by);
     if (r.last_activity_by) ownerIds.add(r.last_activity_by);
-    if (r.demo_build_claimed_by) ownerIds.add(r.demo_build_claimed_by);
+    if (isDemoBuildClaimFeatureEnabled() && r.demo_build_claimed_by) {
+      ownerIds.add(r.demo_build_claimed_by);
+    }
   }
   const { data: profs } = await fetchProfilesByIds(supabase, [...ownerIds]);
   const profileLabels: Record<string, string> = {};

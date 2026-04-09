@@ -9,6 +9,7 @@ import {
   setDemoSiteSentAction,
   setDemoSiteUrlAction,
 } from "@/app/actions/leadDemoSiteActions";
+import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import {
   demoBuildClaimedByUserId,
   hasDemoSiteUrl,
@@ -153,8 +154,10 @@ export function LeadDemoSiteSection({
     }
   };
 
+  const buildClaimOn = isDemoBuildClaimFeatureEnabled();
+
   const claimBuild = async () => {
-    if (!isOwner || buildLockBusy || claimUid) return;
+    if (!buildClaimOn || !isOwner || buildLockBusy || claimUid) return;
     setBuildLockBusy(true);
     onBanner(null);
     try {
@@ -177,7 +180,7 @@ export function LeadDemoSiteSection({
   };
 
   const releaseBuild = async () => {
-    if (!isOwner || buildLockBusy || !claimUid) return;
+    if (!buildClaimOn || !isOwner || buildLockBusy || !claimUid) return;
     setBuildLockBusy(true);
     onBanner(null);
     try {
@@ -207,6 +210,7 @@ export function LeadDemoSiteSection({
         </div>
       </div>
 
+      {buildClaimOn ? (
       <div className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/[0.06] px-3 py-2.5">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-200/85">Who’s building the demo</p>
         <p className="mt-1 text-[11px] leading-snug text-zinc-400">
@@ -265,6 +269,7 @@ export function LeadDemoSiteSection({
           </div>
         ) : null}
       </div>
+      ) : null}
 
       {hasUrl ? (
         <div className="mt-3 space-y-2">
