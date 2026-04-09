@@ -3,8 +3,22 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import { ExternalLink, Loader2 } from "lucide-react";
-import { setDemoSiteSentAction, setDemoSiteUrlAction } from "@/app/actions/leadDemoSiteActions";
-import { hasDemoSiteUrl, isDemoSiteSent, normalizeDemoSiteUrl, type LeadRow } from "@/lib/leadTypes";
+import {
+  claimDemoBuildAction,
+  releaseDemoBuildAction,
+  setDemoSiteSentAction,
+  setDemoSiteUrlAction,
+} from "@/app/actions/leadDemoSiteActions";
+import {
+  demoBuildClaimedByUserId,
+  hasDemoSiteUrl,
+  isDemoSiteSent,
+  isInterestedStage,
+  normalizeDemoSiteUrl,
+  type LeadRow,
+  type TeamProfile,
+} from "@/lib/leadTypes";
+import { displayProfessionalName } from "@/lib/profileDisplay";
 
 function demoHref(raw: LeadRow["demo_site_url"]): string {
   const t = normalizeDemoSiteUrl(raw).trim();
@@ -16,6 +30,9 @@ export function LeadDemoSiteSection({
   leadId,
   lead,
   isOwner,
+  userId,
+  viewerDisplayName,
+  profileMap,
   syncLeadInState,
   onBanner,
   onLeadMetaChanged,
@@ -23,6 +40,9 @@ export function LeadDemoSiteSection({
   leadId: string;
   lead: LeadRow;
   isOwner: boolean;
+  userId: string;
+  viewerDisplayName: string;
+  profileMap: Record<string, TeamProfile>;
   syncLeadInState: (id: string, patch: Partial<LeadRow>) => void;
   onBanner: (message: string | null) => void;
   onLeadMetaChanged?: () => void;
@@ -30,6 +50,7 @@ export function LeadDemoSiteSection({
   const [draft, setDraft] = useState(() => normalizeDemoSiteUrl(lead.demo_site_url).trim());
   const [urlBusy, setUrlBusy] = useState(false);
   const [sentBusy, setSentBusy] = useState(false);
+  const [buildLockBusy, setBuildLockBusy] = useState(false);
 
   useEffect(() => {
     setDraft(normalizeDemoSiteUrl(lead.demo_site_url).trim());
@@ -37,6 +58,21 @@ export function LeadDemoSiteSection({
 
   const hasUrl = hasDemoSiteUrl(lead);
   const sent = isDemoSiteSent(lead);
+  const claimUid = demoBuildClaimedByUserId(lead);
+  const interested = isInterestedStage(lead.status);
+  const claimerDisplay =
+    claimUid != null
+      ? claimUid === userId && viewerDisplayName.trim()
+        ? viewerDisplayName.trim()
+        : displayProfessionalName(claimUid, profileMap[claimUid])
+      : "";
+  const claimAtLabel = lead.demo_build_claimed_at
+    ? new Date(lead.demo_build_claimed_at).toLocaleString(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : null;
+
   const sentAt = lead.demo_site_sent_at
     ? new Date(lead.demo_site_sent_at).toLocaleString(undefined, {
         dateStyle: "medium",
@@ -117,6 +153,49 @@ export function LeadDemoSiteSection({
     }
   };
 
+  const claimBuild = async () => {
+    if (!isOwner || buildLockBusy || claimUid) return;
+    setBuildLockBusy(true);
+    onBanner(null);
+    try {
+      const r = await claimDemoBuildAction(leadId);
+      if (!r.ok) {
+        onBanner(r.error ?? "Could not claim.");
+        return;
+      }
+      syncLeadInState(leadId, {
+        demo_build_claimed_by: userId,
+        demo_build_claimed_at: new Date().toISOString(),
+      });
+      onLeadMetaChanged?.();
+      onBanner("You’re marked as building this demo.");
+    } catch {
+      onBanner("Could not claim. Try again.");
+    } finally {
+      setBuildLockBusy(false);
+    }
+  };
+
+  const releaseBuild = async () => {
+    if (!isOwner || buildLockBusy || !claimUid) return;
+    setBuildLockBusy(true);
+    onBanner(null);
+    try {
+      const r = await releaseDemoBuildAction(leadId);
+      if (!r.ok) {
+        onBanner(r.error ?? "Could not release lock.");
+        return;
+      }
+      syncLeadInState(leadId, { demo_build_claimed_by: null, demo_build_claimed_at: null });
+      onLeadMetaChanged?.();
+      onBanner("Demo build lock cleared.");
+    } catch {
+      onBanner("Could not release. Try again.");
+    } finally {
+      setBuildLockBusy(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-zinc-800/85 bg-zinc-950/40 p-3 ring-1 ring-black/20">
       <div className="flex items-start justify-between gap-2">
@@ -126,6 +205,65 @@ export function LeadDemoSiteSection({
             Custom demo link for this lead — open anytime; owners edit the URL below.
           </p>
         </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-sky-500/25 bg-sky-500/[0.06] px-3 py-2.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-200/85">Who’s building the demo</p>
+        <p className="mt-1 text-[11px] leading-snug text-zinc-400">
+          Only account owners can claim or release. The other owner can release the lock if it was left on by mistake.
+        </p>
+        {claimUid ? (
+          <p className="mt-2 text-xs font-medium text-sky-100/95">
+            <span className="text-sky-300/90">{claimerDisplay}</span>
+            <span className="font-normal text-zinc-500"> is building this demo.</span>
+            {claimAtLabel ? (
+              <span className="mt-0.5 block text-[10px] font-normal text-zinc-600">Since {claimAtLabel}</span>
+            ) : null}
+          </p>
+        ) : (
+          <p className="mt-2 text-xs text-zinc-500">No owner has claimed this yet — only one should build at a time.</p>
+        )}
+        {isOwner ? (
+          <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {interested && !claimUid ? (
+              <button
+                type="button"
+                disabled={buildLockBusy}
+                onClick={() => void claimBuild()}
+                className="rounded-lg border border-sky-500/45 bg-sky-600/20 px-3 py-2 text-xs font-semibold text-sky-100 transition hover:border-sky-400/55 hover:bg-sky-600/30 disabled:opacity-45"
+              >
+                {buildLockBusy ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Claiming…
+                  </span>
+                ) : (
+                  "I’m building this demo"
+                )}
+              </button>
+            ) : null}
+            {!interested && !claimUid ? (
+              <p className="text-[11px] text-zinc-600">Move this lead to Interested to claim who is building the demo.</p>
+            ) : null}
+            {claimUid ? (
+              <button
+                type="button"
+                disabled={buildLockBusy}
+                onClick={() => void releaseBuild()}
+                className="rounded-lg border border-zinc-600/70 bg-zinc-900/60 px-3 py-2 text-xs font-medium text-zinc-300 transition hover:border-zinc-500 hover:bg-zinc-900/90 disabled:opacity-45"
+              >
+                {buildLockBusy ? (
+                  <span className="inline-flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Releasing…
+                  </span>
+                ) : (
+                  "Release lock"
+                )}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {hasUrl ? (

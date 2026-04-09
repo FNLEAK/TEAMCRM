@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type 
 import clsx from "clsx";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
+  demoBuildClaimedByUserId,
   hasDemoSiteUrl,
   isLeadHighPriority,
   LEAD_STATUSES,
@@ -35,6 +36,8 @@ const CC_LEAD_REALTIME_KEYS = [
   "demo_site_url",
   "demo_site_sent",
   "demo_site_sent_at",
+  "demo_build_claimed_by",
+  "demo_build_claimed_at",
 ] as const satisfies readonly (keyof CommandCenterLead)[];
 
 function patchCommandCenterLeadFromRealtime(lead: CommandCenterLead, raw: Record<string, unknown>): CommandCenterLead {
@@ -932,6 +935,10 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                       const ownerName = oid ? profileLabels[oid] ?? "—" : "Unassigned";
                       const hue = oid ? hashHue(oid) : 0;
                       const src = lead.import_filename?.trim() ? "Import" : "Manual";
+                      const demoClaimUid = demoBuildClaimedByUserId(lead);
+                      const demoBuilderLabel = demoClaimUid
+                        ? profileLabels[demoClaimUid] ?? "Owner"
+                        : null;
                       return (
                         <Link
                           key={lead.id}
@@ -987,6 +994,14 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                                   Demo Needs Done
                                 </span>
                               )
+                            ) : null}
+                            {col === "Interested" && isDemoSiteFeatureEnabled() && demoBuilderLabel ? (
+                              <span
+                                className="inline-flex max-w-full rounded-md border border-sky-400/40 bg-sky-500/12 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-sky-100/90"
+                                title="Owner building this demo"
+                              >
+                                <span className="truncate">Building: {demoBuilderLabel}</span>
+                              </span>
                             ) : null}
                           </div>
                           <div className="mt-1.5 flex items-center justify-between gap-2">

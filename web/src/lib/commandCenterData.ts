@@ -23,6 +23,8 @@ export type CommandCenterLead = {
   demo_site_url?: string | null;
   demo_site_sent?: boolean | null;
   demo_site_sent_at?: string | null;
+  demo_build_claimed_by?: string | null;
+  demo_build_claimed_at?: string | null;
 };
 
 function commandCenterLeadsSelectBase(): string {
@@ -33,7 +35,7 @@ function commandCenterLeadsSelectBase(): string {
     out = `${out}, is_high_priority`;
   }
   if (isDemoSiteFeatureEnabled()) {
-    out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at`;
+    out = `${out}, demo_site_url, demo_site_sent, demo_site_sent_at, demo_build_claimed_by, demo_build_claimed_at`;
   }
   return out;
 }
@@ -273,6 +275,7 @@ export async function loadCommandCenterPayload(
     if (r.claimed_by) ownerIds.add(r.claimed_by);
     if (r.appt_scheduled_by) ownerIds.add(r.appt_scheduled_by);
     if (r.last_activity_by) ownerIds.add(r.last_activity_by);
+    if (r.demo_build_claimed_by) ownerIds.add(r.demo_build_claimed_by);
   }
   const { data: profs } = await fetchProfilesByIds(supabase, [...ownerIds]);
   const profileLabels: Record<string, string> = {};

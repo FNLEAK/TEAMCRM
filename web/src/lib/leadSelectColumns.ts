@@ -41,7 +41,13 @@ export function getLeadSelectColumns(): string {
   parts.push("created_at");
 
   if (isDemoSiteFeatureEnabled()) {
-    parts.push("demo_site_url", "demo_site_sent", "demo_site_sent_at");
+    parts.push(
+      "demo_site_url",
+      "demo_site_sent",
+      "demo_site_sent_at",
+      "demo_build_claimed_by",
+      "demo_build_claimed_at",
+    );
   }
 
   let select = parts.join(", ");

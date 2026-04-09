@@ -38,6 +38,9 @@ export type LeadRow = {
   demo_site_url?: string | null;
   demo_site_sent?: boolean | null;
   demo_site_sent_at?: string | null;
+  /** Owner building the demo (see `leads-demo-build-claim.sql`) — selected when demo site feature is on. */
+  demo_build_claimed_by?: string | null;
+  demo_build_claimed_at?: string | null;
 };
 
 /** Canonical pipeline values (store exact casing in DB for consistent pills). */
@@ -64,6 +67,10 @@ export function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
 /** Unclaimed pool — no “Claimed by” badge; saving New clears `claimed_by` when that column is enabled. */
 export function isNewLeadStatus(status: string | null | undefined): boolean {
   return (status ?? "").trim().toLowerCase() === "new";
+}
+
+export function isInterestedStage(status: string | null | undefined): boolean {
+  return (status ?? "").trim().toLowerCase() === "interested";
 }
 
 /** Internal bucket for statuses outside `LEAD_STATUSES` (DB may use legacy/custom values). */
@@ -122,6 +129,13 @@ export function hasDemoSiteUrl(row: Pick<LeadRow, "demo_site_url">): boolean {
 
 export function isDemoSiteSent(row: Pick<LeadRow, "demo_site_sent">): boolean {
   return row.demo_site_sent === true;
+}
+
+export function demoBuildClaimedByUserId(row: Pick<LeadRow, "demo_build_claimed_by">): string | null {
+  const v = row.demo_build_claimed_by;
+  if (v == null || typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length > 0 ? t : null;
 }
 
 /**

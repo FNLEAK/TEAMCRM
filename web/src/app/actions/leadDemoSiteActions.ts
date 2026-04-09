@@ -55,3 +55,79 @@ export async function setDemoSiteSentAction(
   revalidateCrm();
   return { ok: true, demo_site_sent_at };
 }
+
+/** Owners only. Sets you as the person building this lead’s demo; fails if another owner already claimed. */
+export async function claimDemoBuildAction(leadId: string): Promise<{ ok: boolean; error?: string }> {
+  const id = leadId?.trim();
+  if (!id) return { ok: false, error: "Invalid lead." };
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const allowed = await canManageRoles(supabase, user.id, user.email);
+  if (!allowed) {
+    return { ok: false, error: "Only account owners can claim demo work." };
+  }
+
+  const { data: row, error: selErr } = await supabase
+    .from("leads")
+    .select("demo_build_claimed_by")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (selErr) return { ok: false, error: selErr.message };
+  if (!row) return { ok: false, error: "Lead not found." };
+
+  const cur = (row as { demo_build_claimed_by?: string | null }).demo_build_claimed_by?.trim() || null;
+  if (cur && cur !== user.id) {
+    return { ok: false, error: "Another owner is already building this demo." };
+  }
+  if (cur === user.id) {
+    revalidateCrm();
+    return { ok: true };
+  }
+
+  const claimedAt = new Date().toISOString();
+  const { data: updated, error } = await supabase
+    .from("leads")
+    .update({ demo_build_claimed_by: user.id, demo_build_claimed_at: claimedAt })
+    .eq("id", id)
+    .is("demo_build_claimed_by", null)
+    .select("id");
+
+  if (error) return { ok: false, error: error.message };
+  if (!updated?.length) {
+    return { ok: false, error: "Another owner just claimed this demo — refresh and try again." };
+  }
+  revalidateCrm();
+  return { ok: true };
+}
+
+/** Owners only. Clears the demo-build lock (claimer or partner owner — avoids stuck locks). */
+export async function releaseDemoBuildAction(leadId: string): Promise<{ ok: boolean; error?: string }> {
+  const id = leadId?.trim();
+  if (!id) return { ok: false, error: "Invalid lead." };
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Unauthorized" };
+
+  const allowed = await canManageRoles(supabase, user.id, user.email);
+  if (!allowed) {
+    return { ok: false, error: "Only account owners can release a demo build lock." };
+  }
+
+  const { error } = await supabase
+    .from("leads")
+    .update({ demo_build_claimed_by: null, demo_build_claimed_at: null })
+    .eq("id", id);
+
+  if (error) return { ok: false, error: error.message };
+  revalidateCrm();
+  return { ok: true };
+}

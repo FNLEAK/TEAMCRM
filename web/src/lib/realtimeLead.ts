@@ -67,5 +67,13 @@ export function mergeLeadFromRealtime(prev: LeadRow, raw: Record<string, unknown
       raw.demo_site_sent_at === undefined
         ? prev.demo_site_sent_at
         : (raw.demo_site_sent_at as string | null),
+    demo_build_claimed_by:
+      raw.demo_build_claimed_by === undefined
+        ? prev.demo_build_claimed_by
+        : (raw.demo_build_claimed_by as string | null),
+    demo_build_claimed_at:
+      raw.demo_build_claimed_at === undefined
+        ? prev.demo_build_claimed_at
+        : (raw.demo_build_claimed_at as string | null),
   };
 }

@@ -342,6 +342,34 @@ export function LeadDetailDrawer({
   }, [lead.claimed_by, leadId, profileMap, activityProfileExtras]);
 
   useEffect(() => {
+    const cid = lead.demo_build_claimed_by;
+    if (!cid) return;
+    const combined = profileMap[cid] ?? activityProfileExtras[cid];
+    if (teamProfileHasDisplayName(combined)) return;
+
+    let cancelled = false;
+    const supabase = createSupabaseBrowserClient();
+    void (async () => {
+      const { data, error } = await fetchProfileById(supabase, cid);
+      if (cancelled || error || !data) return;
+      const id = data.id as string;
+      setActivityProfileExtras((prev) => ({
+        ...prev,
+        [id]: teamProfileFromDb({
+          id,
+          first_name: data.first_name ?? null,
+          full_name: data.full_name ?? null,
+          avatar_initials: data.avatar_initials ?? null,
+          email: (data as { email?: string | null }).email ?? null,
+        }),
+      }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lead.demo_build_claimed_by, leadId, profileMap, activityProfileExtras]);
+
+  useEffect(() => {
     const ids = new Set<string>();
     for (const a of activities) ids.add(a.user_id);
     const missing = [...ids].filter((id) => !profileMap[id] && !activityProfileExtras[id]);
@@ -1297,6 +1325,9 @@ export function LeadDetailDrawer({
                   leadId={leadId}
                   lead={lead}
                   isOwner={isOwner}
+                  userId={userId}
+                  viewerDisplayName={viewerDisplayName}
+                  profileMap={mergedForActivity}
                   syncLeadInState={syncLeadInState}
                   onBanner={setCloseToast}
                   onLeadMetaChanged={onLeadMetaChanged}

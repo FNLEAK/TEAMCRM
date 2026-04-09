@@ -13,3 +13,5 @@ alter table public.leads
 comment on column public.leads.demo_site_url is 'Sales demo page for this lead — only owners should set via app.';
 comment on column public.leads.demo_site_sent is 'Team: marked when customer received the demo link.';
 comment on column public.leads.demo_site_sent_at is 'When demo_site_sent was last set true.';
+
+-- Optional: owner “who is building this demo” lock — see `leads-demo-build-claim.sql`.
