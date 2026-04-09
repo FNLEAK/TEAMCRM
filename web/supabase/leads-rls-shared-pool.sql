@@ -26,4 +26,4 @@ create policy "leads_update_authenticated_team_pool"
   using (true)
   with check (true);
 
--- Delete: use `leads_delete_authenticated_csv_batch` from leads-import-batch.sql (or add your own).
+-- Delete: use `leads_delete_owner_only` from leads-import-batch.sql (owners + optional bootstrap email).

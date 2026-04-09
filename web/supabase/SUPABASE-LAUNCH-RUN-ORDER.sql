@@ -9,7 +9,8 @@
   3b. leads-status-check.sql      — leads.status CHECK allows Pending Close / Interested (fixes close request errors)
   4. leads-appt-scheduled-by-profiles-fk.sql — optional FK to profiles for scheduler embed
   5. squad-streak-lead-activity.sql — last_activity_by/at + trigger on leads
-  6. leads-import-batch.sql       — import_batch_id/filename + get_recent_import_batches RPC + delete policy
+  6. leads-import-batch.sql       — import_batch_id/filename + get_recent_import_batches RPC + owner-only delete policy
+  6b. leads-delete-owner-only.sql — if you already ran an older import-batch file: replace permissive delete with owner-only
   7. leads-favorited-by.sql       — favorited_by on leads (stars)
   7b. leads-high-priority.sql     — is_high_priority (team-visible flag)
   7c. leads-demo-site.sql         — demo_site_* columns; then set NEXT_PUBLIC_LEADS_HAS_DEMO_SITE=true in web/.env.local

@@ -13,11 +13,14 @@ type CommandCenterBarProps = {
   onDataChanged: () => void;
   /** Hides the label and tightens layout for the dashboard header row. */
   compact?: boolean;
+  /** Import batch delete — owners only (same as server `canManageRoles`). */
+  canDeleteImportBatches: boolean;
 };
 
 export function CommandCenterBar({
   onDataChanged,
   compact,
+  canDeleteImportBatches,
 }: CommandCenterBarProps) {
   const { isMobileShell: layoutMobileShell } = useDeskLayout();
   const [toast, setToast] = useState<ToastState>(null);
@@ -219,6 +222,7 @@ export function CommandCenterBar({
         onClose={() => setHistoryOpen(false)}
         onDataChanged={onDataChanged}
         onNotify={showToast}
+        canDeleteImportBatches={canDeleteImportBatches}
       />
 
       {toast ? (

@@ -540,6 +540,7 @@ export function CrmDashboard({
               <CommandCenterBar
                 onDataChanged={refresh}
                 compact
+                canDeleteImportBatches={canManageRoles}
               />
             </div>
           </div>

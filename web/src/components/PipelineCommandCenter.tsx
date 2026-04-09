@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
+import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
+  hasDemoSiteUrl,
   isLeadHighPriority,
   LEAD_STATUSES,
   NON_CANONICAL_STAGE_KEY,
@@ -16,6 +18,34 @@ import {
   type CommandCenterLead,
   type CommandCenterPayload,
 } from "@/lib/commandCenterData";
+
+const CC_LEAD_REALTIME_KEYS = [
+  "company_name",
+  "phone",
+  "website",
+  "status",
+  "notes",
+  "appt_date",
+  "claimed_by",
+  "appt_scheduled_by",
+  "last_activity_by",
+  "import_filename",
+  "created_at",
+  "is_high_priority",
+  "demo_site_url",
+  "demo_site_sent",
+  "demo_site_sent_at",
+] as const satisfies readonly (keyof CommandCenterLead)[];
+
+function patchCommandCenterLeadFromRealtime(lead: CommandCenterLead, raw: Record<string, unknown>): CommandCenterLead {
+  const next: CommandCenterLead = { ...lead };
+  for (const k of CC_LEAD_REALTIME_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(raw, k)) {
+      (next as Record<string, unknown>)[k] = raw[k];
+    }
+  }
+  return next;
+}
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
 import { HelpMarker } from "@/components/HelpMarker";
@@ -114,17 +144,6 @@ function formatRelative(iso: string | null): string {
   if (h < 36) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return `${d}d ago`;
-}
-
-function presenceDotClass(id: string): string {
-  const hues = [
-    "bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.8)]",
-    "bg-violet-400 shadow-[0_0_12px_rgba(167,139,250,0.8)]",
-    "bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.8)]",
-    "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]",
-    "bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.8)]",
-  ];
-  return hues[hashHue(id) % hues.length];
 }
 
 function HoverTiltCard({
@@ -282,7 +301,24 @@ export function PipelineCommandCenter({
       if (cancelled) return;
       sub.ch = supabase
         .channel(`pipeline-cmd-leads-${userId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, reloadPayload)
+        .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, (payload) => {
+          if (payload.eventType === "UPDATE" && payload.new && typeof payload.new === "object") {
+            const row = payload.new as Record<string, unknown> & { id?: string };
+            const id = typeof row.id === "string" ? row.id : null;
+            if (id) {
+              setCc((prev) => {
+                if (!prev.leads.some((l) => l.id === id)) return prev;
+                return {
+                  ...prev,
+                  leads: prev.leads.map((l) =>
+                    l.id === id ? patchCommandCenterLeadFromRealtime(l, row) : l,
+                  ),
+                };
+              });
+            }
+          }
+          reloadPayload();
+        })
         .subscribe();
     })();
 
@@ -812,7 +848,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
         <div className={clsx("flex flex-col gap-1", layoutMobileShell ? "@sm:block" : "sm:block")}>
           <h2 className="text-sm font-semibold text-white">Kanban pipeline</h2>
           <p className={clsx("text-xs text-slate-500", layoutMobileShell ? "@sm:mt-1" : "sm:mt-1")}>
-            Click a card to jump to the lead list with search. Presence dots are simulated from row id.
+            Click a card to jump to the lead list with search.
           </p>
           <p
             className={clsx(
@@ -909,16 +945,11 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                         >
                           <span className={clsx("pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent", stageStyle.topLine)} />
                           <div className="flex items-start justify-between gap-2">
-                            <div className="flex min-w-0 items-start gap-2">
-                              <span className={clsx("mt-1 h-2 w-2 shrink-0 rounded-full", presenceDotClass(lead.id))} />
-                              <span className="truncate text-[13px] font-semibold text-slate-100">
+                            <div className="min-w-0 flex-1">
+                              <span className="block truncate text-[13px] font-semibold text-slate-100">
                                 {lead.company_name ?? "Untitled"}
                               </span>
                             </div>
-                            <span
-                              className={clsx("h-2.5 w-2.5 shrink-0 rounded-full", presenceDotClass(`${lead.id}-p`))}
-                              title="Simulated presence"
-                            />
                           </div>
                           <p className="mt-1 truncate text-[12px] font-semibold text-slate-300">{lead.phone ?? "—"}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -934,17 +965,30 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                               {src}
                             </span>
                           </div>
-                          <span
-                            className={clsx(
-                              "mt-2 inline-flex rounded-md border px-2 py-1 text-[11px] font-extrabold uppercase tracking-[0.1em]",
-                              oid
-                                ? "border-cyan-300/45 bg-cyan-500/18 text-cyan-100 shadow-[0_0_14px_-8px_rgba(34,211,238,0.75)]"
-                                : "border-rose-300/45 bg-rose-500/16 text-rose-100 shadow-[0_0_14px_-8px_rgba(244,63,94,0.75)]",
-                            )}
-                            style={oid ? { color: `hsl(${hue}, 85%, 78%)` } : undefined}
-                          >
-                            {oid ? "Assigned" : "Unassigned"}
-                          </span>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={clsx(
+                                "inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
+                                oid
+                                  ? "border-cyan-300/45 bg-cyan-500/18 text-cyan-100"
+                                  : "border-rose-300/45 bg-rose-500/16 text-rose-100",
+                              )}
+                              style={oid ? { color: `hsl(${hue}, 85%, 78%)` } : undefined}
+                            >
+                              {oid ? "Assigned" : "Unassigned"}
+                            </span>
+                            {isDemoSiteFeatureEnabled() ? (
+                              hasDemoSiteUrl(lead) ? (
+                                <span className="inline-flex rounded-md border border-emerald-300/40 bg-emerald-500/14 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-100/95">
+                                  Demo Done
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-md border border-amber-400/55 bg-amber-500/[0.07] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-200/90">
+                                  Demo Needs Done
+                                </span>
+                              )
+                            ) : null}
+                          </div>
                           <div className="mt-1.5 flex items-center justify-between gap-2">
                             <span
                               className="min-w-0 truncate text-[11px] font-semibold text-slate-300"

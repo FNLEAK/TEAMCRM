@@ -95,11 +95,3 @@ export async function fetchRecentImportBatches(
 
   return { rows: aggregateFromLeads(data ?? [], cap), error: null };
 }
-
-export async function deleteLeadsByImportBatch(
-  supabase: SupabaseClient,
-  importBatchId: string,
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("leads").delete().eq("import_batch_id", importBatchId);
-  return { error: error?.message ?? null };
-}

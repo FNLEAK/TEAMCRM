@@ -13,12 +13,17 @@ create index if not exists leads_import_batch_id_idx on public.leads (import_bat
 comment on column public.leads.import_batch_id is 'Shared UUID for all rows from one CSV import session.';
 comment on column public.leads.import_filename is 'Original CSV filename for that import batch.';
 
--- Allow authenticated users to delete leads (needed for “Delete batch”). Drop if you already have an equivalent policy.
+-- Delete leads: account owners only (matches app `canManageRoles` / Role Applier).
+-- Bootstrap email must stay aligned with `team-roles.sql` and `NEXT_PUBLIC_OWNER_EMAIL` when used.
 drop policy if exists "leads_delete_authenticated_csv_batch" on public.leads;
-create policy "leads_delete_authenticated_csv_batch"
+drop policy if exists "leads_delete_owner_only" on public.leads;
+create policy "leads_delete_owner_only"
   on public.leads for delete
   to authenticated
-  using (true);
+  using (
+    public.is_current_user_team_owner()
+    or lower(coalesce(auth.jwt()->>'email', '')) = 'teamwebfriendly@gmail.com'
+  );
 
 -- Aggregated list for Recent Imports (efficient vs scanning all rows in the browser).
 create or replace function public.get_recent_import_batches(limit_n int default 30)
