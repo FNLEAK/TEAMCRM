@@ -977,7 +977,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                             >
                               {oid ? "Assigned" : "Unassigned"}
                             </span>
-                            {isDemoSiteFeatureEnabled() ? (
+                            {col === "Interested" && isDemoSiteFeatureEnabled() ? (
                               hasDemoSiteUrl(lead) ? (
                                 <span className="inline-flex rounded-md border border-emerald-300/40 bg-emerald-500/14 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-emerald-100/95">
                                   Demo Done
