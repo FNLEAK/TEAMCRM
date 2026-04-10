@@ -167,10 +167,13 @@ export function TeamChatShell({
   userId,
   userDisplayName,
   canManageRoles,
+  canPostAnnouncements,
 }: {
   userId: string;
   userDisplayName: string;
   canManageRoles: boolean;
+  /** `team_roles.role === "owner"` (or bootstrap owner email) — announcements composer + server RLS. */
+  canPostAnnouncements: boolean;
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState("");
@@ -195,6 +198,10 @@ export function TeamChatShell({
   const nameByIdRef = useRef<Map<string, string>>(new Map());
   const [groupChannel, setGroupChannel] = useState<"announcements" | "chat">("chat");
   const [announcementPings, setAnnouncementPings] = useState(0);
+  /** New announcements from others while this tab is not active (toggle dot + pulse). */
+  const [hasUnreadAnnouncements, setHasUnreadAnnouncements] = useState(false);
+  /** New team room chat messages from others while Chat tab is not active. */
+  const [hasUnreadTeamChat, setHasUnreadTeamChat] = useState(false);
   const [dmReplyTarget, setDmReplyTarget] = useState<ReplyTarget>(null);
   const [groupReplyTarget, setGroupReplyTarget] = useState<ReplyTarget>(null);
   const [dmAttachments, setDmAttachments] = useState<ChatAttachment[]>([]);
@@ -277,6 +284,8 @@ export function TeamChatShell({
     if (inboxFilter === "unread") list = list.filter((c) => c.unread > 0);
     return list;
   }, [displayedConversations, threadSearch, inboxFilter, userDisplayName]);
+
+  const hasUnreadDMs = useMemo(() => displayedConversations.some((c) => c.unread > 0), [displayedConversations]);
 
   const statusPipClass = (status: TeamDmConversation["profile"]["status"]) =>
     status === "Active now"
@@ -386,6 +395,27 @@ export function TeamChatShell({
   useEffect(() => {
     setGroupReplyTarget(null);
   }, [groupChannel, centerMode]);
+
+  useEffect(() => {
+    if (centerMode !== "group" || groupChannel !== "announcements") return;
+    setHasUnreadAnnouncements(false);
+    setAnnouncementPings(0);
+    try {
+      window.localStorage.setItem(LS_TEAM_CHAT_MENTION_UNREAD, "0");
+      window.dispatchEvent(new Event("team-chat-mention-unread-updated"));
+    } catch {
+      /* private mode */
+    }
+  }, [centerMode, groupChannel]);
+
+  useEffect(() => {
+    if (centerMode !== "group" || groupChannel !== "chat") return;
+    setHasUnreadTeamChat(false);
+  }, [centerMode, groupChannel]);
+
+  useEffect(() => {
+    if (groupChannel === "announcements" && !canPostAnnouncements) setGroupReplyTarget(null);
+  }, [groupChannel, canPostAnnouncements]);
 
   useEffect(() => {
     let cancelled = false;
@@ -517,15 +547,21 @@ export function TeamChatShell({
           if (!ui) return;
           if (ch === "team_chat") {
             setGroupMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, { ...ui, replyTo: ui.replyTo }]));
+            const authorTc = typeof row.author_id === "string" ? row.author_id : "";
+            if (authorTc && authorTc !== userId) {
+              const viewingChat = centerModeRef.current === "group" && groupChannelRef.current === "chat";
+              if (!viewingChat) setHasUnreadTeamChat(true);
+            }
           } else if (ch === "announcements") {
             setAnnouncementMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, { ...ui, replyTo: ui.replyTo }]));
-            if (/@everyone\b/i.test(ui.text)) {
-              const authorId = typeof row.author_id === "string" ? row.author_id : "";
-              if (authorId && authorId !== userId) {
-                setAnnouncementPings((p) => p + 1);
-                const viewingAnnouncements =
-                  centerModeRef.current === "group" && groupChannelRef.current === "announcements";
-                if (!viewingAnnouncements) {
+            const authorAnn = typeof row.author_id === "string" ? row.author_id : "";
+            if (authorAnn && authorAnn !== userId) {
+              const viewingAnnouncements =
+                centerModeRef.current === "group" && groupChannelRef.current === "announcements";
+              if (!viewingAnnouncements) {
+                setHasUnreadAnnouncements(true);
+                if (/@everyone\b/i.test(ui.text)) {
+                  setAnnouncementPings((p) => p + 1);
                   bumpTeamChatMentionNavUnread();
                 }
               }
@@ -638,12 +674,14 @@ export function TeamChatShell({
     if (!msg && groupAttachments.length === 0) return;
     if (groupSendLockRef.current) return;
 
+    const channel = groupChannel === "announcements" ? "announcements" : "team_chat";
+    if (channel === "announcements" && !canPostAnnouncements) return;
+
     groupSendLockRef.current = true;
     setGroupSendPending(true);
 
     const textBody = msg || "(attachment)";
     const replyPayload = groupReplyTarget ? { from: groupReplyTarget.from, text: groupReplyTarget.text } : null;
-    const channel = groupChannel === "announcements" ? "announcements" : "team_chat";
     const supabase = createSupabaseBrowserClient();
     const draftSnap = groupDraft;
     const replySnap = groupReplyTarget;
@@ -680,7 +718,6 @@ export function TeamChatShell({
               setGroupMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
             } else {
               setAnnouncementMessages((prev) => (prev.some((m) => m.dbId === ui.dbId) ? prev : [...prev, row]));
-              if (/@everyone\b/i.test(msg)) setAnnouncementPings((prev) => prev + 1);
             }
           }
         }
@@ -808,54 +845,141 @@ export function TeamChatShell({
 
   const openIssueCount = issueNotes.filter((n) => n.status !== "Fixed").length;
 
+  const showAnnounceUnread =
+    (hasUnreadAnnouncements || announcementPings > 0) && (centerMode !== "group" || groupChannel !== "announcements");
+  const showChatUnread = hasUnreadTeamChat && (centerMode !== "group" || groupChannel !== "chat");
+
+  const onSelectAnnouncements = () => {
+    setGroupChannel("announcements");
+  };
+
+  const onSelectTeamChat = () => {
+    setGroupChannel("chat");
+  };
+
+  const renderGroupChannelPill = (fullWidth: boolean) => (
+    <div
+      className={cn(
+        "relative isolate grid h-10 w-full shrink-0 grid-cols-2 rounded-full border border-white/[0.08] bg-zinc-900/80 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] sm:h-11",
+        fullWidth ? "max-w-full" : "max-w-[232px] sm:max-w-[248px]",
+      )}
+      role="tablist"
+      aria-label="Team room channel"
+    >
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute top-1 bottom-1 z-0 rounded-full bg-[#9333ea] shadow-[0_0_28px_-6px_rgba(147,51,234,0.65)]"
+        initial={false}
+        animate={{
+          left: groupChannel === "announcements" ? 4 : "calc(50% + 2px)",
+          width: "calc(50% - 6px)",
+        }}
+        transition={{ type: "spring", stiffness: 520, damping: 40, mass: 0.72 }}
+        style={{ position: "absolute" }}
+      />
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupChannel === "announcements"}
+        onClick={onSelectAnnouncements}
+        className={cn(
+          "relative z-10 inline-flex min-h-0 items-center justify-center rounded-full px-3 text-[13px] font-medium tracking-tight transition-colors sm:text-sm",
+          groupChannel === "announcements" ? "text-white" : "text-zinc-400 hover:text-zinc-200",
+        )}
+      >
+        <span
+          className={cn(
+            "relative px-1",
+            showAnnounceUnread && groupChannel !== "announcements" && "animate-pulse",
+          )}
+        >
+          Announce
+          {showAnnounceUnread && groupChannel !== "announcements" ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-violet-300 shadow-[0_0_12px_rgba(196,181,253,0.95)]"
+              aria-hidden
+            />
+          ) : null}
+        </span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={groupChannel === "chat"}
+        onClick={onSelectTeamChat}
+        className={cn(
+          "relative z-10 inline-flex min-h-0 items-center justify-center rounded-full px-3 text-[13px] font-medium tracking-tight transition-colors sm:text-sm",
+          groupChannel === "chat" ? "text-white" : "text-zinc-400 hover:text-zinc-200",
+        )}
+      >
+        <span
+          className={cn(
+            "relative px-1",
+            showChatUnread && groupChannel !== "chat" && "animate-pulse",
+          )}
+        >
+          Chat
+          {showChatUnread && groupChannel !== "chat" ? (
+            <span
+              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.85)]"
+              aria-hidden
+            />
+          ) : null}
+        </span>
+      </button>
+    </div>
+  );
+
+  const groupChannelPill = renderGroupChannelPill(false);
+
   const infoPanelInner = (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
       {centerMode === "dm" && activeConversation ? (
-        <>
-          <div className="flex flex-col items-center border-b border-white/[0.06] px-4 py-5">
-            <div className="relative">
-              <span className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-gradient-to-br from-violet-600/40 to-violet-950/60 text-lg font-semibold text-violet-100 ring-1 ring-violet-500/30">
-                {activeConversation.profile.initials}
-              </span>
-              <span
-                className={cn(
-                  "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[#0a0a0a]",
-                  statusPipClass(activeConversation.profile.status),
-                )}
-                aria-hidden
-              />
+        <div className="mx-3 mb-4 mt-3 sm:mx-4">
+          <div className="rounded-2xl border border-white/5 bg-[rgba(20,20,20,0.8)] p-5 shadow-[0_20px_50px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl">
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <span className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-gradient-to-br from-violet-600/35 to-zinc-900/80 text-lg font-semibold text-violet-100 ring-1 ring-white/10">
+                  {activeConversation.profile.initials}
+                </span>
+                <span
+                  className={cn(
+                    "absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-[rgba(20,20,20,0.92)]",
+                    statusPipClass(activeConversation.profile.status),
+                  )}
+                  aria-hidden
+                />
+              </div>
+              <p className="mt-4 text-center text-base font-semibold tracking-tight text-zinc-50 sm:text-lg">
+                {getCounterpartyName(activeConversation.participants)}
+              </p>
+              <p className="mt-1 text-center text-sm text-zinc-500">{activeConversation.profile.role}</p>
+              <p className="mt-0.5 text-center text-sm text-zinc-400">{activeConversation.profile.status}</p>
             </div>
-            <p className="mt-3 text-center text-base font-semibold tracking-tight text-zinc-50 sm:text-lg">
-              {getCounterpartyName(activeConversation.participants)}
-            </p>
-            <p className="font-mono text-xs text-zinc-500 sm:text-sm">{activeConversation.profile.role}</p>
-            <p className="mt-1 font-mono text-xs text-emerald-400/85 sm:text-sm">{activeConversation.profile.status}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 px-3 py-3 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => setIssueDrawerOpen(true)}
-              className="min-h-[3rem] rounded-xl border border-white/[0.1] bg-white/[0.05] py-3 text-center text-sm font-semibold text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-500/10 sm:text-[15px]"
-            >
-              Issue board
-            </button>
-            {canManageRoles ? (
+            <div className="mt-5 border-t border-white/[0.06] pt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500">Thread</p>
+              <p className="mt-2 text-sm leading-relaxed text-zinc-300 sm:text-[15px]">{activeConversation.topic}</p>
+            </div>
+            <div className="mt-5 flex flex-col gap-2 border-t border-white/[0.06] pt-5">
               <button
                 type="button"
-                onClick={() => setOwnerIntelOpen(true)}
-                className="min-h-[3rem] rounded-xl border border-violet-500/35 bg-violet-500/10 py-3 text-center text-sm font-semibold text-violet-100 transition hover:bg-violet-500/18 sm:text-[15px]"
+                onClick={() => setIssueDrawerOpen(true)}
+                className="min-h-[2.75rem] w-full rounded-lg border border-white/10 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-zinc-400 transition hover:border-white/[0.14] hover:bg-white/[0.03] hover:text-zinc-200"
               >
-                Owner intel
+                Issue board
               </button>
-            ) : (
-              <div className="min-h-[3rem] rounded-xl border border-white/[0.05] bg-transparent py-3" aria-hidden />
-            )}
+              {canManageRoles ? (
+                <button
+                  type="button"
+                  onClick={() => setOwnerIntelOpen(true)}
+                  className="min-h-[2.75rem] w-full rounded-lg border border-white/10 bg-transparent px-4 py-2.5 text-center text-sm font-medium text-zinc-400 transition hover:border-white/[0.14] hover:bg-white/[0.03] hover:text-zinc-200"
+                >
+                  Owner intel
+                </button>
+              ) : null}
+            </div>
           </div>
-          <div className="px-3 pb-4 sm:px-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Thread</p>
-            <p className="mt-1.5 text-sm leading-relaxed text-zinc-300 sm:text-base">{activeConversation.topic}</p>
-          </div>
-        </>
+        </div>
       ) : centerMode === "group" ? (
         <>
           <div className="border-b border-white/[0.06] px-4 py-4 text-center">
@@ -867,46 +991,7 @@ export function TeamChatShell({
           </div>
           <div className="px-3 py-3 sm:px-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Channels</p>
-            <div className="mt-2 flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setGroupChannel("announcements");
-                  setAnnouncementPings(0);
-                  try {
-                    window.localStorage.setItem(LS_TEAM_CHAT_MENTION_UNREAD, "0");
-                    window.dispatchEvent(new Event("team-chat-mention-unread-updated"));
-                  } catch {
-                    /* private mode */
-                  }
-                }}
-                className={cn(
-                  "flex min-h-[2.75rem] w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition sm:text-[15px]",
-                  groupChannel === "announcements"
-                    ? "bg-violet-500/15 text-violet-100 ring-1 ring-violet-500/40"
-                    : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06]",
-                )}
-              >
-                Announcements
-                {announcementPings > 0 ? (
-                  <span className="rounded-full bg-rose-500/80 px-2 py-0.5 font-mono text-xs text-white sm:text-sm">
-                    {announcementPings}
-                  </span>
-                ) : null}
-              </button>
-              <button
-                type="button"
-                onClick={() => setGroupChannel("chat")}
-                className={cn(
-                  "flex min-h-[2.75rem] w-full rounded-lg px-3 py-2.5 text-left text-sm transition sm:text-[15px]",
-                  groupChannel === "chat"
-                    ? "bg-emerald-500/12 text-emerald-100 ring-1 ring-emerald-500/35"
-                    : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06]",
-                )}
-              >
-                Team chat
-              </button>
-            </div>
+            <div className="mt-2 w-full">{renderGroupChannelPill(true)}</div>
           </div>
           <div className="px-3 pb-4 sm:px-4">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Online</p>
@@ -1070,13 +1155,21 @@ export function TeamChatShell({
                 type="button"
                 onClick={() => setLeftTab("inbox")}
                 className={cn(
-                  "flex-1 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition sm:py-3 sm:text-[13px]",
+                  "relative flex-1 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition sm:py-3 sm:text-[13px]",
                   leftTab === "inbox"
                     ? "bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/40"
                     : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300",
                 )}
               >
-                Inbox
+                <span className="relative inline-block">
+                  Inbox
+                  {hasUnreadDMs && leftTab !== "inbox" ? (
+                    <span
+                      className="absolute -right-2 -top-1 h-2 w-2 rounded-full bg-violet-400 shadow-[0_0_10px_rgba(167,139,250,0.9)]"
+                      aria-hidden
+                    />
+                  ) : null}
+                </span>
               </button>
               <button
                 type="button"
@@ -1420,41 +1513,7 @@ export function TeamChatShell({
                       <h2 className="truncate text-base font-semibold text-zinc-50 sm:text-lg">Group messaging</h2>
                       <p className="font-mono text-xs tabular-nums text-zinc-500 sm:text-sm">{activeGroupMessages.length} messages</p>
                     </div>
-                    <div className="flex gap-1 rounded-full bg-white/[0.06] p-1 ring-1 ring-white/[0.08]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGroupChannel("announcements");
-                          setAnnouncementPings(0);
-                          try {
-                            window.localStorage.setItem(LS_TEAM_CHAT_MENTION_UNREAD, "0");
-                            window.dispatchEvent(new Event("team-chat-mention-unread-updated"));
-                          } catch {
-                            /* private mode */
-                          }
-                        }}
-                        className={cn(
-                          "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:text-[13px]",
-                          groupChannel === "announcements"
-                            ? "bg-violet-600/50 text-white shadow-[0_0_12px_rgba(139,92,246,0.35)]"
-                            : "text-zinc-500 hover:text-zinc-300",
-                        )}
-                      >
-                        Announce
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setGroupChannel("chat")}
-                        className={cn(
-                          "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:text-[13px]",
-                          groupChannel === "chat"
-                            ? "bg-emerald-600/40 text-emerald-50 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-                            : "text-zinc-500 hover:text-zinc-300",
-                        )}
-                      >
-                        Chat
-                      </button>
-                    </div>
+                    {groupChannelPill}
                   </div>
                   <div
                     ref={groupScrollRef}
@@ -1559,84 +1618,98 @@ export function TeamChatShell({
                         </button>
                       </div>
                     ) : null}
-                    <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-black/60 py-2 pl-2.5 pr-2 backdrop-blur-md sm:pl-3">
-                      <input
-                        ref={groupFileInputRef}
-                        type="file"
-                        multiple
-                        accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-                        className="hidden"
-                        onChange={(e) => {
-                          const fl = e.target.files;
-                          if (!fl?.length) return;
-                          setGroupAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
-                          e.currentTarget.value = "";
-                        }}
-                      />
-                      <button
-                        type="button"
-                        disabled={groupSendPending}
-                        onClick={() => groupFileInputRef.current?.click()}
-                        className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40 sm:h-11 sm:w-11"
-                        title="Attach"
-                        aria-label="Attach file to group message"
-                      >
-                        <Paperclip className="h-5 w-5" strokeWidth={2} />
-                      </button>
-                      <textarea
-                        rows={2}
-                        placeholder={
-                          groupChannel === "announcements"
-                            ? "Announcement… (@everyone supported)"
-                            : "Message the team…"
-                        }
-                        value={groupDraft}
-                        onChange={(e) => setGroupDraft(e.target.value)}
-                        onPaste={(e) => {
-                          const files = Array.from(e.clipboardData?.files ?? []);
-                          if (files.length === 0) return;
-                          e.preventDefault();
-                          setGroupAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter" || e.shiftKey) return;
-                          if (groupSendPending) {
-                            e.preventDefault();
-                            return;
-                          }
-                          e.preventDefault();
-                          sendGroupMessage();
-                        }}
-                        className="min-h-[44px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-0 sm:min-h-[48px] sm:text-[17px]"
-                      />
-                      <button
-                        type="button"
-                        disabled={groupSendPending}
-                        onClick={() => sendGroupMessage()}
-                        className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.7)] transition hover:bg-violet-500 disabled:opacity-40 sm:h-11 sm:w-11"
-                        aria-label="Send message"
-                      >
-                        <Send className="h-5 w-5" strokeWidth={2} />
-                      </button>
-                    </div>
-                    {groupAttachments.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {groupAttachments.map((att, idx) => (
-                          <button
-                            key={`${att.url}-${idx}`}
-                            type="button"
-                            onClick={() => setGroupAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2.5 py-1.5 font-mono text-xs text-zinc-400"
-                            title="Remove attachment"
-                          >
-                            {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
-                          </button>
-                        ))}
+                    {groupChannel === "announcements" && !canPostAnnouncements ? (
+                      <div className="rounded-2xl border border-white/[0.08] bg-zinc-900/35 px-4 py-4 backdrop-blur-sm">
+                        <p className="text-center text-sm leading-relaxed text-zinc-400">
+                          Only administrators can post announcements.
+                        </p>
+                        <p className="mt-2 text-center font-mono text-[11px] text-zinc-600 sm:text-xs">
+                          You can read every announcement in this channel.
+                        </p>
                       </div>
-                    ) : null}
-                    <p className="mt-2 font-mono text-[11px] text-zinc-500 sm:text-xs">
-                      Enter send · Shift+Enter newline · @everyone in announcements
-                    </p>
+                    ) : (
+                      <>
+                        <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-black/60 py-2 pl-2.5 pr-2 backdrop-blur-md sm:pl-3">
+                          <input
+                            ref={groupFileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+                            className="hidden"
+                            onChange={(e) => {
+                              const fl = e.target.files;
+                              if (!fl?.length) return;
+                              setGroupAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
+                              e.currentTarget.value = "";
+                            }}
+                          />
+                          <button
+                            type="button"
+                            disabled={groupSendPending}
+                            onClick={() => groupFileInputRef.current?.click()}
+                            className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40 sm:h-11 sm:w-11"
+                            title="Attach"
+                            aria-label="Attach file to group message"
+                          >
+                            <Paperclip className="h-5 w-5" strokeWidth={2} />
+                          </button>
+                          <textarea
+                            rows={2}
+                            placeholder={
+                              groupChannel === "announcements"
+                                ? "Announcement… (@everyone supported)"
+                                : "Message the team…"
+                            }
+                            value={groupDraft}
+                            onChange={(e) => setGroupDraft(e.target.value)}
+                            onPaste={(e) => {
+                              const files = Array.from(e.clipboardData?.files ?? []);
+                              if (files.length === 0) return;
+                              e.preventDefault();
+                              setGroupAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key !== "Enter" || e.shiftKey) return;
+                              if (groupSendPending) {
+                                e.preventDefault();
+                                return;
+                              }
+                              e.preventDefault();
+                              sendGroupMessage();
+                            }}
+                            className="min-h-[44px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-0 sm:min-h-[48px] sm:text-[17px]"
+                          />
+                          <button
+                            type="button"
+                            disabled={groupSendPending}
+                            onClick={() => sendGroupMessage()}
+                            className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.7)] transition hover:bg-violet-500 disabled:opacity-40 sm:h-11 sm:w-11"
+                            aria-label="Send message"
+                          >
+                            <Send className="h-5 w-5" strokeWidth={2} />
+                          </button>
+                        </div>
+                        {groupAttachments.length > 0 ? (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {groupAttachments.map((att, idx) => (
+                              <button
+                                key={`${att.url}-${idx}`}
+                                type="button"
+                                onClick={() => setGroupAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                                className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2.5 py-1.5 font-mono text-xs text-zinc-400"
+                                title="Remove attachment"
+                              >
+                                {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className="mt-2 font-mono text-[11px] text-zinc-500 sm:text-xs">
+                          Enter send · Shift+Enter newline
+                          {groupChannel === "announcements" && canPostAnnouncements ? " · @everyone pings the team" : null}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : null}

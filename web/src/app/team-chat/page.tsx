@@ -34,5 +34,12 @@ export default async function TeamChatPage() {
     "You";
   const allowRoleApplier = await canManageRoles(supabase, user.id, user.email);
 
-  return <TeamChatShell userId={user.id} userDisplayName={displayName} canManageRoles={allowRoleApplier} />;
+  return (
+    <TeamChatShell
+      userId={user.id}
+      userDisplayName={displayName}
+      canManageRoles={allowRoleApplier}
+      canPostAnnouncements={allowRoleApplier}
+    />
+  );
 }

@@ -1,0 +1,22 @@
+-- Suggested pattern: persist per-user unread counts for announcements (and especially @everyone).
+-- Not applied automatically — review RLS and Realtime before enabling in production.
+--
+-- Option A — Database trigger (simple, server-side)
+-- 1. Create table:
+--    create table if not exists public.user_announcement_state (
+--      user_id uuid primary key references auth.users (id) on delete cascade,
+--      last_read_announcement_at timestamptz not null default 'epoch',
+--      unread_announcement_count int not null default 0
+--    );
+-- 2. After insert on team_room_messages where channel = 'announcements':
+--    - If body ~* '@everyone' (or for every announcement): increment unread_announcement_count
+--      for all users in public.team_roles (or all profiles) except NEW.author_id.
+-- 3. When user opens the Announcements tab, client updates last_read_announcement_at and sets count to 0.
+-- RLS: users may select/update only their own row.
+--
+-- Option B — Supabase Edge Function invoked from the app after a successful insert when @everyone is present:
+--    - Edge function uses service role to batch-update a counter table or enqueue notifications.
+--    - Pros: complex logic / push notifications in one place. Cons: extra round trip; secure the invoke path.
+--
+-- Option C — Realtime-only (current app behavior): clients subscribe to INSERT on team_room_messages and
+--    derive UI badges locally (see TeamChatShell + DeskShell). No server counter; counts reset on refresh.
