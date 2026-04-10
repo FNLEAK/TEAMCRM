@@ -42,11 +42,7 @@ export function PipelineCommandCenterShell({
   );
 
   return (
-    <DeskShell
-      sections={commandDeskSections({ canManageRoles })}
-      sidebarFooter={sidebarFooter}
-      tacticalSession={{ userId, userDisplayName, canManageRoles }}
-    >
+    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
       <PipelineCommandCenter initial={initial} userId={userId} />
     </DeskShell>
   );

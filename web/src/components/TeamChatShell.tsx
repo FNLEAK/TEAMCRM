@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { DeskShell } from "@/components/DeskShell";
-import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
 import { HelpMarker } from "@/components/HelpMarker";
 import { cn } from "@/lib/utils";
+import { Command, Plus, X } from "lucide-react";
 import { UiSelect } from "@/components/UiSelect";
 import type { ProfileRow } from "@/lib/profileSelect";
 import {
@@ -122,6 +122,25 @@ const TEAM_THREADS = [
   },
 ];
 
+const ISSUE_NOTES_DEMO = [
+  {
+    id: "issue-1",
+    author: "Mykala",
+    text: "Lead table search freezes for 2-3 seconds after typing fast.",
+    status: "Open",
+    time: "9:14 AM",
+    replies: [{ author: "Jaylan", text: "Thanks, I can reproduce this. Working on a fix.", time: "9:19 AM" }],
+  },
+  {
+    id: "issue-2",
+    author: "Richard",
+    text: "Team Chat unread badge stayed after opening a thread.",
+    status: "Reviewing",
+    time: "9:22 AM",
+    replies: [],
+  },
+];
+
 function displayInitials(name: string) {
   const t = name.trim();
   if (!t) return "??";
@@ -148,7 +167,8 @@ export function TeamChatShell({
   const [activeConversationId, setActiveConversationId] = useState("");
   const activeConversationIdRef = useRef("");
   const [centerMode, setCenterMode] = useState<"dm" | "group">("dm");
-  const { setTacticalDrawerOpen, setTacticalDrawerTab } = useDeskLayout();
+  const [issueDrawerOpen, setIssueDrawerOpen] = useState(false);
+  const [ownerIntelOpen, setOwnerIntelOpen] = useState(false);
   const [peerOptions, setPeerOptions] = useState<{ value: string; label: string }[]>([]);
   const [newMessagePeerId, setNewMessagePeerId] = useState("");
   const [newMessageBody, setNewMessageBody] = useState("");
@@ -159,6 +179,7 @@ export function TeamChatShell({
   const [groupMessages, setGroupMessages] = useState<GroupChannelMessage[]>([]);
   const [announcementMessages, setAnnouncementMessages] = useState<GroupChannelMessage[]>([]);
   const [chatSchemaError, setChatSchemaError] = useState<string | null>(null);
+  const [ownerPanelConversations, setOwnerPanelConversations] = useState<TeamDmConversation[]>([]);
   const nameByIdRef = useRef<Map<string, string>>(new Map());
   const [groupChannel, setGroupChannel] = useState<"announcements" | "chat">("chat");
   const [announcementPings, setAnnouncementPings] = useState(0);
@@ -166,6 +187,8 @@ export function TeamChatShell({
   const [groupReplyTarget, setGroupReplyTarget] = useState<ReplyTarget>(null);
   const [dmAttachments, setDmAttachments] = useState<ChatAttachment[]>([]);
   const [groupAttachments, setGroupAttachments] = useState<ChatAttachment[]>([]);
+  const [issueNotes, setIssueNotes] = useState(ISSUE_NOTES_DEMO);
+  const [issueDraft, setIssueDraft] = useState("");
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
   /** On mobile, group/issues render in row 2 below a tall inbox; scroll into view after mode change. */
@@ -175,8 +198,12 @@ export function TeamChatShell({
   /** Sync guards so double-tap / impatient Enter cannot enqueue two inserts before React re-renders. */
   const groupSendLockRef = useRef(false);
   const dmSendLockRef = useRef(false);
+  const ownerDmSendLockRef = useRef(false);
   const [groupSendPending, setGroupSendPending] = useState(false);
   const [dmSendPending, setDmSendPending] = useState(false);
+  const [ownerDmSendPending, setOwnerDmSendPending] = useState(false);
+  const [ownerActiveConversationId, setOwnerActiveConversationId] = useState("");
+  const [ownerReplyDraft, setOwnerReplyDraft] = useState("");
   const refreshDmsRef = useRef<(() => void) | null>(null);
   const centerModeRef = useRef(centerMode);
   const groupChannelRef = useRef(groupChannel);
@@ -198,6 +225,8 @@ export function TeamChatShell({
   }, [centerMode]);
 
   const activeConversation = conversations.find((c) => c.id === activeConversationId) ?? null;
+  const ownerActiveConversation =
+    ownerPanelConversations.find((c) => c.id === ownerActiveConversationId) ?? ownerPanelConversations[0] ?? null;
   const displayedConversations = useMemo(
     () =>
       canManageRoles
@@ -252,6 +281,10 @@ export function TeamChatShell({
     };
   }, [activeConversationId, centerMode, userId]);
 
+  useEffect(() => {
+    if (!canManageRoles || ownerPanelConversations.length === 0) return;
+    setOwnerActiveConversationId((prev) => prev || ownerPanelConversations[0].id);
+  }, [canManageRoles, ownerPanelConversations]);
   const activeGroupMessages = groupChannel === "announcements" ? announcementMessages : groupMessages;
   const toAttachments = (files: FileList | File[]): ChatAttachment[] =>
     Array.from(files)
@@ -322,6 +355,15 @@ export function TeamChatShell({
         return;
       }
       setConversations(dm.conversations);
+      if (canManageRoles) {
+        const all = await buildDmConversations(supabase, userId, userDisplayName, rows, {
+          viewAllConversationsAsOwner: true,
+          ...shared,
+        });
+        if (!cancelled && !all.error) setOwnerPanelConversations(all.conversations);
+      } else {
+        setOwnerPanelConversations([]);
+      }
     };
 
     (async () => {
@@ -395,6 +437,12 @@ export function TeamChatShell({
       if (cancelled) return;
       if (dm.error) return;
       setConversations(dm.conversations);
+      if (canManageRoles) {
+        const all = await buildDmConversations(supabase, userId, userDisplayName, rows, {
+          viewAllConversationsAsOwner: true,
+        });
+        if (!cancelled && !all.error) setOwnerPanelConversations(all.conversations);
+      }
     };
 
     refreshDmsRef.current = () => {
@@ -458,6 +506,35 @@ export function TeamChatShell({
     };
   }, [userId, userDisplayName, canManageRoles]);
 
+  useEffect(() => {
+    if (!canManageRoles || !issueDrawerOpen) return;
+    window.localStorage.setItem("teamChatIssueUnreadOwner", "0");
+    window.dispatchEvent(new Event("team-chat-issue-unread-updated"));
+  }, [canManageRoles, issueDrawerOpen]);
+
+  useEffect(() => {
+    if (!canManageRoles) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOwnerIntelOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canManageRoles]);
+
+  useEffect(() => {
+    if (!issueDrawerOpen && !ownerIntelOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setIssueDrawerOpen(false);
+      setOwnerIntelOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [issueDrawerOpen, ownerIntelOpen]);
+
   /** Runs after a successful insert — do not await from send handlers so the composer unlocks immediately. */
   const scheduleDmInboxRefresh = (conversationId: string) => {
     const sb = createSupabaseBrowserClient();
@@ -469,9 +546,41 @@ export function TeamChatShell({
           const rows = prof.data as ProfileRow[];
           const dm = await buildDmConversations(sb, userId, userDisplayName, rows);
           if (!dm.error) setConversations(dm.conversations);
+          if (canManageRoles) {
+            const all = await buildDmConversations(sb, userId, userDisplayName, rows, {
+              viewAllConversationsAsOwner: true,
+            });
+            if (!all.error) setOwnerPanelConversations(all.conversations);
+          }
         }
       } catch (e) {
         console.error("[dm inbox refresh]", e);
+      }
+    })();
+  };
+
+  const submitOwnerReply = () => {
+    const msg = ownerReplyDraft.trim();
+    if (!msg || !ownerActiveConversation) return;
+    if (ownerDmSendLockRef.current) return;
+    ownerDmSendLockRef.current = true;
+    setOwnerDmSendPending(true);
+    const snap = ownerReplyDraft;
+    const convId = ownerActiveConversation.id;
+    setOwnerReplyDraft("");
+    const sb = createSupabaseBrowserClient();
+    void (async () => {
+      try {
+        const { error } = await insertDmMessage(sb, convId, userId, msg, null);
+        if (error) {
+          console.error("[owner dm]", error.message);
+          setOwnerReplyDraft(snap);
+          return;
+        }
+        scheduleDmInboxRefresh(convId);
+      } finally {
+        ownerDmSendLockRef.current = false;
+        setOwnerDmSendPending(false);
       }
     })();
   };
@@ -650,18 +759,33 @@ export function TeamChatShell({
   );
 
   return (
-    <DeskShell
-      sections={commandDeskSections({ canManageRoles })}
-      sidebarFooter={sidebarFooter}
-      tacticalSession={{ userId, userDisplayName, canManageRoles }}
-    >
-      <div className="@container relative mx-auto flex w-full min-w-0 max-w-[1600px] flex-col px-3 pb-6 pt-2 text-zinc-100 @min-[960px]:px-5">
-        <header className="mb-3 text-left @min-[960px]:mb-4">
-          <h1 className="font-sans text-lg font-semibold tracking-tight text-zinc-200 @min-[960px]:text-xl">
+    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+      {/* Local @container: desktop main no longer sets one — chat breakpoints stay tied to this column, not the viewport. */}
+      <div className="@container relative mx-auto flex w-full min-w-0 max-w-[1600px] flex-col text-zinc-100">
+        <header className="relative mb-3 rounded-lg border border-[#222] bg-[#111] px-3 py-3 text-left @min-[960px]:mb-4 @min-[960px]:px-6 @min-[960px]:py-5 @lg:mb-6">
+          {canManageRoles ? (
+            <button
+              type="button"
+              onClick={() => setOwnerIntelOpen(true)}
+              className="absolute right-3 top-3 rounded-lg border border-[#222] bg-[#0a0a0a] p-2 text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-200"
+              title="Owner intel (⌘K)"
+              aria-label="Open owner command intel"
+            >
+              <Command className="h-4 w-4" strokeWidth={2} />
+            </button>
+          ) : null}
+          <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/75 @min-[960px]:block">
+            Internal messaging
+          </p>
+          <h1 className="font-sans text-lg font-semibold tracking-tight text-zinc-100 @min-[960px]:mt-1.5 @min-[960px]:text-2xl @min-[960px]:text-cyan-200 @md:mt-2 @md:text-3xl @lg:mt-3 @lg:text-[2.35rem]">
             Team Chat
           </h1>
-          <p className="mt-0.5 text-xs text-zinc-600">
-            DMs and channels · Command ⌘K for triage & intel
+          <p className="mt-1 max-w-4xl text-xs leading-relaxed text-zinc-500 @min-[960px]:mx-auto @min-[960px]:mt-2 @min-[960px]:text-sm @min-[960px]:text-zinc-300/85 @md:mt-3 @md:text-base">
+            <span className="@min-[960px]:hidden">Direct messages and team channels.</span>
+            <span className="hidden @min-[960px]:inline">
+              Clean inbox for teammates to ask questions, coordinate handoffs, and keep deals moving without leaving the
+              dashboard.
+            </span>
           </p>
           {chatSchemaError ? (
             <p className="mx-auto mt-4 max-w-3xl rounded-xl border border-amber-400/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/95">
@@ -923,39 +1047,25 @@ export function TeamChatShell({
               </div>
             )}
             </div>
-            <div className="mt-auto shrink-0 border-t border-white/[0.06] pt-2">
+            <div className="mt-auto shrink-0 border-t border-white/[0.08] pt-2">
               <button
                 type="button"
                 onClick={() => {
-                  setTacticalDrawerTab("triage");
-                  setTacticalDrawerOpen(true);
+                  setIssueDrawerOpen(true);
                   setActiveConversationId("");
                 }}
-                className="w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-left backdrop-blur-sm transition hover:border-emerald-500/25 hover:text-emerald-200/90"
+                className="w-full rounded-xl border border-transparent bg-[linear-gradient(145deg,rgba(250,204,21,0.16),rgba(20,20,18,0.92))] px-3 py-2.5 text-left shadow-[inset_0_0_0_1px_rgba(250,204,21,0.3),0_12px_24px_-20px_rgba(250,204,21,0.65)] transition hover:bg-[linear-gradient(145deg,rgba(250,204,21,0.22),rgba(24,24,22,0.95))]"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Triage</p>
-                <p className="mt-0.5 text-xs text-zinc-400">Issues · opens command drawer</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-100">Issue board</p>
+                <p className="mt-1 text-xs text-zinc-300">Post bugs or blockers for owner review.</p>
               </button>
-              {canManageRoles ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTacticalDrawerTab("intel");
-                    setTacticalDrawerOpen(true);
-                  }}
-                  className="mt-2 w-full rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-left backdrop-blur-sm transition hover:border-emerald-500/25"
-                >
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Intel</p>
-                  <p className="mt-0.5 text-xs text-zinc-400">Owner DM monitor</p>
-                </button>
-              ) : null}
             </div>
           </aside>
 
           <div
             ref={teamChatCenterRef}
             className={cn(
-              "relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-transparent p-1 @min-[960px]:min-h-[min(72dvh,calc(100dvh-8rem))] @min-[960px]:p-3",
+              "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[radial-gradient(120%_120%_at_10%_0%,rgba(34,211,238,0.14),transparent_48%),radial-gradient(120%_120%_at_90%_0%,rgba(167,139,250,0.14),transparent_52%),linear-gradient(180deg,rgba(10,14,26,0.97),rgba(7,10,18,0.96))] @min-[960px]:p-5 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(167,139,250,0.18),0_0_34px_-22px_rgba(34,211,238,0.42)] @min-[960px]:h-full @min-[960px]:max-h-full",
               centerMode === "group" &&
                 "@max-[959px]:min-h-[min(62dvh,620px)] @max-[959px]:scroll-mt-3",
             )}
@@ -1220,75 +1330,95 @@ export function TeamChatShell({
                       </div>
                     </div>
                   </div>
-                  <div className="sticky bottom-0 z-10 mt-3 px-1 pb-1">
-                    <input
-                      ref={groupFileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-                      className="sr-only"
-                      tabIndex={-1}
-                      aria-hidden
-                      onChange={(e) => {
-                        const fl = e.target.files;
-                        if (!fl?.length) return;
-                        setGroupAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
-                        e.currentTarget.value = "";
-                      }}
-                    />
+                  <div className="mt-3 rounded-xl border border-transparent bg-[linear-gradient(180deg,rgba(11,16,28,0.88),rgba(9,13,22,0.92))] p-3 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200/80">Post to group</p>
                     {groupReplyTarget ? (
-                      <div className="mb-2 flex items-start justify-between gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-500 backdrop-blur-md">
-                        <p className="min-w-0 truncate font-mono text-[10px]">
-                          ↪ {groupReplyTarget.from}: {groupReplyTarget.text}
+                      <div className="mt-2 flex items-start justify-between gap-2 rounded-md border-l-2 border-cyan-300/45 bg-black/35 px-2.5 py-2 text-xs text-zinc-300 transition-all duration-200">
+                        <p>
+                          <span className="font-semibold text-cyan-100">↪ Replying to {groupReplyTarget.from}:</span> {groupReplyTarget.text}
                         </p>
                         <button
                           type="button"
                           onClick={() => setGroupReplyTarget(null)}
-                          className="shrink-0 font-mono text-[10px] text-zinc-600"
+                          className="rounded-md border border-zinc-400/30 bg-zinc-700/20 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200"
                         >
-                          ×
+                          Cancel
                         </button>
                       </div>
                     ) : null}
-                    <div className="tactical-glass-input rounded-full border border-white/[0.08] px-4 py-2">
-                      <textarea
-                        rows={1}
-                        placeholder="Command ⌘K for actions · Enter to send"
-                        value={groupDraft}
-                        onChange={(e) => setGroupDraft(e.target.value)}
-                        onPaste={(e) => {
-                          const files = Array.from(e.clipboardData?.files ?? []);
-                          if (files.length === 0) return;
+                    <textarea
+                      rows={3}
+                      placeholder={
+                        groupChannel === "announcements"
+                          ? "Post an announcement (@everyone supported)..."
+                          : "Message the Team Chat channel..."
+                      }
+                      value={groupDraft}
+                      onChange={(e) => setGroupDraft(e.target.value)}
+                      onPaste={(e) => {
+                        const files = Array.from(e.clipboardData?.files ?? []);
+                        if (files.length === 0) return;
+                        e.preventDefault();
+                        setGroupAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter" || e.shiftKey) return;
+                        if (groupSendPending) {
                           e.preventDefault();
-                          setGroupAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key !== "Enter" || e.shiftKey) return;
-                          if (groupSendPending) {
-                            e.preventDefault();
-                            return;
-                          }
-                          e.preventDefault();
-                          sendGroupMessage();
-                        }}
-                        className="max-h-32 min-h-[40px] w-full resize-none border-0 bg-transparent py-2 font-sans text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
-                      />
-                    </div>
+                          return;
+                        }
+                        e.preventDefault();
+                        sendGroupMessage();
+                      }}
+                      className="mt-2 w-full resize-none rounded-xl border border-transparent bg-black/40 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)] focus:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.36)] focus:outline-none"
+                    />
                     {groupAttachments.length > 0 ? (
-                      <div className="mt-2 flex flex-wrap gap-1.5 px-2">
+                      <div className="mt-2 flex flex-wrap gap-1.5">
                         {groupAttachments.map((att, idx) => (
                           <button
                             key={`${att.url}-${idx}`}
                             type="button"
                             onClick={() => setGroupAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                            className="rounded-full border border-white/[0.08] px-2 py-0.5 font-mono text-[9px] text-zinc-500"
+                            className="rounded-md border border-cyan-300/30 bg-cyan-500/14 px-2 py-1 text-[10px] text-cyan-100"
                             title="Remove attachment"
                           >
-                            {att.kind.toUpperCase()} · {att.name.slice(0, 16)}
+                            {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
                           </button>
                         ))}
                       </div>
                     ) : null}
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[11px] text-zinc-500">
+                        {groupChannel === "announcements"
+                          ? "@everyone · Enter to post"
+                          : "@name · Enter to send"}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <input
+                          ref={groupFileInputRef}
+                          type="file"
+                          multiple
+                          accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+                          className="hidden"
+                          onChange={(e) => {
+                            const fl = e.target.files;
+                            if (!fl?.length) return;
+                            setGroupAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
+                            e.currentTarget.value = "";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          disabled={groupSendPending}
+                          onClick={() => groupFileInputRef.current?.click()}
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#141414] text-zinc-400 transition hover:text-zinc-100 disabled:opacity-40"
+                          title="Attach"
+                          aria-label="Attach file to group message"
+                        >
+                          <Plus className="h-4 w-4" strokeWidth={2} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -1298,13 +1428,13 @@ export function TeamChatShell({
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
                   <div
                     ref={dmScrollRef}
-                    className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-3 overflow-x-hidden overflow-y-auto overscroll-contain px-1 [max-height:min(62dvh,720px,calc(100dvh-22rem))]"
+                    className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-[#222] bg-[#0a0a0a] p-3 [max-height:min(62dvh,720px,calc(100dvh-22rem))]"
                   >
                   {activeConversation.messages.map((m, idx) => {
                     const isYou = m.from.toLowerCase() === userDisplayName.toLowerCase();
                     const bubbleClass = isYou
-                      ? "bg-gradient-to-br from-[#2d1b4e] via-[#12081c] to-black text-zinc-100 shadow-[0_8px_32px_-12px_rgba(88,28,135,0.5)]"
-                      : "border-0 bg-white/[0.04] text-zinc-200 underline decoration-white/[0.12] decoration-1 underline-offset-4";
+                      ? "border border-violet-500/25 bg-gradient-to-br from-violet-600/85 via-indigo-700/75 to-indigo-950/90 text-white shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)]"
+                      : "border border-[#2a2a2a] bg-[#161616] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
                     return (
                       <motion.div
                         key={`${m.from}-${idx}-${m.text}`}
@@ -1332,9 +1462,8 @@ export function TeamChatShell({
                               setDmReplyTarget({ from: m.from, text: m.text });
                             }
                           }}
-                          className={`max-w-[min(82%,28rem)] cursor-pointer px-3 py-2.5 outline-none transition hover:brightness-[1.03] focus-visible:ring-1 focus-visible:ring-emerald-500/30 ${isYou ? "rounded-[18px]" : "rounded-lg"} ${bubbleClass}`}
+                          className={`max-w-[min(82%,28rem)] cursor-pointer rounded-[18px] px-3 py-2.5 outline-none transition hover:brightness-[1.04] focus-visible:ring-2 focus-visible:ring-violet-500/40 ${bubbleClass}`}
                         >
-                        <p className="mb-1 font-mono text-[9px] tabular-nums text-zinc-500">{m.time}</p>
                         {m.replyTo ? (
                           <div className={`mb-1.5 flex items-start gap-1.5 rounded-lg px-2 py-1 text-xs ${isYou ? "bg-black/20 text-violet-100/90" : "bg-black/35 text-zinc-400"}`}>
                             <svg viewBox="0 0 28 22" className="mt-0.5 h-4 w-5 shrink-0 opacity-70">
@@ -1346,7 +1475,7 @@ export function TeamChatShell({
                             </p>
                           </div>
                         ) : null}
-                        <p className="font-sans text-[14px] leading-relaxed tracking-tight">{renderTextWithLinks(m.text)}</p>
+                        <p className="text-[14px] leading-relaxed">{renderTextWithLinks(m.text)}</p>
                         {Array.isArray(m.attachments) && m.attachments.length > 0 ? (
                           <div className="mt-2 space-y-1.5">
                             {m.attachments.map((att) => (
@@ -1408,40 +1537,50 @@ export function TeamChatShell({
             </div>
 
             {centerMode !== "dm" ? null : (
-            <div className="pointer-events-auto sticky bottom-0 z-20 mt-auto shrink-0 px-1 pb-1 pt-2 @min-[960px]:px-2">
-              <input
-                ref={dmFileInputRef}
-                type="file"
-                multiple
-                accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-                className="sr-only"
-                tabIndex={-1}
-                aria-hidden
-                onChange={(e) => {
-                  const fl = e.target.files;
-                  if (!fl?.length) return;
-                  setDmAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
-                  e.currentTarget.value = "";
-                }}
-              />
+            <div className="tactical-glass-input mt-3 shrink-0 rounded-2xl p-3 @min-[960px]:mt-4">
               {activeConversation && dmReplyTarget ? (
-                <div className="mb-2 flex items-start justify-between gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-500 backdrop-blur-md">
-                  <p className="min-w-0 truncate">
-                    <span className="font-mono text-[10px]">↪</span> {dmReplyTarget.text}
+                <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-[#222] bg-black/30 px-2.5 py-2 text-xs text-zinc-400">
+                  <p>
+                    <span className="font-medium text-zinc-300">↪ {dmReplyTarget.from}:</span> {dmReplyTarget.text}
                   </p>
                   <button
                     type="button"
                     onClick={() => setDmReplyTarget(null)}
-                    className="shrink-0 font-mono text-[10px] text-zinc-600 hover:text-zinc-300"
+                    className="rounded-md border border-[#333] px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 hover:text-zinc-200"
                   >
-                    Esc
+                    Cancel
                   </button>
                 </div>
               ) : null}
-              <div className="tactical-glass-input rounded-full border border-white/[0.08] px-4 py-2 shadow-[0_8px_40px_-16px_rgba(0,0,0,0.8)]">
+              <div className="flex items-end gap-2">
+                <input
+                  ref={dmFileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const fl = e.target.files;
+                    if (!fl?.length) return;
+                    setDmAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={dmSendPending}
+                  onClick={() => dmFileInputRef.current?.click()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#141414] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-40"
+                  title="Attach file"
+                  aria-label="Attach file"
+                >
+                  <Plus className="h-5 w-5" strokeWidth={2} />
+                </button>
                 <textarea
-                  rows={1}
-                  placeholder="Command ⌘K for actions · Enter to send"
+                  rows={2}
+                  placeholder={
+                    activeConversation ? "Message…" : "Start a conversation…"
+                  }
                   value={activeConversation ? draft : newMessageBody}
                   onChange={(e) =>
                     activeConversation ? setDraft(e.target.value) : setNewMessageBody(e.target.value)
@@ -1465,30 +1604,253 @@ export function TeamChatShell({
                     e.preventDefault();
                     sendDmMessage();
                   }}
-                  className="max-h-32 min-h-[40px] w-full resize-none border-0 bg-transparent py-2 font-sans text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-0"
+                  className="min-h-[44px] min-w-0 flex-1 resize-none rounded-xl border border-transparent bg-transparent px-2 py-2.5 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
                 />
               </div>
               {dmAttachments.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1.5 px-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {dmAttachments.map((att, idx) => (
                     <button
                       key={`${att.url}-${idx}`}
                       type="button"
                       onClick={() => setDmAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                      className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2 py-0.5 font-mono text-[9px] text-zinc-500"
+                      className="rounded-md border border-[#333] bg-black/40 px-2 py-1 text-[10px] text-zinc-400"
                       title="Remove attachment"
                     >
-                      {att.kind.toUpperCase()} · {att.name.slice(0, 16)}
+                      {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
                     </button>
                   ))}
                 </div>
               ) : null}
+              <p className="mt-2 text-[10px] text-zinc-600">Enter to send · Shift+Enter newline</p>
             </div>
             )}
 
           </div>
 
         </section>
+
+        <AnimatePresence>
+          {issueDrawerOpen ? (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Close issue board"
+                className="fixed inset-0 z-[120] bg-black/65"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setIssueDrawerOpen(false)}
+              />
+              <motion.aside
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="issue-board-title"
+                initial={{ x: "104%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "104%" }}
+                transition={{ type: "spring", stiffness: 380, damping: 36 }}
+                className="fixed right-0 top-0 z-[130] flex h-[100dvh] w-[min(100vw,420px)] flex-col border-l border-[#222] bg-[#111] shadow-[-16px_0_48px_-24px_rgba(0,0,0,0.85)]"
+              >
+                <div className="flex items-center justify-between border-b border-[#222] px-4 py-3">
+                  <div>
+                    <p id="issue-board-title" className="text-sm font-semibold tracking-tight text-zinc-100">
+                      Issue board
+                    </p>
+                    <p className="text-[11px] text-zinc-500">Tactical queue · status glow</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIssueDrawerOpen(false)}
+                    className="rounded-lg border border-[#222] p-2 text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-200"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
+                  {issueNotes.map((note) => {
+                    const isFixed = note.status === "Fixed";
+                    return (
+                      <div
+                        key={note.id}
+                        className={cn(
+                          "rounded-lg border border-[#222] bg-[#0a0a0a] p-3",
+                          isFixed
+                            ? "shadow-[0_0_28px_-10px_rgba(34,197,94,0.55)]"
+                            : "shadow-[0_0_24px_-12px_rgba(234,179,8,0.5)]",
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "h-2 w-2 shrink-0 rounded-full",
+                              isFixed
+                                ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)]"
+                                : "bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)]",
+                            )}
+                          />
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">{note.status}</span>
+                          <span className="ml-auto text-[10px] tabular-nums text-zinc-600">{note.time}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] font-medium text-zinc-500">{note.author}</p>
+                        <p className="mt-1 text-sm leading-relaxed tracking-tight text-zinc-200">{note.text}</p>
+                        {note.replies.length > 0 ? (
+                          <div className="mt-2 space-y-1 border-t border-[#222] pt-2">
+                            {note.replies.map((r, i) => (
+                              <p key={`${note.id}-r-${i}`} className="text-xs text-zinc-400">
+                                <span className="font-medium text-zinc-300">{r.author}:</span> {r.text}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="tactical-glass-input m-3 shrink-0 rounded-xl p-3">
+                  <textarea
+                    rows={2}
+                    value={issueDraft}
+                    onChange={(e) => setIssueDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" || e.shiftKey) return;
+                      e.preventDefault();
+                      const text = issueDraft.trim();
+                      if (!text) return;
+                      const time = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                      setIssueNotes((prev) => [
+                        ...prev,
+                        {
+                          id: `issue-${Date.now()}`,
+                          author: userDisplayName,
+                          text,
+                          status: "Open",
+                          time,
+                          replies: [],
+                        },
+                      ]);
+                      setIssueDraft("");
+                    }}
+                    placeholder="Log an issue… Enter to post"
+                    className="w-full resize-none rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+                  />
+                </div>
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {canManageRoles && ownerIntelOpen ? (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Close owner command"
+                className="fixed inset-0 z-[140] bg-black/70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setOwnerIntelOpen(false)}
+              />
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="owner-intel-title"
+                initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: 10 }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="fixed left-1/2 top-14 z-[150] flex max-h-[min(85dvh,820px)] w-[min(96vw,920px)] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-[#222] bg-[#111] shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-[#222] px-4 py-3 @min-[960px]:px-5">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Command</p>
+                    <h2 id="owner-intel-title" className="mt-0.5 text-lg font-semibold tracking-tight text-zinc-100 @min-[960px]:text-xl">
+                      Internal intelligence feed
+                    </h2>
+                    <p className="mt-1 text-xs text-zinc-500">All org DMs · select a thread · Enter to reply as owner</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOwnerIntelOpen(false)}
+                    className="rounded-lg border border-[#222] p-2 text-zinc-500 hover:text-zinc-200"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+
+                <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-0 overflow-hidden @min-[960px]:grid-cols-[minmax(200px,280px)_minmax(0,1fr)]">
+                  <div className="min-h-0 border-[#222] @min-[960px]:border-r">
+                    <div className="max-h-[40vh] space-y-0 overflow-y-auto @min-[960px]:max-h-none @min-[960px]:h-full">
+                      {ownerPanelConversations.length === 0 ? (
+                        <div className="p-4 text-xs leading-relaxed text-zinc-500">
+                          <p className="font-medium text-zinc-300">No threads yet.</p>
+                          <p className="mt-2">
+                            Run <code className="rounded bg-black/50 px-1 py-0.5 text-[10px] text-zinc-400">team-chat-messages.sql</code> if
+                            owner-wide reads are missing.
+                          </p>
+                        </div>
+                      ) : (
+                        ownerPanelConversations.map((c) => (
+                          <button
+                            key={`owner-panel-${c.id}`}
+                            type="button"
+                            onClick={() => setOwnerActiveConversationId(c.id)}
+                            className={cn(
+                              "w-full border-b border-[#222] px-3 py-2 text-left transition hover:bg-[#141414]",
+                              ownerActiveConversationId === c.id ? "bg-[#141414]" : "bg-transparent",
+                            )}
+                          >
+                            <p className="truncate text-[11px] font-medium tracking-tight text-zinc-200">{c.participants.join(" · ")}</p>
+                            <p className="truncate text-[10px] text-zinc-600">{c.preview}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 min-w-0 flex-col border-t border-[#222] @min-[960px]:border-t-0">
+                    <div className="shrink-0 border-b border-[#222] px-4 py-2">
+                      <p className="truncate text-xs font-medium text-zinc-300">
+                        {ownerActiveConversation ? ownerActiveConversation.participants.join(" · ") : "Select a thread"}
+                      </p>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-2">
+                      {ownerActiveConversation?.messages.map((m, idx) => (
+                        <div key={`owner-msg-${idx}-${m.text}`} className="rounded-md border border-[#222] bg-[#0a0a0a] px-2 py-1.5">
+                          <p className="text-[10px] font-medium text-zinc-500">{m.from}</p>
+                          <p className="text-xs leading-snug text-zinc-200">{m.text}</p>
+                        </div>
+                      )) ?? null}
+                    </div>
+                    <div className="tactical-glass-input m-3 shrink-0 rounded-xl p-2">
+                      <textarea
+                        rows={2}
+                        value={ownerReplyDraft}
+                        onChange={(e) => setOwnerReplyDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" || e.shiftKey) return;
+                          e.preventDefault();
+                          if (ownerDmSendPending) return;
+                          submitOwnerReply();
+                        }}
+                        placeholder="Reply as owner… Enter to send"
+                        disabled={ownerDmSendPending}
+                        className="w-full resize-none rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none disabled:opacity-50"
+                      />
+                      <p className="px-2 pb-1 text-[10px] text-zinc-600">Enter send · Shift+Enter newline</p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </>
+          ) : null}
+        </AnimatePresence>
       </div>
     </DeskShell>
   );

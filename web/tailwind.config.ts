@@ -10,14 +10,14 @@ const config: Config = {
       },
       colors: {
         tactical: {
-          canvas: "#000000",
-          panel: "#0a0a0a",
-          line: "rgba(255,255,255,0.08)",
+          canvas: "#050505",
+          panel: "#111111",
+          line: "#222222",
         },
         surface: {
-          DEFAULT: "#000000",
-          card: "#0a0a0a",
-          muted: "rgba(10, 10, 10, 0.5)",
+          DEFAULT: "#050505",
+          card: "#111111",
+          muted: "rgba(17, 17, 17, 0.92)",
         },
         ink: {
           DEFAULT: "#e2e8f0",

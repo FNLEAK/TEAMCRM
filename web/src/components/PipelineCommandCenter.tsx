@@ -1,18 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import {
-  useEffect,
-  useMemo,
-  useState,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
 import { motion } from "framer-motion";
-import { AlertTriangle, Archive, ArrowLeftRight, Clock, Globe, Phone } from "lucide-react";
-import { buildTelHref } from "@/lib/phone";
+import { AlertTriangle, Clock } from "lucide-react";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
@@ -936,35 +928,25 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
               const cols = byColumn.get(col) ?? [];
               const stageStyle =
                 KANBAN_COLUMN_STYLE[col] ?? KANBAN_COLUMN_STYLE[NON_CANONICAL_STAGE_KEY];
-              const loadGlow = Math.min(1, cols.length / 12);
-              const titleGlow =
-                loadGlow > 0.02
-                  ? ({
-                      textShadow: `0 0 ${6 + loadGlow * 18}px rgba(52, 211, 153, ${0.2 + loadGlow * 0.45})`,
-                    } as CSSProperties)
-                  : undefined;
               return (
                 <div
                   key={col}
                   className={clsx(
-                    "relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg border border-white/[0.06] bg-transparent",
+                    "relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg border border-[#222] bg-[#111]",
                     layoutMobileShell
                       ? "@min-[780px]:min-w-[185px] @min-[780px]:flex-1 @min-[780px]:shrink-0"
                       : "min-[780px]:min-w-[185px] min-[780px]:flex-1 min-[780px]:shrink-0",
                   )}
                 >
-                  <div className="sticky top-0 z-10 border-b border-white/[0.05] bg-black/30 px-2 py-1.5 backdrop-blur-md">
+                  <div className="sticky top-0 z-10 border-b border-[#222] bg-[#111] px-3 py-2">
                     <div className="flex items-baseline justify-between gap-2">
-                      <p
-                        className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500"
-                        style={titleGlow}
-                      >
+                      <p className={clsx("text-[11px] font-semibold uppercase tracking-[0.12em]", stageStyle.heading)}>
                         {col === "Appt Set" ? "Appt Set" : pipelineStageDisplayLabel(col)}
                       </p>
-                      <span className="font-mono text-[10px] tabular-nums text-zinc-600">{cols.length}</span>
+                      <span className="text-xs font-medium tabular-nums text-zinc-500">{cols.length}</span>
                     </div>
                     {col === "Appt Set" ? (
-                      <p className="mt-0.5 font-mono text-[9px] leading-snug text-zinc-700">+ web bookings</p>
+                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-600">Includes website bookings</p>
                     ) : null}
                   </div>
                   <div
@@ -1003,48 +985,39 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                           ? `In ${col} · ~${Math.floor(stagnantH)}h since last activity — prioritize follow-up`
                           : undefined;
                       const isWebLead = isWebSourcePipelineLead(lead);
-                      const telHref = buildTelHref(lead.phone ?? "");
                       return (
                         <motion.div
                           key={lead.id}
                           layout
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 32 }}
-                          whileHover={{ y: -3, transition: { type: "spring", stiffness: 520, damping: 30 } }}
-                          className="group/card relative min-w-0"
+                          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                          className="min-w-0"
                         >
                         <Link
                           href={searchHref(lead.company_name ?? "")}
                           title={staleLevel ? staleTitle : undefined}
                           className={clsx(
-                            "relative block overflow-hidden rounded-lg border border-white/[0.12] bg-white/[0.035] px-2.5 py-2 pr-8 shadow-none backdrop-blur-md transition-shadow duration-300 hover:shadow-[0_14px_44px_-16px_rgba(0,0,0,0.8)]",
+                            "group relative block overflow-hidden rounded-lg border border-[#222] bg-[#0c0c0c] px-2.5 py-2 transition hover:border-zinc-600",
                             stageStyle.card,
                             (lead.status ?? "").trim().toLowerCase() === "pending close" &&
-                              "border-amber-500/35 bg-amber-950/15",
+                              "border-amber-500/40 bg-amber-950/20",
                             staleLevel === "warn" &&
-                              "border-amber-500/40 ring-1 ring-amber-500/20 shadow-[0_0_20px_-10px_rgba(245,158,11,0.3)]",
+                              "border-amber-500/40 ring-1 ring-amber-500/25 shadow-[0_0_20px_-10px_rgba(245,158,11,0.35)]",
                             staleLevel === "critical" &&
-                              "border-rose-500/45 ring-1 ring-rose-500/25 shadow-[0_0_22px_-8px_rgba(244,63,94,0.4)]",
+                              "border-rose-500/45 ring-1 ring-rose-500/30 shadow-[0_0_22px_-8px_rgba(244,63,94,0.45)]",
                             isWebLead &&
-                              "border-cyan-500/25 bg-[linear-gradient(135deg,rgba(34,211,238,0.06),rgba(8,8,10,0.92))] shadow-[0_0_24px_-14px_rgba(34,211,238,0.2)]",
+                              "border-cyan-500/30 bg-[linear-gradient(135deg,rgba(34,211,238,0.07),rgba(12,12,14,0.98))] shadow-[0_0_28px_-14px_rgba(34,211,238,0.25)]",
                           )}
                         >
-                          <span className="pointer-events-none absolute right-1.5 top-1.5 text-zinc-500">
-                            {isWebLead ? (
-                              <Globe className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                            ) : (
-                              <Phone className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                            )}
-                          </span>
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
-                              <span className="block truncate text-[13px] font-semibold tracking-tight text-slate-100">
+                              <span className="block truncate text-[13px] font-semibold text-slate-100">
                                 {lead.company_name ?? "Untitled"}
                               </span>
                             </div>
                           </div>
-                          <p className="mt-1 truncate font-mono text-[11px] text-slate-400">{lead.phone ?? "—"}</p>
+                          <p className="mt-1 truncate text-[12px] font-semibold text-slate-300">{lead.phone ?? "—"}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {staleLevel === "critical" ? (
                               <span
@@ -1074,6 +1047,11 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                             <span className="rounded border border-[#333] bg-zinc-900/80 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-500">
                               {src}
                             </span>
+                            {isWebLead ? (
+                              <span className="rounded border border-cyan-500/35 bg-cyan-950/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-cyan-200/90">
+                                Web
+                              </span>
+                            ) : null}
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-1.5 max-[779px]:opacity-100 min-[780px]:opacity-0 min-[780px]:transition-opacity min-[780px]:duration-200 min-[780px]:group-hover:opacity-100">
                             <span
@@ -1117,49 +1095,12 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                             >
                               {oid ? ownerName : "—"}
                             </span>
-                            <span className="shrink-0 font-mono text-[10px] tabular-nums text-slate-500">
-                              {formatRelative(lead.created_at)}
-                            </span>
+                            <span className="shrink-0 text-[12px] font-bold text-slate-200">{formatRelative(lead.created_at)}</span>
                           </div>
                           {lead.notes ? (
                             <p className="mt-1 line-clamp-2 text-[10px] text-slate-600">{lead.notes}</p>
                           ) : null}
                         </Link>
-                        <div className="pointer-events-none absolute bottom-1.5 right-1.5 z-10 flex gap-0.5 opacity-0 transition-opacity duration-200 group-hover/card:pointer-events-auto group-hover/card:opacity-100">
-                          <a
-                            href={telHref}
-                            onClick={(e) => e.stopPropagation()}
-                            className="pointer-events-auto rounded-md border border-white/[0.1] bg-black/75 p-1 text-zinc-500 backdrop-blur-md hover:border-emerald-500/35 hover:text-emerald-300"
-                            title="Call"
-                            aria-label="Call"
-                          >
-                            <Phone className="h-3 w-3" strokeWidth={2} />
-                          </a>
-                          <button
-                            type="button"
-                            title="Archive"
-                            aria-label="Archive"
-                            className="pointer-events-auto rounded-md border border-white/[0.1] bg-black/75 p-1 text-zinc-500 backdrop-blur-md hover:text-zinc-300"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                          >
-                            <Archive className="h-3 w-3" strokeWidth={2} />
-                          </button>
-                          <button
-                            type="button"
-                            title="Move stage"
-                            aria-label="Move"
-                            className="pointer-events-auto rounded-md border border-white/[0.1] bg-black/75 p-1 text-zinc-500 backdrop-blur-md hover:text-zinc-300"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                          >
-                            <ArrowLeftRight className="h-3 w-3" strokeWidth={2} />
-                          </button>
-                        </div>
                         </motion.div>
                       );
                     })}

@@ -41,11 +41,7 @@ export function RoleApplierShell({
   );
 
   return (
-    <DeskShell
-      sections={commandDeskSections({ canManageRoles: true })}
-      sidebarFooter={sidebarFooter}
-      tacticalSession={{ userId: ownerId, userDisplayName, canManageRoles: true }}
-    >
+    <DeskShell sections={commandDeskSections({ canManageRoles: true })} sidebarFooter={sidebarFooter}>
       <div className="relative mx-auto w-full min-w-0 max-w-[1600px] @container text-zinc-100">
         <header className="mb-4 border-b border-white/[0.06] pb-4 @md:mb-8 @md:pb-6">
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">Admin</p>

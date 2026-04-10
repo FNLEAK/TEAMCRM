@@ -34,7 +34,5 @@ export default async function HowToPage() {
     "You";
   const allowRoleApplier = await canManageRoles(supabase, user.id, user.email);
 
-  return (
-    <HowToShell userId={user.id} userDisplayName={displayName} canManageRoles={allowRoleApplier} />
-  );
+  return <HowToShell userDisplayName={displayName} canManageRoles={allowRoleApplier} />;
 }
