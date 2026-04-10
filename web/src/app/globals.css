@@ -5,10 +5,10 @@
 /* Tactical OS — depth-first dark UI (Linear / Apple-adjacent) */
 :root {
   color-scheme: dark;
-  --color-canvas: #050505;
-  --color-surface: #111111;
-  --color-surface-strong: #141414;
-  --color-border-subtle: #222222;
+  --color-canvas: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-strong: #0f0f0f;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
   --color-border-glass: rgba(255, 255, 255, 0.06);
   --color-neon-cyan: #22d3ee;
   --color-neon-violet: #a78bfa;
@@ -33,15 +33,23 @@
 }
 
 .tactical-panel {
-  background-color: var(--color-surface);
+  background-color: rgba(10, 10, 10, 0.5);
   border: 1px solid var(--color-border-subtle);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .tactical-glass-input {
-  background: rgba(17, 17, 17, 0.72);
+  background: rgba(10, 10, 10, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.tactical-surface-blur {
+  background: rgba(10, 10, 10, 0.5);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
 }
 
 html {
@@ -68,7 +76,7 @@ html {
 }
 
 body {
-  @apply m-0 min-h-svh bg-[#050505] text-zinc-200;
+  @apply m-0 min-h-svh bg-black text-zinc-200;
   overflow-x: clip;
   max-width: 100%;
   letter-spacing: -0.01em;

@@ -8,7 +8,9 @@ import clsx from "clsx";
 import {
   BarChart2,
   BookOpen,
+  Command,
   Crosshair,
+  Hash,
   LayoutDashboard,
   Menu,
   MessageCircle,
@@ -18,6 +20,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { TacticalCommandDrawer } from "@/components/TacticalCommandDrawer";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
@@ -55,10 +58,10 @@ export type DeskNavSection = {
 
 function navLinkClass(active: boolean) {
   return clsx(
-    "relative rounded-lg border px-3 py-2.5 text-[13px] font-medium leading-snug tracking-tight transition duration-200",
+    "relative rounded-lg border px-3 py-2 text-[12px] font-medium leading-snug tracking-tight transition duration-200",
     active
-      ? "border-zinc-600/80 bg-zinc-800/80 text-white"
-      : "border-[#222] bg-transparent text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-zinc-100 active:scale-[0.99]",
+      ? "border-emerald-500/35 bg-emerald-500/[0.12] text-emerald-100 shadow-[0_0_20px_-10px_rgba(52,211,153,0.45)]"
+      : "border-transparent bg-transparent text-zinc-500 hover:border-white/[0.08] hover:bg-white/[0.04] hover:text-zinc-200 active:scale-[0.99]",
   );
 }
 
@@ -133,12 +136,27 @@ function NavTiltLink({
   );
 }
 
+export type TacticalSession = {
+  userId: string;
+  userDisplayName: string;
+  canManageRoles: boolean;
+};
+
+const CHANNEL_LINKS = [
+  { href: "/", label: "Leads" },
+  { href: "/pipeline-command-center", label: "Pipeline" },
+  { href: "/team-chat", label: "Team chat" },
+] as const;
+
+const ONLINE_TEAM = ["Jaylan", "Mykala", "Jon", "Richard", "Camydn"] as const;
+
 export function DeskShell({
   children,
   navItems,
   sections,
   sidebarFooter,
   asideTop,
+  tacticalSession,
 }: {
   children: ReactNode;
   /** @deprecated Prefer `sections` for grouped nav */
@@ -146,6 +164,8 @@ export function DeskShell({
   sections?: DeskNavSection[];
   sidebarFooter?: ReactNode;
   asideTop?: ReactNode;
+  /** When set, enables tactical command drawer + ⌘K (desktop). */
+  tacticalSession?: TacticalSession | null;
 }) {
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
@@ -244,7 +264,13 @@ export function DeskShell({
       ? [{ title: "Navigate", items: navItems }]
       : []);
 
-  const { isMobileShell } = useDeskLayout();
+  const {
+    isMobileShell,
+    tacticalDrawerOpen,
+    setTacticalDrawerOpen,
+    tacticalDrawerTab,
+    setTacticalDrawerTab,
+  } = useDeskLayout();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const flatNav = useMemo(() => flattenDeskNav(resolvedSections), [resolvedSections]);
   const bottomTabs = useMemo(() => flatNav.slice(0, 4), [flatNav]);
@@ -268,6 +294,68 @@ export function DeskShell({
   }, [drawerOpen]);
 
   const closeDrawer = () => setDrawerOpen(false);
+
+  useEffect(() => {
+    if (!tacticalSession) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setTacticalDrawerOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tacticalSession, setTacticalDrawerOpen]);
+
+  useEffect(() => {
+    if (!tacticalDrawerOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setTacticalDrawerOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [tacticalDrawerOpen, setTacticalDrawerOpen]);
+
+  const channelActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+
+  const renderTacticalChannels = () => (
+    <div className="mt-4 border-t border-white/[0.06] px-3 pt-4">
+      <p className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">
+        <Hash className="h-3 w-3" strokeWidth={2.5} />
+        Channels
+      </p>
+      <div className="flex flex-col gap-0.5">
+        {CHANNEL_LINKS.map((ch) => {
+          const active = channelActive(ch.href);
+          return (
+            <NavTiltLink
+              key={ch.href}
+              href={ch.href}
+              className={clsx(
+                "rounded-lg px-2 py-1.5 text-[11px] font-medium tracking-tight transition",
+                active ? "text-emerald-300" : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300",
+              )}
+            >
+              #{ch.label.toLowerCase().replace(/\s+/g, "-")}
+            </NavTiltLink>
+          );
+        })}
+      </div>
+      <p className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-600">Online</p>
+      <ul className="space-y-1.5">
+        {ONLINE_TEAM.map((name) => (
+          <li key={name} className="flex items-center justify-between text-[11px] text-zinc-400">
+            <span>{name}</span>
+            <span
+              className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.95)]"
+              aria-hidden
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 
   function tabIconForHref(href: string) {
     if (href === "/pipeline-command-center" || href.includes("pipeline-command-center")) return LayoutDashboard;
@@ -366,8 +454,8 @@ export function DeskShell({
 
   if (isMobileShell) {
     const mobileChrome = (
-      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-[#050505]">
-        <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-[#222] bg-[#050505]/95 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
+      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-black">
+        <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/[0.06] bg-black/90 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
           <button
             type="button"
             aria-expanded={drawerOpen}
@@ -388,15 +476,37 @@ export function DeskShell({
               className="h-8 w-auto max-w-[min(11rem,calc(100vw-8rem))] object-contain object-center [animation:logoPulse_3.8s_ease-in-out_infinite]"
             />
           </div>
-          <div className="relative z-20 h-10 w-10 shrink-0" aria-hidden />
+          {tacticalSession ? (
+            <button
+              type="button"
+              className="relative z-20 flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.08] hover:text-emerald-300"
+              aria-label="Open command drawer"
+              title="Command"
+              onClick={() => setTacticalDrawerOpen(true)}
+            >
+              <Command className="h-[20px] w-[20px]" strokeWidth={2} />
+            </button>
+          ) : (
+            <div className="relative z-20 h-10 w-10 shrink-0" aria-hidden />
+          )}
         </header>
 
         <main className="@container min-h-0 min-w-0 flex-1 overflow-x-hidden px-3 py-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:px-4">
           {children}
         </main>
 
+        {tacticalSession ? (
+          <TacticalCommandDrawer
+            open={tacticalDrawerOpen}
+            onClose={() => setTacticalDrawerOpen(false)}
+            tab={tacticalDrawerTab}
+            onTabChange={setTacticalDrawerTab}
+            session={tacticalSession}
+          />
+        ) : null}
+
         <nav
-          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-[#222] bg-[#111]/98 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl"
+          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-white/[0.06] bg-[#0a0a0a]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl"
           aria-label="Primary navigation"
         >
           <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-5">
@@ -499,40 +609,63 @@ export function DeskShell({
   }
 
   return (
-    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-[#050505]">
-      <aside className="relative flex w-[17.5rem] shrink-0 flex-col border-r border-[#222] bg-[#111] sm:w-72">
+    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-black">
+      <aside className="relative flex w-[260px] shrink-0 flex-col border-r border-white/[0.06] bg-[#0a0a0a]/50 backdrop-blur-xl">
         {asideTop ?? (
-          <div className="relative border-b border-[#222] px-3 py-4 sm:px-4 sm:py-5">
-            <div className="flex min-h-[220px] items-center justify-center sm:min-h-[248px]">
-              <div
-                onMouseEnter={() => setLogoSpinY((n) => n + 1)}
-                className="transform-gpu transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
-                style={{ transform: `perspective(900px) rotateY(${logoSpinY * 360}deg)` }}
-              >
-                <Image
-                  src="/brand-logo.png?v=8"
-                  alt="Web Friendly logo"
-                  width={320}
-                  height={320}
-                  priority
-                  unoptimized
-                  className="h-auto w-full max-w-[188px] object-contain [animation:logoPulse_3.8s_ease-in-out_infinite]"
-                />
-              </div>
+          <div className="relative border-b border-white/[0.06] px-3 py-3">
+            <div
+              onMouseEnter={() => setLogoSpinY((n) => n + 1)}
+              className="flex items-center justify-center transform-gpu transition-transform duration-[1400ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+              style={{ transform: `perspective(900px) rotateY(${logoSpinY * 360}deg)` }}
+            >
+              <Image
+                src="/brand-logo.png?v=8"
+                alt="Web Friendly logo"
+                width={200}
+                height={200}
+                priority
+                unoptimized
+                className="h-auto max-h-11 w-auto max-w-[9.5rem] object-contain [animation:logoPulse_3.8s_ease-in-out_infinite]"
+              />
             </div>
           </div>
         )}
 
-        {renderNav({ drawer: false })}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {renderNav({ drawer: false })}
+          {renderTacticalChannels()}
+        </div>
 
         {sidebarFooter ? (
-          <div className="mb-4 space-y-2 border-t border-[#222] p-3">{sidebarFooter}</div>
+          <div className="mt-auto space-y-2 border-t border-white/[0.06] bg-black/20 p-3 backdrop-blur-sm">{sidebarFooter}</div>
         ) : null}
       </aside>
-      {/* No @container here: pages use viewport breakpoints on desktop. Mobile shell uses @container on its own <main>. */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden bg-[#050505] px-4 py-5 md:px-7 md:py-8 lg:px-10 lg:py-10">
-        {children}
-      </main>
+
+      <div className="relative flex min-h-svh min-w-0 flex-1 flex-col bg-black">
+        {tacticalSession ? (
+          <button
+            type="button"
+            onClick={() => setTacticalDrawerOpen(true)}
+            className="absolute right-3 top-3 z-30 flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-[#0a0a0a]/60 text-zinc-500 backdrop-blur-md transition hover:border-emerald-500/30 hover:text-emerald-300"
+            aria-label="Open tactical command"
+            title="Command (⌘K)"
+          >
+            <Command className="h-4 w-4" strokeWidth={2} />
+          </button>
+        ) : null}
+
+        <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-black">{children}</main>
+
+        {tacticalSession ? (
+          <TacticalCommandDrawer
+            open={tacticalDrawerOpen}
+            onClose={() => setTacticalDrawerOpen(false)}
+            tab={tacticalDrawerTab}
+            onTabChange={setTacticalDrawerTab}
+            session={tacticalSession}
+          />
+        ) : null}
+      </div>
       {globalStyles}
     </div>
   );

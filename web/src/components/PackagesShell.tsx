@@ -10,9 +10,11 @@ import { MONTHLY_PACKAGES, ONE_TIME_PACKAGES } from "@/lib/packagesPlans";
 import { cn } from "@/lib/utils";
 
 export function PackagesShell({
+  userId,
   userDisplayName,
   canManageRoles,
 }: {
+  userId: string;
   userDisplayName: string;
   canManageRoles: boolean;
 }) {
@@ -41,7 +43,11 @@ export function PackagesShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      tacticalSession={{ userId, userDisplayName, canManageRoles }}
+    >
       <div className="relative mx-auto w-full min-w-0 max-w-[1600px] @container text-zinc-100">
         <header
           className={cn(

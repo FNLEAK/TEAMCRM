@@ -2,9 +2,15 @@
 
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 
+export type TacticalDrawerTab = "triage" | "intel";
+
 type DeskLayoutContextValue = {
   /** True when the viewport uses the compact mobile shell (drawer + bottom tabs). */
   isMobileShell: boolean;
+  tacticalDrawerOpen: boolean;
+  setTacticalDrawerOpen: (open: boolean) => void;
+  tacticalDrawerTab: TacticalDrawerTab;
+  setTacticalDrawerTab: (tab: TacticalDrawerTab) => void;
 };
 
 const DeskLayoutContext = createContext<DeskLayoutContextValue | null>(null);
@@ -12,6 +18,8 @@ const DeskLayoutContext = createContext<DeskLayoutContextValue | null>(null);
 export function DeskLayoutProvider({ children }: { children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [mqMobile, setMqMobile] = useState(false);
+  const [tacticalDrawerOpen, setTacticalDrawerOpen] = useState(false);
+  const [tacticalDrawerTab, setTacticalDrawerTab] = useState<TacticalDrawerTab>("triage");
 
   useLayoutEffect(() => {
     setMqMobile(window.matchMedia("(max-width: 1023px)").matches);
@@ -30,7 +38,16 @@ export function DeskLayoutProvider({ children }: { children: ReactNode }) {
     return mqMobile;
   }, [hydrated, mqMobile]);
 
-  const value = useMemo(() => ({ isMobileShell }), [isMobileShell]);
+  const value = useMemo(
+    () => ({
+      isMobileShell,
+      tacticalDrawerOpen,
+      setTacticalDrawerOpen,
+      tacticalDrawerTab,
+      setTacticalDrawerTab,
+    }),
+    [isMobileShell, tacticalDrawerOpen, tacticalDrawerTab],
+  );
 
   return <DeskLayoutContext.Provider value={value}>{children}</DeskLayoutContext.Provider>;
 }

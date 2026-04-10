@@ -34,5 +34,7 @@ export default async function PackagesPage() {
     "You";
   const allowRoleApplier = await canManageRoles(supabase, user.id, user.email);
 
-  return <PackagesShell userDisplayName={displayName} canManageRoles={allowRoleApplier} />;
+  return (
+    <PackagesShell userId={user.id} userDisplayName={displayName} canManageRoles={allowRoleApplier} />
+  );
 }

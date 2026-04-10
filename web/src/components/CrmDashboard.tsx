@@ -501,7 +501,11 @@ export function CrmDashboard({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      tacticalSession={{ userId, userDisplayName, canManageRoles }}
+    >
       <div className="relative mx-auto w-full min-w-0 max-w-[1600px] text-zinc-100">
         <DailyBriefingBanner />
 

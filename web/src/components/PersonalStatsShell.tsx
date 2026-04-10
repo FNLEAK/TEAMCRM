@@ -39,7 +39,11 @@ export function PersonalStatsShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      tacticalSession={{ userId, userDisplayName, canManageRoles }}
+    >
       <div className="@container relative mx-auto w-full max-w-[1600px] text-zinc-100">
         <header className="mb-8 rounded-2xl border border-emerald-300/15 bg-gradient-to-b from-emerald-500/[0.06] via-[#0b0c0f]/95 to-[#0b0c0f]/95 px-6 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_34px_-22px_rgba(52,211,153,0.65)]">
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-200/75">Performance</p>
