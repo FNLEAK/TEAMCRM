@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import clsx from "clsx";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink, Info, Map as MapIcon, MessageSquare, Trophy, X, Zap } from "lucide-react";
@@ -10,8 +11,16 @@ import { feature, mesh } from "topojson-client";
 import usAtlas from "us-atlas/states-10m.json";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getLocationFromPhone } from "@/lib/phoneGeo";
+import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
+import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
+import {
+  mapLeadRowToWarMapActivityType,
+  warMapLeadActivityTimeMs,
+  type WarMapActivityType,
+  type WarMapLeadRow,
+} from "@/lib/warMapActivity";
 
-type ActivityType = "interested" | "demo_sent" | "deal_closed";
+type ActivityType = WarMapActivityType;
 
 interface MapEvent {
   id: string;
@@ -24,16 +33,6 @@ interface MapEvent {
   activityAtMs: number;
 }
 
-type LeadRealtimeRow = {
-  id?: string | null;
-  company_name?: string | null;
-  status?: string | null;
-  phone?: string | null;
-  website?: string | null;
-  updated_at?: string | null;
-  created_at?: string | null;
-};
-
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAP_W = 1000;
 const MAP_H = 600;
@@ -43,17 +42,6 @@ const PIN_COLORS: Record<ActivityType, string> = {
   demo_sent: "#3b82f6",
   deal_closed: "#facc15",
 };
-
-function normalizeStatus(status: string | null | undefined): string {
-  return (status ?? "").trim().toLowerCase();
-}
-
-function mapStatusToEventType(status: string): ActivityType | null {
-  if (status.includes("interested")) return "interested";
-  if (status.includes("demo sent")) return "demo_sent";
-  if (status.includes("deal closed")) return "deal_closed";
-  return null;
-}
 
 function normalizeWebsite(url: string | null | undefined): string | null {
   const t = (url ?? "").trim();
@@ -76,6 +64,38 @@ function StatusIcon({ type }: { type: ActivityType }) {
   if (type === "deal_closed") return <Trophy size={13} className="text-yellow-300" />;
   if (type === "demo_sent") return <Zap size={13} className="text-blue-300" />;
   return <MessageSquare size={13} className="text-emerald-300" />;
+}
+
+function isSelectSchemaError(err: { message?: string } | null): boolean {
+  const m = (err?.message ?? "").toLowerCase();
+  return m.includes("does not exist") || m.includes("column") || m.includes("42703");
+}
+
+function buildMapEvent(
+  row: WarMapLeadRow,
+  projection: (lngLat: [number, number]) => [number, number] | null,
+  type: ActivityType,
+  activityAtMs: number,
+): MapEvent | null {
+  const leadId = row.id?.trim();
+  if (!leadId) return null;
+  const geo = getLocationFromPhone(row.phone);
+  if (!geo) return null;
+  const projected = projection([geo.lng, geo.lat]);
+  if (!projected) return null;
+  const [px, py] = projected;
+  const x = (px / MAP_W) * 100;
+  const y = (py / MAP_H) * 100;
+  return {
+    id: leadId,
+    type,
+    x,
+    y,
+    companyName: (row.company_name ?? "").trim() || "Lead",
+    phone: row.phone ?? null,
+    website: normalizeWebsite(row.website),
+    activityAtMs,
+  };
 }
 
 type ExpandableWarMapProps = {
@@ -153,132 +173,190 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
   }, [events]);
 
   const triggerEvent = useCallback(
-    (row: LeadRealtimeRow, type: ActivityType, activityAtMs: number = Date.now()) => {
+    (
+      row: WarMapLeadRow,
+      type: ActivityType,
+      activityAtMs: number = Date.now(),
+      opts?: { skipEffects?: boolean },
+    ) => {
       const leadId = row.id?.trim();
       if (!leadId) return;
-      const geo = getLocationFromPhone(row.phone);
-      if (!geo) return;
-      const projected = statesGeo.projection([geo.lng, geo.lat]);
-      if (!projected) return;
-      const [px, py] = projected;
-      const x = (px / MAP_W) * 100;
-      const y = (py / MAP_H) * 100;
+      const next = buildMapEvent(row, statesGeo.projection, type, activityAtMs);
+      if (!next) return;
 
-      const next: MapEvent = {
-        id: leadId,
-        type,
-        x,
-        y,
-        companyName: (row.company_name ?? "").trim() || "Lead",
-        phone: row.phone ?? null,
-        website: normalizeWebsite(row.website),
-        activityAtMs,
-      };
+      const skipEffects = opts?.skipEffects === true;
 
-      const pulseColor = PIN_COLORS[type];
-      setWidgetPulseColor(pulseColor);
-      const reset = window.setTimeout(() => setWidgetPulseColor("#06b6d4"), 1800);
-      timersRef.current.push(reset);
+      if (!skipEffects) {
+        const pulseColor = PIN_COLORS[type];
+        setWidgetPulseColor(pulseColor);
+        const reset = window.setTimeout(() => setWidgetPulseColor("#06b6d4"), 1800);
+        timersRef.current.push(reset);
 
-      if (type === "deal_closed") {
-        confetti({
-          particleCount: 120,
-          spread: 76,
-          origin: { y: 0.65 },
-          colors: ["#FFD700", "#FFA500", "#fff3b0"],
-        });
-        try {
-          const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-          if (Ctx) {
-            if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
-            const ctx = audioCtxRef.current;
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.type = "sine";
-            osc.frequency.value = 182;
-            gain.gain.value = 0.0001;
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            const now = ctx.currentTime;
-            gain.gain.exponentialRampToValueAtTime(0.025, now + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
-            osc.start(now);
-            osc.stop(now + 0.24);
+        if (type === "deal_closed") {
+          confetti({
+            particleCount: 120,
+            spread: 76,
+            origin: { y: 0.65 },
+            colors: ["#FFD700", "#FFA500", "#fff3b0"],
+          });
+          try {
+            const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+            if (Ctx) {
+              if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+              const ctx = audioCtxRef.current;
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = "sine";
+              osc.frequency.value = 182;
+              gain.gain.value = 0.0001;
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              const now = ctx.currentTime;
+              gain.gain.exponentialRampToValueAtTime(0.025, now + 0.02);
+              gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+              osc.start(now);
+              osc.stop(now + 0.24);
+            }
+          } catch {
+            // Non-blocking enhancement.
           }
-        } catch {
-          // Non-blocking enhancement.
         }
+        setActivePinId(leadId);
       }
 
       setEvents((prev) => {
         const withoutLead = prev.filter((e) => e.id !== leadId);
         return [next, ...withoutLead].filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS);
       });
-      setActivePinId(leadId);
     },
     [statesGeo.projection],
   );
 
   useEffect(() => {
-    const hydrateLast24h = async () => {
-      const sinceIso = new Date(Date.now() - ONE_DAY_MS).toISOString();
-      const fields = "id, company_name, status, phone, website, updated_at, created_at";
-      const { data, error } = await supabase
-        .from("leads")
-        .select(fields)
-        .not("phone", "is", null)
-        .gte("updated_at", sinceIso)
-        .limit(1000);
-      if (error || !data) return;
+    const projection = statesGeo.projection;
 
-      for (const row of data as LeadRealtimeRow[]) {
-        const type = mapStatusToEventType(normalizeStatus(row.status));
-        if (!type) continue;
-        const at = Date.parse(row.updated_at ?? row.created_at ?? "") || Date.now();
-        triggerEvent(row, type, at);
+    const selectVariants = (): string[] => {
+      const base = "id, company_name, status, phone, website, created_at";
+      const withLast = `${base}, last_activity_at`;
+      const withUpdated = `${withLast}, updated_at`;
+      const withDemo = `${withUpdated}, demo_site_sent`;
+      if (isDemoSiteFeatureEnabled()) {
+        return [withDemo, withUpdated, withLast, base];
       }
+      return [withUpdated, withLast, base];
     };
 
-    const onInsert = (row: LeadRealtimeRow) => {
-      const type = mapStatusToEventType(normalizeStatus(row.status));
+    const hydrateLast24h = async () => {
+      const cutoff = Date.now() - ONE_DAY_MS;
+      let rows: WarMapLeadRow[] | null = null;
+      for (const fields of selectVariants()) {
+        const { data, error } = await supabase
+          .from("leads")
+          .select(fields)
+          .not("phone", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1500);
+        if (!error && data) {
+          rows = data as WarMapLeadRow[];
+          break;
+        }
+        if (!isSelectSchemaError(error)) {
+          console.warn("[WarMap] leads hydrate:", error?.message);
+          break;
+        }
+      }
+      if (!rows?.length) return;
+
+      const list: MapEvent[] = [];
+      for (const row of rows) {
+        const at = warMapLeadActivityTimeMs(row);
+        if (at < cutoff) continue;
+        const type = mapLeadRowToWarMapActivityType(row);
+        if (!type) continue;
+        const ev = buildMapEvent(row, projection, type, at);
+        if (ev) list.push(ev);
+      }
+      list.sort((a, b) => b.activityAtMs - a.activityAtMs);
+      setEvents(list.filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS));
+    };
+
+    const onInsert = (row: WarMapLeadRow) => {
+      let at = warMapLeadActivityTimeMs(row);
+      if (at <= 0) at = Date.now();
+      if (at < Date.now() - ONE_DAY_MS) return;
+      const type = mapLeadRowToWarMapActivityType(row);
       if (!type) return;
-      const at = Date.parse(row.created_at ?? row.updated_at ?? "") || Date.now();
-      triggerEvent(row, type, at);
+      triggerEvent(row, type, at, { skipEffects: false });
     };
 
-    const onUpdate = (oldRow: LeadRealtimeRow, newRow: LeadRealtimeRow) => {
-      const oldStatus = normalizeStatus(oldRow.status);
-      const newStatus = normalizeStatus(newRow.status);
-      if (!newStatus || newStatus === oldStatus) return;
-      const type = mapStatusToEventType(newStatus);
-      if (!type) return;
-      const at = Date.parse(newRow.updated_at ?? newRow.created_at ?? "") || Date.now();
-      triggerEvent(newRow, type, at);
+    const onUpdate = (oldRow: WarMapLeadRow, newRow: WarMapLeadRow) => {
+      const id = newRow.id?.trim();
+      if (!id) return;
+      const newType = mapLeadRowToWarMapActivityType(newRow);
+      if (newType === null) {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        return;
+      }
+      let at = warMapLeadActivityTimeMs(newRow);
+      if (at <= 0) at = Date.now();
+      if (at < Date.now() - ONE_DAY_MS) {
+        setEvents((prev) => prev.filter((e) => e.id !== id));
+        return;
+      }
+      const oldType = mapLeadRowToWarMapActivityType(oldRow);
+      const skipEffects = oldType === newType;
+      triggerEvent(newRow, newType, at, { skipEffects });
     };
 
-    void hydrateLast24h();
+    let cancelled = false;
+    const liveRef: {
+      interval: number | null;
+      channel: ReturnType<typeof supabase.channel> | null;
+      authSub: { unsubscribe: () => void } | null;
+    } = { interval: null, channel: null, authSub: null };
 
-    const channel = supabase
-      .channel("expandable-war-map-leads")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "leads" }, (p) => onInsert(p.new as LeadRealtimeRow))
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "leads" },
-        (p) => onUpdate(p.old as LeadRealtimeRow, p.new as LeadRealtimeRow),
-      )
-      .subscribe();
+    void (async () => {
+      await ensureSupabaseRealtimeAuth(supabase);
+      if (cancelled) return;
+      await hydrateLast24h();
+      if (cancelled) return;
 
-    const pruneInterval = window.setInterval(() => {
-      setEvents((prev) => prev.filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS));
-    }, 60_000);
+      const channel = supabase
+        .channel("expandable-war-map-leads")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "leads" },
+          (p) => onInsert(p.new as WarMapLeadRow),
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "leads" },
+          (p) => onUpdate(p.old as WarMapLeadRow, p.new as WarMapLeadRow),
+        )
+        .subscribe();
+      liveRef.channel = channel;
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((_evt, session) => {
+        if (session?.access_token) void supabase.realtime.setAuth(session.access_token);
+      });
+      liveRef.authSub = subscription;
+
+      liveRef.interval = window.setInterval(() => {
+        setEvents((prev) => prev.filter((e) => Date.now() - e.activityAtMs <= ONE_DAY_MS));
+      }, 60_000);
+    })();
 
     return () => {
+      cancelled = true;
       for (const t of timersRef.current) window.clearTimeout(t);
       timersRef.current = [];
-      window.clearInterval(pruneInterval);
-      void supabase.removeChannel(channel);
+      if (liveRef.interval != null) window.clearInterval(liveRef.interval);
+      liveRef.authSub?.unsubscribe();
+      if (liveRef.channel) void supabase.removeChannel(liveRef.channel);
     };
-  }, [supabase, triggerEvent]);
+  }, [supabase, statesGeo.projection, triggerEvent]);
 
   const fab = portalReady ? (
     <AnimatePresence>
@@ -519,7 +597,15 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                                     animate={{ opacity: 1, y: 0, scale: 1 }}
                                     exit={{ opacity: 0, y: -4, scale: 0.98 }}
                                     transition={{ duration: 0.16, ease: "easeOut" }}
-                                    className="mt-2 min-w-[240px] rounded-xl border border-white/25 bg-white/[0.09] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]"
+                                    className={clsx(
+                                      "mt-2 min-w-[240px] rounded-xl border bg-white/[0.09] px-3 py-2 text-[11px] backdrop-blur-md shadow-[0_8px_30px_-18px_rgba(0,0,0,0.9)]",
+                                      event.type === "interested" &&
+                                        "border-emerald-400/50 shadow-[0_0_28px_-10px_rgba(52,211,153,0.55)]",
+                                      event.type === "demo_sent" &&
+                                        "border-blue-400/50 shadow-[0_0_28px_-10px_rgba(59,130,246,0.5)]",
+                                      event.type === "deal_closed" &&
+                                        "border-amber-300/50 shadow-[0_0_28px_-10px_rgba(250,204,21,0.45)]",
+                                    )}
                                   >
                                     <p className="flex items-center gap-2 font-semibold uppercase tracking-[0.08em] text-zinc-200">
                                       <StatusIcon type={event.type} />
@@ -603,13 +689,27 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
 
 function PinBody({ type }: { type: ActivityType }) {
   const colors: Record<ActivityType, string> = {
-    interested: "bg-emerald-400 shadow-[0_0_15px_#22c55e]",
-    demo_sent: "bg-blue-400 shadow-[0_0_15px_#60a5fa]",
-    deal_closed: "bg-yellow-400 shadow-[0_0_20px_#facc15]",
+    interested: "bg-emerald-400 shadow-[0_0_18px_#22c55e,0_0_36px_-4px_rgba(34,197,94,0.65)]",
+    demo_sent: "bg-blue-400 shadow-[0_0_18px_#60a5fa,0_0_36px_-4px_rgba(59,130,246,0.6)]",
+    deal_closed: "bg-yellow-400 shadow-[0_0_20px_#facc15,0_0_40px_-4px_rgba(250,204,21,0.55)]",
   };
+
+  const ringClass =
+    type === "interested"
+      ? "border-emerald-300/90"
+      : type === "demo_sent"
+        ? "border-blue-300/90"
+        : "border-yellow-300";
 
   return (
     <div className={`relative h-4 w-4 rounded-full border-2 border-white ${colors[type]}`}>
+      {type !== "deal_closed" ? (
+        <motion.div
+          animate={{ scale: [1, 2.1, 1], opacity: [0.45, 0, 0.45] }}
+          transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
+          className={`pointer-events-none absolute inset-[-10px] rounded-full border-2 ${ringClass}`}
+        />
+      ) : null}
       {type === "deal_closed" ? (
         <motion.div
           animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
