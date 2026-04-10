@@ -1,4 +1,5 @@
 import type { TeamProfile } from "@/lib/leadTypes";
+import { initialsFromPersonFields } from "@/lib/leadTypes";
 import { readableEmailLocalPart } from "@/lib/readableEmailLocal";
 
 /**
@@ -12,6 +13,47 @@ export function anonymousUserLabel(_userId: string): string {
 function labelLooksLikeIdFragment(label: string): boolean {
   const t = label.trim();
   return /^[0-9a-f]{6,12}$/i.test(t);
+}
+
+/** True when `displayProfessionalName` would fall back to “Teammate” — no usable profile name or email. */
+export function needsTeamRoleNameFallback(profile: TeamProfile | undefined): boolean {
+  if (!profile) return true;
+  if (profile.fullName?.trim()) return false;
+  if (profile.firstName?.trim()) return false;
+  if (profile.email?.trim()) return false;
+  const lab = profile.label?.trim();
+  if (lab && !labelLooksLikeIdFragment(lab)) return false;
+  return true;
+}
+
+export type TeamRoleDisplay = { name: string; email?: string };
+
+/** Apply `team_roles.account_name` / `account_email` when `profiles` did not yield a display name. */
+export function mergeTeamRoleLabelIntoProfile(
+  base: TeamProfile | undefined,
+  role: TeamRoleDisplay,
+): TeamProfile {
+  const b =
+    base ??
+    ({
+      initials: "·",
+      label: "",
+      fullName: "",
+      firstName: "",
+      email: undefined,
+    } satisfies TeamProfile);
+  const name = role.name.trim();
+  const firstTok = name.split(/\s+/).filter(Boolean)[0] ?? name;
+  const fromName = initialsFromPersonFields(name, "");
+  return {
+    ...b,
+    fullName: b.fullName?.trim() || name,
+    firstName: b.firstName?.trim() || firstTok,
+    label: name,
+    email: b.email?.trim() || role.email?.trim() || b.email,
+    initials:
+      b.initials && b.initials !== "·" && /^[a-zA-Z]/.test(b.initials) ? b.initials : fromName || "·",
+  };
 }
 
 /**

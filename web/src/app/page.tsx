@@ -11,7 +11,7 @@ import {
   PAGE_SIZE,
 } from "@/lib/leadTypes";
 import { getLeadSelectColumns } from "@/lib/leadSelectColumns";
-import { fetchProfilesByIds } from "@/lib/profileSelect";
+import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
 import {
   utcCalendarDayBounds,
   utcCalendarWeekBounds,
@@ -239,6 +239,8 @@ export default async function Page({
       };
     }
   }
+
+  await enrichProfileMapWithTeamRoles(supabase, profileMap, [...profileIdSet]);
 
   const selfFromMap = profileMap[userId];
   const welcomeFromProfile =

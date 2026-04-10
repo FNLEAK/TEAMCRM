@@ -41,7 +41,7 @@ import {
   displayProfessionalName,
   formatLiveViewerMonogram,
 } from "@/lib/profileDisplay";
-import { fetchProfilesByIds } from "@/lib/profileSelect";
+import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
 import {
   COMPANY_SEARCH_MAX_LEN,
   isApptLeadLockedForViewer,
@@ -283,24 +283,37 @@ export function CrmDashboard({
     const uniq = [...new Set(need)];
     if (uniq.length === 0) return;
     const supabase = createSupabaseBrowserClient();
-    void fetchProfilesByIds(supabase, uniq).then(({ data, error }) => {
+    void (async () => {
       for (const id of uniq) claimedProfileFetchAttemptedRef.current.add(id);
-      if (error || !data?.length) return;
+      const { data, error } = await fetchProfilesByIds(supabase, uniq);
+      const combined: Record<string, TeamProfile> = {};
+      for (const id of uniq) {
+        const pr = data?.find((r) => (r.id as string) === id);
+        combined[id] = pr
+          ? teamProfileFromDb({
+              id: pr.id as string,
+              first_name: pr.first_name ?? null,
+              full_name: pr.full_name ?? null,
+              avatar_initials: pr.avatar_initials ?? null,
+              email: pr.email ?? null,
+            })
+          : (mergedProfileMap[id] ?? {
+              initials: "·",
+              label: "",
+              fullName: "",
+              firstName: "",
+              email: undefined,
+            });
+      }
+      await enrichProfileMapWithTeamRoles(supabase, combined, uniq);
       setProfileExtras((prev) => {
         const next = { ...prev };
-        for (const pr of data) {
-          const id = pr.id as string;
-          next[id] = teamProfileFromDb({
-            id,
-            first_name: pr.first_name ?? null,
-            full_name: pr.full_name ?? null,
-            avatar_initials: pr.avatar_initials ?? null,
-            email: pr.email ?? null,
-          });
+        for (const id of uniq) {
+          next[id] = combined[id];
         }
         return next;
       });
-    });
+    })();
   }, [leads, mergedProfileMap]);
 
   useEffect(() => {
