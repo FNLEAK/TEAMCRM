@@ -212,129 +212,145 @@ export function RoleApplierPanel({ ownerId }: { ownerId: string }) {
   }, [rows, roles, dbRolePresent, ownerId]);
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Loading team members…</p>;
+    return (
+      <p className="rounded-xl border border-white/[0.08] bg-[#0a0a0a]/80 px-4 py-6 text-center text-sm text-zinc-500 backdrop-blur-sm">
+        Loading team members…
+      </p>
+    );
   }
 
   return (
-    <section className="@container min-w-0 rounded-xl border border-white/10 bg-[#070709] p-4 ring-1 ring-white/10 shadow-[0_0_42px_-24px_rgba(244,63,94,0.65)] @md:p-5">
-      <div className="mb-4 flex flex-col gap-3 @md:flex-row @md:items-start @md:justify-between">
+    <section className="@container min-w-0 rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/90 p-4 backdrop-blur-md @md:p-5">
+      <div className="mb-4 flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-white">Role Applier</h2>
-          <p className="mt-1 text-xs text-zinc-500">
-            New joiners show as <span className="text-amber-200/90">New</span> until you assign Team or Owner. They sort to the top.
+          <h2 className="text-base font-semibold tracking-tight text-zinc-50 @md:text-lg">Role Applier</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            <span className="text-amber-200/90">New</span> joiners sort first — assign Team or Owner.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void load()}
-          className="shrink-0 self-start rounded-lg border border-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:bg-white/5"
+          className="shrink-0 self-start rounded-full border border-white/[0.1] bg-white/[0.05] px-4 py-2 text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] @md:self-auto"
         >
           Refresh
         </button>
       </div>
 
       {error ? (
-        <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-          {error}
-        </p>
+        <p className="mb-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">{error}</p>
       ) : null}
       {info ? (
-        <p className="mb-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+        <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm text-emerald-200">
           {info}
         </p>
       ) : null}
-      <section className="rounded-xl border border-white/12 bg-black/30 p-3 ring-1 ring-white/10 shadow-[0_0_26px_-16px_rgba(148,163,184,0.55)]">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-zinc-500">Role Manager</p>
 
-        <div className="space-y-3 @md:hidden">
-          {members.map((m) => (
-            <article
-              key={m.id}
-              className="rounded-lg border border-white/[0.08] bg-black/40 p-3 ring-1 ring-white/[0.04]"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-white/10 text-[11px] font-semibold text-zinc-200">
-                  {m.initials.slice(0, 2)}
-                </span>
-                <span className="min-w-0 truncate font-medium text-zinc-200">{m.display}</span>
-                {m.isNewJoiner ? (
-                  <span className="shrink-0 rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
-                    New
-                  </span>
-                ) : null}
-              </div>
-              <p className="mt-2 break-words text-[12px] text-zinc-400">
-                <span className="text-zinc-500">Account </span>
-                {m.email ?? "—"}
-              </p>
-              <p className="mt-1.5 break-all font-mono text-[11px] leading-snug text-zinc-500" title={m.id}>
-                {m.id}
-              </p>
-              <div className="mt-3 min-w-0">
-                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">Role</p>
-                <UiSelect
-                  className="w-full max-w-full"
-                  value={m.selectValue}
-                  disabled={savingId === m.id}
-                  onChange={(v) => {
-                    if (v === "team" || v === "owner") void onSetRole(m.id, v);
-                  }}
-                  options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
-                />
-              </div>
-            </article>
-          ))}
+      <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-black/50">
+        <div className="border-b border-white/[0.06] bg-black/40 px-3 py-2.5 @md:px-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 @md:text-sm">Role manager</p>
+          <p className="mt-0.5 font-mono text-[11px] text-zinc-600 @md:text-xs">{members.length} people</p>
         </div>
 
-        <div className="hidden overflow-x-auto @md:block">
-          <table className="w-full min-w-[560px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/[0.08] text-[11px] uppercase tracking-wider text-zinc-500">
-                <th className="pb-2 font-medium">Member</th>
-                <th className="pb-2 font-medium">Account</th>
-                <th className="pb-2 font-medium">User ID</th>
-                <th className="pb-2 font-medium">Role</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <tr key={m.id} className="border-b border-white/[0.04]">
-                  <td className="py-2.5">
+        <div className="max-h-[min(440px,52dvh)] overflow-y-auto overscroll-contain @md:max-h-[min(520px,58vh)]">
+          <div className="space-y-2 p-2 @md:hidden">
+            {members.map((m) => (
+              <article
+                key={m.id}
+                className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition hover:bg-white/[0.05]"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-semibold text-zinc-200 ring-1 ring-white/[0.08]">
+                    {m.initials.slice(0, 2)}
+                  </span>
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/10 text-[11px] font-semibold text-zinc-200">
-                        {m.initials.slice(0, 2)}
-                      </span>
-                      <span className="font-medium text-zinc-200">{m.display}</span>
+                      <span className="font-semibold text-zinc-100">{m.display}</span>
                       {m.isNewJoiner ? (
-                        <span className="shrink-0 rounded-md border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200">
+                        <span className="rounded-full border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-200">
                           New
                         </span>
                       ) : null}
                     </div>
-                  </td>
-                  <td className="max-w-[200px] break-words py-2.5 text-[12px] text-zinc-400">{m.email ?? "—"}</td>
-                  <td className="max-w-[240px] py-2.5 @lg:max-w-[280px]">
-                    <span className="break-all font-mono text-[11px] text-zinc-500" title={m.id}>
+                    <p className="mt-1 break-words text-sm text-zinc-400">{m.email ?? "—"}</p>
+                    <p className="mt-1 break-all font-mono text-[11px] leading-snug text-zinc-600" title={m.id}>
                       {m.id}
-                    </span>
-                  </td>
-                  <td className="py-2.5">
-                    <UiSelect
-                      className="w-44"
-                      value={m.selectValue}
-                      disabled={savingId === m.id}
-                      onChange={(v) => {
-                        if (v === "team" || v === "owner") void onSetRole(m.id, v);
-                      }}
-                      options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
-                    />
-                  </td>
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 min-w-0 border-t border-white/[0.06] pt-3">
+                  <UiSelect
+                    className="w-full max-w-full"
+                    value={m.selectValue}
+                    disabled={savingId === m.id}
+                    onChange={(v) => {
+                      if (v === "team" || v === "owner") void onSetRole(m.id, v);
+                    }}
+                    options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
+                    triggerClassName="min-h-[2.75rem] border-white/[0.1] bg-black/40 text-[15px]"
+                  />
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="hidden @md:block">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#0a0a0a]/95 backdrop-blur-sm">
+                <tr className="text-xs uppercase tracking-wider text-zinc-500">
+                  <th className="px-4 py-3 font-medium">Member</th>
+                  <th className="px-4 py-3 font-medium">Account</th>
+                  <th className="hidden px-4 py-3 font-medium @lg:table-cell">User ID</th>
+                  <th className="w-[11rem] px-4 py-3 font-medium">Role</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.id} className="border-b border-white/[0.04] transition hover:bg-white/[0.03]">
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex items-center gap-2.5">
+                        <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-semibold text-zinc-200 ring-1 ring-white/[0.08]">
+                          {m.initials.slice(0, 2)}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-zinc-100">{m.display}</span>
+                            {m.isNewJoiner ? (
+                              <span className="shrink-0 rounded-full border border-amber-400/35 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-200">
+                                New
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="max-w-[220px] break-words px-4 py-3 align-middle text-sm text-zinc-400 @lg:max-w-[260px]">
+                      {m.email ?? "—"}
+                    </td>
+                    <td className="hidden max-w-[200px] px-4 py-3 align-middle @lg:table-cell">
+                      <span className="line-clamp-2 break-all font-mono text-xs text-zinc-600" title={m.id}>
+                        {m.id}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-middle">
+                      <UiSelect
+                        className="w-full min-w-[10rem] max-w-[12rem]"
+                        value={m.selectValue}
+                        disabled={savingId === m.id}
+                        onChange={(v) => {
+                          if (v === "team" || v === "owner") void onSetRole(m.id, v);
+                        }}
+                        options={m.isNewJoiner ? NEW_JOINER_SELECT_OPTIONS : ROLE_SELECT_OPTIONS}
+                        triggerClassName="min-h-[2.5rem] border-white/[0.1] bg-black/50"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </section>
+      </div>
     </section>
   );
 }

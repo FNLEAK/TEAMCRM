@@ -185,86 +185,100 @@ export function RewardVaultPanel() {
 
   if (!ownerChecked || !isOwner) return null;
 
+  const bigDog = PRIZE_VAULT.filter((p) => p.bigDog);
+  const catalog = PRIZE_VAULT.filter((p) => !p.bigDog);
+
   return (
-    <section className="@container min-w-0 rounded-xl border border-white/10 bg-[#070709] p-4 ring-1 ring-white/10 shadow-[0_0_42px_-24px_rgba(244,63,94,0.65)] @md:p-5">
-      {error ? <p className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p> : null}
+    <section className="@container min-w-0 rounded-2xl border border-white/[0.08] bg-[#0a0a0a]/90 p-4 backdrop-blur-md @md:p-5">
+      {error ? (
+        <p className="mb-3 rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">{error}</p>
+      ) : null}
       {toast ? (
-        <p className="mb-3 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-100">{toast}</p>
+        <p className="mb-3 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5 text-sm font-medium text-emerald-100">
+          {toast}
+        </p>
       ) : null}
 
-      <section className="mb-5 rounded-xl border border-emerald-400/35 bg-[radial-gradient(95%_120%_at_0%_0%,rgba(16,185,129,0.14),rgba(5,5,8,0.96))] p-3 ring-1 ring-emerald-400/20 shadow-[0_0_36px_-16px_rgba(16,185,129,0.7)] @md:p-4">
-        <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em] text-emerald-300">Rewards Command Deck</p>
-        <div className="overflow-visible rounded-lg border border-emerald-400/25 bg-black/30 p-3 @md:p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-300">Weekly reward</p>
-          <p className="mt-1 text-xs text-zinc-300">Prize text shown for weekly performance.</p>
-          <div className="mt-3 flex min-w-0 flex-col gap-3 @md:flex-row @md:items-start">
-            <textarea
-              value={weeklyReward}
-              onChange={(e) => setWeeklyReward(e.target.value)}
-              rows={3}
-              className="min-h-[5.25rem] w-full min-w-0 max-w-full resize-none rounded-lg border border-emerald-300/35 bg-black/50 px-3 py-2.5 text-sm leading-relaxed text-zinc-100 [overflow-wrap:anywhere] placeholder:text-zinc-500 focus:border-emerald-400/55 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 @md:min-w-0 @md:flex-1"
-              placeholder="$500 + Dinner Bonus"
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void onManualUpdate()}
-              className="inline-flex w-full shrink-0 items-center justify-center whitespace-nowrap rounded-lg border border-emerald-400/40 bg-emerald-500/[0.14] px-5 py-2.5 text-sm font-semibold text-emerald-50 transition-colors hover:border-emerald-300/55 hover:bg-emerald-500/22 disabled:cursor-not-allowed disabled:opacity-50 @md:w-auto @md:self-stretch @md:py-3"
-            >
-              {busy ? "Updating…" : "Update prize"}
-            </button>
-          </div>
+      <div className="mb-6 rounded-xl border border-white/[0.06] bg-black/40 p-4 @md:p-5">
+        <p className="font-mono text-xs uppercase tracking-[0.14em] text-violet-400/90">Weekly reward</p>
+        <p className="mt-1 text-sm text-zinc-500">Shown on the live leaderboard for weekly performance.</p>
+        <div className="mt-4 flex min-w-0 flex-col gap-3 @md:flex-row @md:items-stretch">
+          <textarea
+            value={weeklyReward}
+            onChange={(e) => setWeeklyReward(e.target.value)}
+            rows={3}
+            className="min-h-[5.5rem] w-full min-w-0 resize-none rounded-xl border border-white/[0.1] bg-black/50 px-3 py-3 text-base leading-relaxed text-zinc-100 [overflow-wrap:anywhere] placeholder:text-zinc-600 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30 @md:flex-1"
+            placeholder="$500 + Dinner Bonus"
+          />
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onManualUpdate()}
+            className="inline-flex min-h-[2.75rem] w-full shrink-0 items-center justify-center rounded-full border border-emerald-500/35 bg-emerald-500/15 px-6 py-3 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 @md:w-auto @md:self-end"
+          >
+            {busy ? "Updating…" : "Save prize"}
+          </button>
         </div>
-      </section>
+      </div>
 
-      <section className="mb-1 rounded-xl border border-white/10 bg-[linear-gradient(160deg,rgba(16,16,18,0.95),rgba(8,8,10,0.92))] p-3 ring-1 ring-white/10 shadow-[0_0_28px_-18px_rgba(248,113,113,0.6)] @md:p-4">
-        <div className="mb-3">
-          <h3 className="text-sm font-semibold text-white">Prize Inspiration Vault</h3>
-          <p className="mt-1 text-xs text-zinc-400">Quick-post rewards to the live leaderboard prize without leaving this panel.</p>
-        </div>
+      <div className="border-b border-white/[0.06] pb-3">
+        <h3 className="text-base font-semibold tracking-tight text-zinc-50 @md:text-lg">Prize vault</h3>
+        <p className="mt-1 text-sm text-zinc-500">Tap a preset to push it live — list scrolls so the page stays short.</p>
+      </div>
 
-        <div className="mb-4 overflow-visible rounded-lg border border-amber-300/50 bg-amber-400/[0.09] p-3 pb-4 shadow-[0_0_28px_-10px_rgba(251,191,36,0.85)] @md:p-4 @md:pb-5">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-100">Big Dog Bonuses</p>
-          <div className="mt-3 grid grid-cols-1 gap-3 @md:grid-cols-2">
-            {PRIZE_VAULT.filter((p) => p.bigDog).map((card) => (
-              <article
-                key={card.title}
-                className="flex flex-col rounded-lg border border-amber-300/60 bg-black/35 p-3 pb-3.5 ring-1 ring-amber-200/25 transition hover:border-amber-300/80 hover:bg-black/40"
-              >
-                <h4 className="break-words text-sm font-bold text-amber-100">{card.title}</h4>
-                <p className="mt-1 flex-1 break-words text-xs leading-relaxed text-zinc-300">{card.description}</p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onQuickPostReward(card.rewardText)}
-                  className="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-emerald-400/45 bg-emerald-500/[0.14] px-3 py-2 text-xs font-semibold text-emerald-50 transition-colors hover:border-emerald-300/55 hover:bg-emerald-500/22 disabled:cursor-not-allowed disabled:opacity-50"
+      <div className="mt-4 max-h-[min(480px,52dvh)] overflow-y-auto overscroll-contain rounded-xl border border-white/[0.06] bg-black/35 p-3 @md:max-h-[min(560px,56dvh)] @md:p-4">
+        <div className="space-y-6">
+          <div>
+            <p className="sticky top-0 z-[1] -mx-1 mb-3 bg-black/80 px-1 py-1 font-mono text-xs uppercase tracking-[0.16em] text-amber-200/90 backdrop-blur-sm">
+              Big Dog
+            </p>
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              {bigDog.map((card) => (
+                <article
+                  key={card.title}
+                  className="flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.04] p-4 transition hover:border-amber-400/30 hover:bg-white/[0.06]"
                 >
-                  Use this
-                </button>
-              </article>
-            ))}
+                  <h4 className="text-[15px] font-semibold leading-snug text-zinc-50 @md:text-base">{card.title}</h4>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-500">{card.description}</p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void onQuickPostReward(card.rewardText)}
+                    className="mt-4 inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-full border border-emerald-500/35 bg-emerald-500/15 px-4 py-2.5 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50 @sm:w-auto @sm:self-start"
+                  >
+                    Use this
+                  </button>
+                </article>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="pr-1 @md:max-h-[min(360px,55dvh)] @md:overflow-y-auto @md:overscroll-contain">
-          <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-            {PRIZE_VAULT.filter((p) => !p.bigDog).map((card) => (
-              <article key={card.title} className="rounded-lg border border-rose-500/60 bg-black/30 p-3 ring-1 ring-rose-400/10 transition hover:scale-[1.01] hover:border-rose-400/80 hover:shadow-[0_0_20px_-10px_rgba(244,63,94,0.95)]">
-                <h4 className="break-words text-sm font-semibold text-zinc-100">{card.title}</h4>
-                <p className="mt-1 break-words text-xs leading-relaxed text-zinc-400">{card.description}</p>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onQuickPostReward(card.rewardText)}
-                  className="mt-3 rounded-lg border border-emerald-300/70 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-wide text-emerald-100 shadow-[0_0_20px_-6px_rgba(52,211,153,0.95)] hover:bg-emerald-500/30 disabled:opacity-60"
+          <div className="border-t border-white/[0.06] pt-5">
+            <p className="sticky top-0 z-[1] -mx-1 mb-3 bg-black/80 px-1 py-1 font-mono text-xs uppercase tracking-[0.16em] text-zinc-500 backdrop-blur-sm">
+              Catalog
+            </p>
+            <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
+              {catalog.map((card) => (
+                <article
+                  key={card.title}
+                  className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.03] p-4 transition hover:bg-white/[0.05]"
                 >
-                  Use This
-                </button>
-              </article>
-            ))}
+                  <h4 className="text-[15px] font-semibold leading-snug text-zinc-100 @md:text-base">{card.title}</h4>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-zinc-500">{card.description}</p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void onQuickPostReward(card.rewardText)}
+                    className="mt-4 inline-flex min-h-[2.75rem] w-full items-center justify-center rounded-full border border-violet-500/35 bg-violet-500/10 px-4 py-2.5 text-sm font-semibold text-violet-100 transition hover:bg-violet-500/18 disabled:cursor-not-allowed disabled:opacity-50 @sm:w-auto @sm:self-start"
+                  >
+                    Use this
+                  </button>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
-      </section>
+      </div>
     </section>
   );
 }

@@ -825,17 +825,17 @@ export function TeamChatShell({
                 aria-hidden
               />
             </div>
-            <p className="mt-3 text-center text-sm font-semibold tracking-tight text-zinc-50">
+            <p className="mt-3 text-center text-base font-semibold tracking-tight text-zinc-50 sm:text-lg">
               {getCounterpartyName(activeConversation.participants)}
             </p>
-            <p className="font-mono text-[10px] text-zinc-500">{activeConversation.profile.role}</p>
-            <p className="mt-1 font-mono text-[10px] text-emerald-400/80">{activeConversation.profile.status}</p>
+            <p className="font-mono text-xs text-zinc-500 sm:text-sm">{activeConversation.profile.role}</p>
+            <p className="mt-1 font-mono text-xs text-emerald-400/85 sm:text-sm">{activeConversation.profile.status}</p>
           </div>
-          <div className="grid grid-cols-2 gap-2 px-3 py-3">
+          <div className="grid grid-cols-2 gap-2.5 px-3 py-3 sm:gap-3">
             <button
               type="button"
               onClick={() => setIssueDrawerOpen(true)}
-              className="rounded-xl border border-white/[0.08] bg-white/[0.04] py-2.5 text-center text-[11px] font-semibold text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-500/10"
+              className="min-h-[3rem] rounded-xl border border-white/[0.1] bg-white/[0.05] py-3 text-center text-sm font-semibold text-zinc-200 transition hover:border-amber-400/35 hover:bg-amber-500/10 sm:text-[15px]"
             >
               Issue board
             </button>
@@ -843,17 +843,17 @@ export function TeamChatShell({
               <button
                 type="button"
                 onClick={() => setOwnerIntelOpen(true)}
-                className="rounded-xl border border-violet-500/35 bg-violet-500/10 py-2.5 text-center text-[11px] font-semibold text-violet-100 transition hover:bg-violet-500/18"
+                className="min-h-[3rem] rounded-xl border border-violet-500/35 bg-violet-500/10 py-3 text-center text-sm font-semibold text-violet-100 transition hover:bg-violet-500/18 sm:text-[15px]"
               >
                 Owner intel
               </button>
             ) : (
-              <div className="rounded-xl border border-white/[0.05] bg-transparent py-2.5" aria-hidden />
+              <div className="min-h-[3rem] rounded-xl border border-white/[0.05] bg-transparent py-3" aria-hidden />
             )}
           </div>
-          <div className="px-3 pb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Thread</p>
-            <p className="mt-1 text-xs leading-relaxed text-zinc-400">{activeConversation.topic}</p>
+          <div className="px-3 pb-4 sm:px-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Thread</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-zinc-300 sm:text-base">{activeConversation.topic}</p>
           </div>
         </>
       ) : centerMode === "group" ? (
@@ -861,13 +861,13 @@ export function TeamChatShell({
           <div className="border-b border-white/[0.06] px-4 py-4 text-center">
             <Users className="mx-auto h-8 w-8 text-emerald-400/90" strokeWidth={1.5} />
             <p className="mt-2 text-sm font-semibold text-zinc-100">Team room</p>
-            <p className="mt-1 font-mono text-[10px] text-zinc-500">
+            <p className="mt-1 font-mono text-xs text-zinc-500 sm:text-sm">
               {groupChannel === "announcements" ? "Announcements" : "Team chat"}
             </p>
           </div>
-          <div className="px-3 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Channels</p>
-            <div className="mt-2 flex flex-col gap-1.5">
+          <div className="px-3 py-3 sm:px-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Channels</p>
+            <div className="mt-2 flex flex-col gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -881,7 +881,7 @@ export function TeamChatShell({
                   }
                 }}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition",
+                  "flex min-h-[2.75rem] w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm transition sm:text-[15px]",
                   groupChannel === "announcements"
                     ? "bg-violet-500/15 text-violet-100 ring-1 ring-violet-500/40"
                     : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06]",
@@ -889,7 +889,7 @@ export function TeamChatShell({
               >
                 Announcements
                 {announcementPings > 0 ? (
-                  <span className="rounded-full bg-rose-500/80 px-1.5 py-0.5 font-mono text-[10px] text-white">
+                  <span className="rounded-full bg-rose-500/80 px-2 py-0.5 font-mono text-xs text-white sm:text-sm">
                     {announcementPings}
                   </span>
                 ) : null}
@@ -898,7 +898,7 @@ export function TeamChatShell({
                 type="button"
                 onClick={() => setGroupChannel("chat")}
                 className={cn(
-                  "flex w-full rounded-lg px-2.5 py-2 text-left text-xs transition",
+                  "flex min-h-[2.75rem] w-full rounded-lg px-3 py-2.5 text-left text-sm transition sm:text-[15px]",
                   groupChannel === "chat"
                     ? "bg-emerald-500/12 text-emerald-100 ring-1 ring-emerald-500/35"
                     : "bg-white/[0.03] text-zinc-400 hover:bg-white/[0.06]",
@@ -908,25 +908,25 @@ export function TeamChatShell({
               </button>
             </div>
           </div>
-          <div className="px-3 pb-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Online</p>
-            <div className="mt-2 space-y-1">
+          <div className="px-3 pb-4 sm:px-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">Online</p>
+            <div className="mt-2 space-y-1.5">
               {["Jaylan", "Mykala", "Jon", "Richard"].map((name) => (
                 <div
                   key={`info-online-${name}`}
-                  className="flex items-center justify-between rounded-lg bg-white/[0.03] px-2 py-1.5"
+                  className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2"
                 >
-                  <span className="text-xs text-zinc-300">{name}</span>
+                  <span className="text-sm text-zinc-300 sm:text-[15px]">{name}</span>
                   <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                 </div>
               ))}
             </div>
           </div>
-          <div className="mt-auto border-t border-white/[0.06] px-3 py-3">
+          <div className="mt-auto border-t border-white/[0.06] px-3 py-3 sm:px-4">
             <button
               type="button"
               onClick={() => setIssueDrawerOpen(true)}
-              className="w-full rounded-xl border border-amber-400/25 bg-amber-500/10 py-2 text-xs font-semibold text-amber-100/95 transition hover:bg-amber-500/16"
+              className="min-h-[2.75rem] w-full rounded-xl border border-amber-400/25 bg-amber-500/10 py-2.5 text-sm font-semibold text-amber-100/95 transition hover:bg-amber-500/16 sm:text-[15px]"
             >
               Open issue board
             </button>
@@ -934,7 +934,7 @@ export function TeamChatShell({
               <button
                 type="button"
                 onClick={() => setOwnerIntelOpen(true)}
-                className="mt-2 w-full rounded-xl border border-violet-500/30 bg-violet-500/10 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-500/16"
+                className="mt-2 min-h-[2.75rem] w-full rounded-xl border border-violet-500/30 bg-violet-500/10 py-2.5 text-sm font-semibold text-violet-100 transition hover:bg-violet-500/16 sm:text-[15px]"
               >
                 Owner command (⌘K)
               </button>
@@ -945,7 +945,7 @@ export function TeamChatShell({
         <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
           <MessageCircle className="h-10 w-10 text-zinc-700" strokeWidth={1.25} />
           <p className="mt-3 text-sm font-medium text-zinc-400">No thread selected</p>
-          <p className="mt-1 font-mono text-[10px] text-zinc-600">Pick a DM or open the team room</p>
+            <p className="mt-1 font-mono text-xs text-zinc-600 sm:text-sm">Pick a DM or open the team room</p>
           <button
             type="button"
             onClick={() => setIssueDrawerOpen(true)}
@@ -961,14 +961,14 @@ export function TeamChatShell({
   return (
     <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
       <div className="@container relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[#000000] text-zinc-100">
-        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.06] bg-black/80 px-3 py-2 backdrop-blur-xl sm:gap-3 sm:px-4">
+        <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.06] bg-black/80 px-3 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3">
           <div className="min-w-0">
-            <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-600">Messaging</p>
-            <h1 className="truncate text-sm font-semibold tracking-tight text-zinc-50">Team Chat</h1>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 sm:text-[11px]">Messaging</p>
+            <h1 className="truncate text-base font-semibold tracking-tight text-zinc-50 sm:text-lg">Team Chat</h1>
           </div>
           <div className="relative hidden min-w-0 flex-1 sm:block sm:max-w-md">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500"
               strokeWidth={2}
               aria-hidden
             />
@@ -976,7 +976,7 @@ export function TeamChatShell({
               value={threadSearch}
               onChange={(e) => setThreadSearch(e.target.value)}
               placeholder="Filter conversations…"
-              className="w-full rounded-full border border-white/[0.08] bg-white/[0.04] py-1.5 pl-9 pr-3 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+              className="w-full rounded-full border border-white/[0.08] bg-white/[0.04] py-2 pl-10 pr-3 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
               aria-label="Filter conversations"
             />
           </div>
@@ -986,13 +986,13 @@ export function TeamChatShell({
               setIssueDrawerOpen(true);
               setActiveConversationId("");
             }}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:border-amber-400/40 hover:text-amber-100"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:border-amber-400/40 hover:text-amber-100 sm:h-11 sm:w-11"
             title="Issue board"
             aria-label="Open issue board"
           >
-            <Bell className="h-4 w-4" strokeWidth={2} />
+            <Bell className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5" strokeWidth={2} />
             {openIssueCount > 0 ? (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 font-mono text-[9px] font-bold text-white">
+              <span className="absolute -right-0.5 -top-0.5 flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-rose-500 px-1 font-mono text-[10px] font-bold text-white sm:h-5 sm:min-w-5 sm:text-[11px]">
                 {openIssueCount > 9 ? "9+" : openIssueCount}
               </span>
             ) : null}
@@ -1001,22 +1001,22 @@ export function TeamChatShell({
             <button
               type="button"
               onClick={() => setOwnerIntelOpen(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-200 transition hover:bg-violet-500/18"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-200 transition hover:bg-violet-500/18 sm:h-11 sm:w-11"
               title="Owner intel (⌘K)"
               aria-label="Open owner command intel"
             >
-              <Command className="h-4 w-4" strokeWidth={2} />
+              <Command className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5" strokeWidth={2} />
             </button>
           ) : null}
           <button
             type="button"
             onClick={() => setInfoPanelOpen((v) => !v)}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:text-zinc-100 lg:border-white/[0.1]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] text-zinc-400 transition hover:text-zinc-100 sm:h-11 sm:w-11 lg:border-white/[0.1]"
             title={infoPanelOpen ? "Hide details" : "Show details"}
             aria-expanded={infoPanelOpen}
             aria-label={infoPanelOpen ? "Hide details panel" : "Show details panel"}
           >
-            {infoPanelOpen ? <PanelRightClose className="h-4 w-4" strokeWidth={2} /> : <PanelRightOpen className="h-4 w-4" strokeWidth={2} />}
+            {infoPanelOpen ? <PanelRightClose className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5" strokeWidth={2} /> : <PanelRightOpen className="h-[1.15rem] w-[1.15rem] sm:h-5 sm:w-5" strokeWidth={2} />}
           </button>
         </header>
         {chatSchemaError ? (
@@ -1037,8 +1037,8 @@ export function TeamChatShell({
             "grid min-h-0 min-w-0 flex-1 overflow-hidden",
             "min-h-[min(64dvh,calc(100dvh-11rem))] lg:h-[min(78dvh,calc(100dvh-8rem))] lg:max-h-[min(78dvh,calc(100dvh-8rem))]",
             infoPanelOpen
-              ? "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)_280px]"
-              : "grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]",
+              ? "grid-cols-1 lg:grid-cols-[288px_minmax(0,1fr)_300px]"
+              : "grid-cols-1 lg:grid-cols-[288px_minmax(0,1fr)]",
           )}
         >
           <aside
@@ -1048,8 +1048,8 @@ export function TeamChatShell({
               centerMode === "group" ? "max-lg:min-h-0" : "max-lg:min-h-[min(48dvh,420px)]",
             )}
           >
-            <div className="flex shrink-0 items-center justify-between px-3 pb-1 pt-3">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Chats</h2>
+            <div className="flex shrink-0 items-center justify-between px-3 pb-1.5 pt-3 sm:px-3.5">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-400">Chats</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -1058,19 +1058,19 @@ export function TeamChatShell({
                   setDmReplyTarget(null);
                   setDraft("");
                 }}
-                className="rounded-full p-2 text-zinc-500 transition hover:bg-white/[0.06] hover:text-violet-300"
+                className="rounded-full p-2.5 text-zinc-500 transition hover:bg-white/[0.06] hover:text-violet-300"
                 title="New message"
                 aria-label="Start new direct message"
               >
-                <Plus className="h-4 w-4" strokeWidth={2} />
+                <Plus className="h-5 w-5" strokeWidth={2} />
               </button>
             </div>
-            <div className="flex gap-1 px-2 pb-2">
+            <div className="flex gap-1.5 px-2 pb-2 sm:px-2.5">
               <button
                 type="button"
                 onClick={() => setLeftTab("inbox")}
                 className={cn(
-                  "flex-1 rounded-full py-1.5 text-[10px] font-bold uppercase tracking-wider transition",
+                  "flex-1 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition sm:py-3 sm:text-[13px]",
                   leftTab === "inbox"
                     ? "bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/40"
                     : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300",
@@ -1082,7 +1082,7 @@ export function TeamChatShell({
                 type="button"
                 onClick={() => setLeftTab("threads")}
                 className={cn(
-                  "flex-1 rounded-full py-1.5 text-[10px] font-bold uppercase tracking-wider transition",
+                  "flex-1 rounded-full py-2.5 text-xs font-bold uppercase tracking-wider transition sm:py-3 sm:text-[13px]",
                   leftTab === "threads"
                     ? "bg-violet-500/20 text-violet-100 ring-1 ring-violet-500/40"
                     : "text-zinc-500 hover:bg-white/[0.04] hover:text-zinc-300",
@@ -1094,14 +1094,14 @@ export function TeamChatShell({
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-2">
             {leftTab === "inbox" ? (
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                <div className="flex gap-1.5 pb-2">
+                <div className="flex flex-wrap items-center gap-2 pb-2">
                   <button
                     type="button"
                     onClick={() => setInboxFilter("all")}
                     className={cn(
-                      "rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-wide transition",
+                      "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:px-4 sm:text-[13px]",
                       inboxFilter === "all"
-                        ? "bg-white/[0.08] text-zinc-100 ring-1 ring-violet-500/45"
+                        ? "bg-white/[0.1] text-zinc-50 ring-1 ring-violet-500/50"
                         : "text-zinc-500 hover:text-zinc-300",
                     )}
                   >
@@ -1111,9 +1111,9 @@ export function TeamChatShell({
                     type="button"
                     onClick={() => setInboxFilter("unread")}
                     className={cn(
-                      "rounded-full px-3 py-1 font-mono text-[10px] uppercase tracking-wide transition",
+                      "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:px-4 sm:text-[13px]",
                       inboxFilter === "unread"
-                        ? "bg-white/[0.08] text-zinc-100 ring-1 ring-emerald-500/45"
+                        ? "bg-white/[0.1] text-zinc-50 ring-1 ring-emerald-500/50"
                         : "text-zinc-500 hover:text-zinc-300",
                     )}
                   >
@@ -1128,28 +1128,30 @@ export function TeamChatShell({
                     setActiveConversationId("");
                   }}
                   className={cn(
-                    "mb-2 flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left transition",
+                    "mb-2 flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition sm:py-3.5",
                     centerMode === "group"
                       ? "bg-emerald-500/12 ring-1 ring-emerald-400/40"
                       : "bg-white/[0.04] hover:bg-white/[0.07]",
                   )}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-200">
-                    <Users className="h-4 w-4" strokeWidth={2} />
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-200">
+                    <Users className="h-5 w-5" strokeWidth={2} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-zinc-100">Team room</p>
-                    <p className="truncate font-mono text-[10px] text-zinc-500">Announcements & group chat</p>
+                    <p className="text-sm font-semibold text-zinc-100 sm:text-[15px]">Team room</p>
+                    <p className="truncate font-mono text-xs text-zinc-500 sm:text-[13px]">Announcements & group chat</p>
                   </div>
-                  <span className="font-mono text-[10px] text-emerald-400/90">Live</span>
+                  <span className="shrink-0 rounded-full bg-emerald-500/20 px-2 py-0.5 font-mono text-xs font-semibold text-emerald-300 sm:text-[13px]">
+                    Live
+                  </span>
                 </button>
                 <div className="relative mb-2 sm:hidden">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600" strokeWidth={2} />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" strokeWidth={2} />
                   <input
                     value={threadSearch}
                     onChange={(e) => setThreadSearch(e.target.value)}
                     placeholder="Search…"
-                    className="w-full rounded-full border border-white/[0.08] bg-white/[0.04] py-2 pl-8 pr-3 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-violet-500/40 focus:outline-none"
+                    className="w-full rounded-full border border-white/[0.08] bg-white/[0.04] py-2.5 pl-10 pr-3 text-sm text-zinc-200 placeholder:text-zinc-500 focus:border-violet-500/40 focus:outline-none"
                     aria-label="Search conversations"
                   />
                 </div>
@@ -1166,33 +1168,33 @@ export function TeamChatShell({
                           setConversations((prev) => prev.map((c) => (c.id === t.id ? { ...c, unread: 0 } : c)));
                         }}
                         className={cn(
-                          "group relative w-full rounded-xl px-2.5 py-2 text-left transition",
+                          "group relative w-full rounded-xl px-3 py-2.5 text-left transition sm:py-3",
                           active
                             ? "bg-white/[0.08] shadow-[inset_3px_0_0_0_rgba(52,211,153,0.9)]"
                             : "hover:bg-white/[0.05]",
                           t.unread > 0 && !active ? "bg-emerald-950/25" : null,
                         )}
                       >
-                        <div className="flex items-start gap-2.5">
-                          <span className="relative mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-[11px] font-semibold text-zinc-200 ring-1 ring-white/[0.08]">
+                        <div className="flex items-start gap-3">
+                          <span className="relative mt-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-xs font-semibold text-zinc-200 ring-1 ring-white/[0.08] sm:h-12 sm:w-12 sm:text-sm">
                             {t.profile.initials}
                             <span
                               className={cn(
-                                "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[#0a0a0a]",
+                                "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-[#0a0a0a]",
                                 statusPipClass(t.profile.status),
                               )}
                               aria-hidden
                             />
                           </span>
-                          <div className="min-w-0 flex-1">
+                          <div className="min-w-0 flex-1 pt-0.5">
                             <div className="flex items-baseline justify-between gap-2">
-                              <p className="truncate text-sm font-semibold text-zinc-50">{getCounterpartyName(t.participants)}</p>
-                              <span className="shrink-0 font-mono text-[10px] tabular-nums text-zinc-500">{t.time}</span>
+                              <p className="truncate text-[15px] font-semibold text-zinc-50 sm:text-base">{getCounterpartyName(t.participants)}</p>
+                              <span className="shrink-0 font-mono text-xs tabular-nums text-zinc-500 sm:text-[13px]">{t.time}</span>
                             </div>
-                            <p className="truncate text-[11px] text-zinc-500">{t.preview}</p>
+                            <p className="mt-0.5 truncate text-sm text-zinc-400 sm:text-[15px]">{t.preview}</p>
                           </div>
                           {t.unread > 0 ? (
-                            <span className="mt-1 flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-violet-600 font-mono text-[10px] font-bold text-white">
+                            <span className="mt-1 flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-violet-600 px-1 font-mono text-xs font-bold text-white sm:h-7 sm:min-w-7 sm:text-[13px]">
                               {t.unread > 9 ? "9+" : t.unread}
                             </span>
                           ) : null}
@@ -1201,7 +1203,7 @@ export function TeamChatShell({
                     );
                   })}
                   {filteredInboxConversations.length === 0 ? (
-                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-xs text-zinc-500">
+                    <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-4 text-center text-sm text-zinc-500">
                       {displayedConversations.length === 0
                         ? "No direct messages yet."
                         : "No matches for this filter."}
@@ -1337,18 +1339,18 @@ export function TeamChatShell({
               </div>
             )}
             </div>
-            <div className="mt-auto shrink-0 border-t border-white/[0.06] pt-2 pb-1">
+            <div className="mt-auto shrink-0 border-t border-white/[0.06] bg-[#0a0a0a]/95 px-2 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-2.5 sm:pb-4">
               <button
                 type="button"
                 onClick={() => {
                   setIssueDrawerOpen(true);
                   setActiveConversationId("");
                 }}
-                className="flex w-full items-center justify-between rounded-xl border border-amber-400/20 bg-amber-500/[0.08] px-3 py-2 text-left transition hover:border-amber-400/35 hover:bg-amber-500/12"
+                className="flex min-h-[3rem] w-full items-center justify-between gap-2 rounded-xl border border-amber-400/25 bg-amber-500/[0.1] px-4 py-3 text-left transition hover:border-amber-400/45 hover:bg-amber-500/14 sm:min-h-[3.25rem] sm:py-3.5"
               >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-100/95">Issue board</span>
+                <span className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-100 sm:text-[15px]">Issue board</span>
                 {openIssueCount > 0 ? (
-                  <span className="rounded-full bg-amber-500/90 px-2 py-0.5 font-mono text-[10px] font-bold text-black">
+                  <span className="flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full bg-amber-400 px-2 font-mono text-xs font-bold text-black sm:text-sm">
                     {openIssueCount}
                   </span>
                 ) : null}
@@ -1370,30 +1372,30 @@ export function TeamChatShell({
               text="TEAM CHAT: Use this area to ask teammates for help, share context before handoffs, and unblock deals faster. Keep messages short, action-focused, and tied to the account."
             />
             {centerMode === "group" ? null : (
-              <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] bg-black/40 px-3 py-2.5 backdrop-blur-sm">
+              <div className="flex shrink-0 items-center gap-3 border-b border-white/[0.06] bg-black/40 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-3.5">
                 {activeConversation ? (
                   <>
-                    <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-xs font-semibold text-zinc-200 ring-1 ring-white/[0.1]">
+                    <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-sm font-semibold text-zinc-200 ring-1 ring-white/[0.1] sm:h-12 sm:w-12">
                       {activeConversation.profile.initials}
                       <span
                         className={cn(
-                          "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-black",
+                          "absolute bottom-0.5 right-0.5 h-3 w-3 rounded-full border-2 border-black",
                           statusPipClass(activeConversation.profile.status),
                         )}
                         aria-hidden
                       />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <h2 className="truncate text-sm font-semibold tracking-tight text-zinc-50">
+                      <h2 className="truncate text-base font-semibold tracking-tight text-zinc-50 sm:text-lg">
                         {getCounterpartyName(activeConversation.participants)}
                       </h2>
-                      <p className="font-mono text-[10px] text-zinc-500">{activeConversation.topic}</p>
+                      <p className="font-mono text-xs text-zinc-500 sm:text-sm">{activeConversation.topic}</p>
                     </div>
                   </>
                 ) : (
                   <div className="min-w-0 flex-1">
-                    <h2 className="text-sm font-semibold text-zinc-100">New message</h2>
-                    <p className="font-mono text-[10px] text-zinc-600">Select a teammate to start</p>
+                    <h2 className="text-base font-semibold text-zinc-100 sm:text-lg">New message</h2>
+                    <p className="font-mono text-xs text-zinc-600 sm:text-sm">Select a teammate to start</p>
                   </div>
                 )}
                 <button
@@ -1402,7 +1404,7 @@ export function TeamChatShell({
                     setCenterMode("dm");
                     setActiveConversationId("");
                   }}
-                  className="shrink-0 rounded-full border border-violet-500/35 bg-violet-500/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-violet-100 transition hover:bg-violet-500/18"
+                  className="shrink-0 rounded-full border border-violet-500/35 bg-violet-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-violet-100 transition hover:bg-violet-500/18 sm:text-sm sm:py-2.5"
                 >
                   New
                 </button>
@@ -1412,11 +1414,11 @@ export function TeamChatShell({
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {centerMode === "group" ? (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] bg-black/30 px-3 py-2.5 backdrop-blur-sm">
+                  <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] bg-black/30 px-3 py-3 backdrop-blur-sm sm:px-4">
                     <div className="min-w-0">
-                      <p className="font-mono text-[9px] uppercase tracking-[0.22em] text-zinc-600">Team room</p>
-                      <h2 className="truncate text-sm font-semibold text-zinc-50">Group messaging</h2>
-                      <p className="font-mono text-[10px] tabular-nums text-zinc-600">{activeGroupMessages.length} messages</p>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-zinc-500 sm:text-xs">Team room</p>
+                      <h2 className="truncate text-base font-semibold text-zinc-50 sm:text-lg">Group messaging</h2>
+                      <p className="font-mono text-xs tabular-nums text-zinc-500 sm:text-sm">{activeGroupMessages.length} messages</p>
                     </div>
                     <div className="flex gap-1 rounded-full bg-white/[0.06] p-1 ring-1 ring-white/[0.08]">
                       <button
@@ -1432,7 +1434,7 @@ export function TeamChatShell({
                           }
                         }}
                         className={cn(
-                          "rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition",
+                          "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:text-[13px]",
                           groupChannel === "announcements"
                             ? "bg-violet-600/50 text-white shadow-[0_0_12px_rgba(139,92,246,0.35)]"
                             : "text-zinc-500 hover:text-zinc-300",
@@ -1444,7 +1446,7 @@ export function TeamChatShell({
                         type="button"
                         onClick={() => setGroupChannel("chat")}
                         className={cn(
-                          "rounded-full px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wide transition",
+                          "inline-flex min-h-[2.375rem] items-center rounded-full px-4 py-2 font-mono text-xs font-semibold uppercase leading-none tracking-wide transition sm:min-h-[2.5rem] sm:text-[13px]",
                           groupChannel === "chat"
                             ? "bg-emerald-600/40 text-emerald-50 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
                             : "text-zinc-500 hover:text-zinc-300",
@@ -1464,18 +1466,18 @@ export function TeamChatShell({
                           <div
                             key={m.dbId ?? `group-ann-${idx}`}
                             onClick={() => setGroupReplyTarget({ from: m.from, text: m.text })}
-                            className="cursor-pointer rounded-2xl border border-white/[0.06] bg-white/[0.04] px-3 py-2.5 backdrop-blur-sm transition hover:bg-white/[0.07]"
+                            className="cursor-pointer rounded-2xl border border-white/[0.06] bg-white/[0.04] px-3 py-3 backdrop-blur-sm transition hover:bg-white/[0.07] sm:px-3.5 sm:py-3.5"
                           >
                             <div className="flex items-baseline justify-between gap-2">
-                              <p className="text-sm font-semibold text-violet-200/90">{m.from}</p>
-                              <span className="font-mono text-[10px] tabular-nums text-zinc-600">{m.time}</span>
+                              <p className="text-[15px] font-semibold text-violet-200/90 sm:text-base">{m.from}</p>
+                              <span className="font-mono text-xs tabular-nums text-zinc-500 sm:text-sm">{m.time}</span>
                             </div>
                             {m.replyTo ? (
-                              <div className="mt-1.5 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-zinc-400">
+                              <div className="mt-2 rounded-lg bg-black/35 px-2.5 py-1.5 text-sm text-zinc-400">
                                 <span className="text-violet-300/90">↪ {m.replyTo.from}</span> {m.replyTo.text}
                               </div>
                             ) : null}
-                            <p className="mt-1.5 text-[14px] leading-relaxed text-zinc-200">{renderTextWithLinks(m.text)}</p>
+                            <p className="mt-2 text-[15px] leading-relaxed text-zinc-200 sm:text-base">{renderTextWithLinks(m.text)}</p>
                             {Array.isArray(m.attachments) && m.attachments.length > 0 ? (
                               <div className="mt-2 space-y-1.5">
                                 {m.attachments.map((att) => (
@@ -1502,14 +1504,14 @@ export function TeamChatShell({
                           <div
                             key={m.dbId ?? `group-chat-${idx}`}
                             onClick={() => setGroupReplyTarget({ from: m.from, text: m.text })}
-                            className="cursor-pointer rounded-2xl border border-white/[0.05] bg-white/[0.03] px-3 py-2.5 transition hover:bg-white/[0.06]"
+                            className="cursor-pointer rounded-2xl border border-white/[0.05] bg-white/[0.03] px-3 py-3 transition hover:bg-white/[0.06] sm:px-3.5 sm:py-3.5"
                           >
                             <div className="flex items-baseline justify-between gap-2">
-                              <p className="text-sm font-semibold text-emerald-200/90">{m.from}</p>
-                              <span className="font-mono text-[10px] tabular-nums text-zinc-600">{m.time}</span>
+                              <p className="text-[15px] font-semibold text-emerald-200/90 sm:text-base">{m.from}</p>
+                              <span className="font-mono text-xs tabular-nums text-zinc-500 sm:text-sm">{m.time}</span>
                             </div>
                             {m.replyTo ? (
-                              <div className="mt-1.5 flex items-start gap-1.5 rounded-lg bg-black/35 px-2 py-1 text-[11px] text-zinc-400">
+                              <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-black/35 px-2.5 py-1.5 text-sm text-zinc-400">
                                 <svg viewBox="0 0 28 22" className="mt-0.5 h-4 w-5 shrink-0 text-emerald-400/70">
                                   <path d="M1 1 H14 Q22 1 22 9 V18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                                   <path d="M17 13 L22 18 L27 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -1519,7 +1521,7 @@ export function TeamChatShell({
                                 </p>
                               </div>
                             ) : null}
-                            <p className="mt-1.5 text-[14px] leading-relaxed text-zinc-200">{renderTextWithLinks(m.text)}</p>
+                            <p className="mt-2 text-[15px] leading-relaxed text-zinc-200 sm:text-base">{renderTextWithLinks(m.text)}</p>
                             {Array.isArray(m.attachments) && m.attachments.length > 0 ? (
                               <div className="mt-2 space-y-1.5">
                                 {m.attachments.map((att) => (
@@ -1542,22 +1544,22 @@ export function TeamChatShell({
                       </div>
                     )}
                   </div>
-                  <div className="shrink-0 border-t border-white/[0.06] bg-[#0a0a0a]/98 px-3 py-2 backdrop-blur-xl">
+                  <div className="shrink-0 border-t border-white/[0.06] bg-[#0a0a0a]/98 px-3 py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] backdrop-blur-xl sm:px-4 sm:py-3">
                     {groupReplyTarget ? (
-                      <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border-l-2 border-violet-500/50 bg-black/40 px-2 py-1.5 text-[11px] text-zinc-400">
+                      <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border-l-2 border-violet-500/50 bg-black/40 px-3 py-2 text-sm text-zinc-400">
                         <p>
                           <span className="text-violet-200">↪ {groupReplyTarget.from}:</span> {groupReplyTarget.text}
                         </p>
                         <button
                           type="button"
                           onClick={() => setGroupReplyTarget(null)}
-                          className="font-mono text-[10px] text-zinc-500 hover:text-zinc-300"
+                          className="shrink-0 font-mono text-xs text-zinc-500 hover:text-zinc-300"
                         >
                           Cancel
                         </button>
                       </div>
                     ) : null}
-                    <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-black/60 py-1.5 pl-2 pr-2 backdrop-blur-md">
+                    <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-black/60 py-2 pl-2.5 pr-2 backdrop-blur-md sm:pl-3">
                       <input
                         ref={groupFileInputRef}
                         type="file"
@@ -1575,11 +1577,11 @@ export function TeamChatShell({
                         type="button"
                         disabled={groupSendPending}
                         onClick={() => groupFileInputRef.current?.click()}
-                        className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40"
+                        className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40 sm:h-11 sm:w-11"
                         title="Attach"
                         aria-label="Attach file to group message"
                       >
-                        <Paperclip className="h-4 w-4" strokeWidth={2} />
+                        <Paperclip className="h-5 w-5" strokeWidth={2} />
                       </button>
                       <textarea
                         rows={2}
@@ -1605,16 +1607,16 @@ export function TeamChatShell({
                           e.preventDefault();
                           sendGroupMessage();
                         }}
-                        className="min-h-[40px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-0"
+                        className="min-h-[44px] w-full min-w-0 flex-1 resize-none border-0 bg-transparent py-2.5 text-base text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-0 sm:min-h-[48px] sm:text-[17px]"
                       />
                       <button
                         type="button"
                         disabled={groupSendPending}
                         onClick={() => sendGroupMessage()}
-                        className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.7)] transition hover:bg-violet-500 disabled:opacity-40"
+                        className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.7)] transition hover:bg-violet-500 disabled:opacity-40 sm:h-11 sm:w-11"
                         aria-label="Send message"
                       >
-                        <Send className="h-4 w-4" strokeWidth={2} />
+                        <Send className="h-5 w-5" strokeWidth={2} />
                       </button>
                     </div>
                     {groupAttachments.length > 0 ? (
@@ -1624,7 +1626,7 @@ export function TeamChatShell({
                             key={`${att.url}-${idx}`}
                             type="button"
                             onClick={() => setGroupAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2 py-1 font-mono text-[10px] text-zinc-400"
+                            className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2.5 py-1.5 font-mono text-xs text-zinc-400"
                             title="Remove attachment"
                           >
                             {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
@@ -1632,7 +1634,7 @@ export function TeamChatShell({
                         ))}
                       </div>
                     ) : null}
-                    <p className="mt-1.5 font-mono text-[9px] text-zinc-600">
+                    <p className="mt-2 font-mono text-[11px] text-zinc-500 sm:text-xs">
                       Enter send · Shift+Enter newline · @everyone in announcements
                     </p>
                   </div>
@@ -1662,7 +1664,7 @@ export function TeamChatShell({
                       >
                         {!isYou ? (
                           <span
-                            className="mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.06] text-[10px] font-semibold tracking-tight text-zinc-300"
+                            className="mb-6 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.06] text-xs font-semibold tracking-tight text-zinc-300 sm:h-11 sm:w-11 sm:text-sm"
                             aria-hidden
                           >
                             {displayInitials(m.from)}
@@ -1684,10 +1686,10 @@ export function TeamChatShell({
                                 setDmReplyTarget({ from: m.from, text: m.text });
                               }
                             }}
-                            className={`w-full cursor-pointer rounded-[18px] px-3 py-2.5 outline-none transition hover:brightness-[1.03] focus-visible:ring-2 focus-visible:ring-violet-500/40 ${bubbleClass}`}
+                            className={`w-full cursor-pointer rounded-[18px] px-3.5 py-3 outline-none transition hover:brightness-[1.03] focus-visible:ring-2 focus-visible:ring-violet-500/40 sm:px-4 sm:py-3.5 ${bubbleClass}`}
                           >
                             {m.replyTo ? (
-                              <div className={`mb-1.5 flex items-start gap-1.5 rounded-lg px-2 py-1 text-xs ${isYou ? "bg-black/25 text-violet-100/90" : "bg-black/30 text-zinc-400"}`}>
+                              <div className={`mb-2 flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-sm ${isYou ? "bg-black/25 text-violet-100/90" : "bg-black/30 text-zinc-400"}`}>
                                 <svg viewBox="0 0 28 22" className="mt-0.5 h-4 w-5 shrink-0 opacity-70">
                                   <path d="M1 1 H14 Q22 1 22 9 V18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                                   <path d="M17 13 L22 18 L27 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
@@ -1697,7 +1699,7 @@ export function TeamChatShell({
                                 </p>
                               </div>
                             ) : null}
-                            <p className="text-[14px] leading-relaxed">{renderTextWithLinks(m.text)}</p>
+                            <p className="text-[15px] leading-relaxed sm:text-base">{renderTextWithLinks(m.text)}</p>
                             {Array.isArray(m.attachments) && m.attachments.length > 0 ? (
                               <div className="mt-2 space-y-1.5">
                                 {m.attachments.map((att) => (
@@ -1721,8 +1723,8 @@ export function TeamChatShell({
                           </div>
                           <span
                             className={cn(
-                              "mt-0.5 px-1 font-mono text-[9px] tabular-nums tracking-tight",
-                              isYou ? "text-violet-400/45" : "text-zinc-600",
+                              "mt-1 px-1 font-mono text-[11px] tabular-nums tracking-tight sm:text-xs",
+                              isYou ? "text-violet-400/55" : "text-zinc-500",
                             )}
                           >
                             {m.time}
@@ -1730,7 +1732,7 @@ export function TeamChatShell({
                         </div>
                         {isYou ? (
                           <span
-                            className="mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/25 bg-violet-950/40 text-[10px] font-semibold text-violet-200"
+                            className="mb-6 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-violet-500/25 bg-violet-950/40 text-xs font-semibold text-violet-200 sm:h-11 sm:w-11 sm:text-sm"
                             aria-hidden
                           >
                             {displayInitials(userDisplayName)}
@@ -1742,9 +1744,9 @@ export function TeamChatShell({
                   </div>
                 </div>
               ) : (
-                <div className="min-h-0 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 backdrop-blur-sm">
+                <div className="min-h-0 shrink-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3 backdrop-blur-sm sm:p-4">
                   <div className="grid grid-cols-1 gap-3 @min-[960px]:grid-cols-[minmax(0,220px)_minmax(0,1fr)] @min-[960px]:gap-4">
-                    <label className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
+                    <label className="min-w-0 text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 sm:text-sm">
                       To
                       <UiSelect
                         value={resolvedDmPeerId}
@@ -1758,9 +1760,9 @@ export function TeamChatShell({
                         triggerClassName="normal-case tracking-normal border-white/[0.1] bg-black/40"
                       />
                     </label>
-                    <div className="min-w-0 rounded-xl border border-white/[0.06] bg-black/30 px-3 py-2.5">
-                      <p className="truncate text-sm font-medium tracking-tight text-zinc-200">{newMessagePeerLabel}</p>
-                      <p className="mt-1 font-mono text-[10px] text-zinc-600">Shift+Enter newline · Enter sends from bar below</p>
+                    <div className="min-w-0 rounded-xl border border-white/[0.06] bg-black/30 px-3 py-3 sm:px-4">
+                      <p className="truncate text-base font-medium tracking-tight text-zinc-200">{newMessagePeerLabel}</p>
+                      <p className="mt-1 font-mono text-xs text-zinc-500 sm:text-sm">Shift+Enter newline · Enter sends from bar below</p>
                     </div>
                   </div>
                 </div>
@@ -1768,22 +1770,22 @@ export function TeamChatShell({
             </div>
 
             {centerMode !== "dm" ? null : (
-            <div className="shrink-0 border-t border-white/[0.06] bg-black/80 px-3 py-2.5 backdrop-blur-xl">
+            <div className="shrink-0 border-t border-white/[0.06] bg-black/80 px-3 py-2.5 pb-[max(0.6rem,env(safe-area-inset-bottom,0px))] backdrop-blur-xl sm:px-4 sm:py-3">
               {activeConversation && dmReplyTarget ? (
-                <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border-l-2 border-violet-500/45 bg-white/[0.04] px-2.5 py-2 text-xs text-zinc-400">
+                <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border-l-2 border-violet-500/45 bg-white/[0.04] px-3 py-2.5 text-sm text-zinc-400">
                   <p>
                     <span className="font-medium text-violet-200/90">↪ {dmReplyTarget.from}:</span> {dmReplyTarget.text}
                   </p>
                   <button
                     type="button"
                     onClick={() => setDmReplyTarget(null)}
-                    className="font-mono text-[10px] text-zinc-500 hover:text-zinc-300"
+                    className="shrink-0 font-mono text-xs text-zinc-500 hover:text-zinc-300"
                   >
                     Cancel
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-[#0a0a0a]/90 py-1.5 pl-2 pr-2 backdrop-blur-md">
+              <div className="flex items-end gap-2 rounded-[22px] border border-white/[0.1] bg-[#0a0a0a]/90 py-2 pl-2.5 pr-2 backdrop-blur-md sm:pl-3 sm:pr-2.5">
                 <input
                   ref={dmFileInputRef}
                   type="file"
@@ -1801,11 +1803,11 @@ export function TeamChatShell({
                   type="button"
                   disabled={dmSendPending}
                   onClick={() => dmFileInputRef.current?.click()}
-                  className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40"
+                  className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200 disabled:opacity-40 sm:h-11 sm:w-11"
                   title="Attach file"
                   aria-label="Attach file"
                 >
-                  <Paperclip className="h-4 w-4" strokeWidth={2} />
+                  <Paperclip className="h-5 w-5" strokeWidth={2} />
                 </button>
                 <textarea
                   rows={2}
@@ -1833,16 +1835,16 @@ export function TeamChatShell({
                     e.preventDefault();
                     sendDmMessage();
                   }}
-                  className="min-h-[44px] min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-0"
+                  className="min-h-[48px] min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-2.5 text-base tracking-tight text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-0 sm:min-h-[52px] sm:text-[17px]"
                 />
                 <button
                   type="button"
                   disabled={dmSendPending}
                   onClick={() => sendDmMessage()}
-                  className="mb-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.65)] transition hover:bg-violet-500 disabled:opacity-40"
+                  className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-[0_0_16px_-4px_rgba(139,92,246,0.65)] transition hover:bg-violet-500 disabled:opacity-40 sm:h-11 sm:w-11"
                   aria-label="Send message"
                 >
-                  <Send className="h-4 w-4" strokeWidth={2} />
+                  <Send className="h-5 w-5" strokeWidth={2} />
                 </button>
               </div>
               {dmAttachments.length > 0 ? (
@@ -1852,7 +1854,7 @@ export function TeamChatShell({
                       key={`${att.url}-${idx}`}
                       type="button"
                       onClick={() => setDmAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                      className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2 py-1 font-mono text-[10px] text-zinc-400"
+                      className="rounded-md border border-white/[0.1] bg-white/[0.05] px-2.5 py-1.5 font-mono text-xs text-zinc-400"
                       title="Remove attachment"
                     >
                       {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
@@ -1860,7 +1862,7 @@ export function TeamChatShell({
                   ))}
                 </div>
               ) : null}
-              <p className="mt-1.5 font-mono text-[9px] text-zinc-600">Enter send · Shift+Enter newline</p>
+              <p className="mt-2 font-mono text-[11px] text-zinc-500 sm:text-xs">Enter send · Shift+Enter newline</p>
             </div>
             )}
 
@@ -1873,8 +1875,8 @@ export function TeamChatShell({
               transition={{ type: "spring", stiffness: 420, damping: 36 }}
               className="fixed inset-y-0 right-0 z-[58] flex w-[min(92vw,300px)] flex-col border-l border-white/[0.08] bg-[#0a0a0a]/97 backdrop-blur-xl lg:static lg:z-auto lg:h-full lg:w-full lg:max-w-none"
             >
-              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-3 py-2.5 lg:hidden">
-                <p className="text-xs font-semibold tracking-tight text-zinc-300">Room details</p>
+              <div className="flex shrink-0 items-center justify-between border-b border-white/[0.06] px-3 py-3 lg:hidden sm:px-4">
+                <p className="text-sm font-semibold tracking-tight text-zinc-300 sm:text-base">Room details</p>
                 <button
                   type="button"
                   onClick={() => setInfoPanelOpen(false)}

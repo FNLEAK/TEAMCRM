@@ -42,19 +42,19 @@ export function RoleApplierShell({
 
   return (
     <DeskShell sections={commandDeskSections({ canManageRoles: true })} sidebarFooter={sidebarFooter}>
-      <div className="relative mx-auto w-full min-w-0 max-w-[1600px] @container text-zinc-100">
-        <header className="mb-4 border-b border-white/[0.06] pb-4 @md:mb-8 @md:pb-6">
-          <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-zinc-500">Admin</p>
-          <h1 className="mt-1 font-sans text-xl font-semibold tracking-tight text-white @md:text-2xl @lg:text-[1.65rem]">
-            Admin Panel
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500">
-            Owner-only control panel. Allowed owner email:{" "}
-            <code className="break-all text-zinc-300">{ownerEmail}</code>
+      <div className="relative w-full min-w-0 max-w-[1400px] bg-[#000000] @container text-zinc-100">
+        <header className="border-b border-white/[0.06] px-1 pb-5 pt-1 @md:pb-6">
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-zinc-600 @md:text-[11px]">Command</p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-zinc-50 @md:text-2xl">Admin Panel</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500 @md:text-[15px]">
+            Owner-only. Verified email{" "}
+            <code className="rounded-md border border-white/[0.08] bg-white/[0.04] px-1.5 py-0.5 text-[13px] text-violet-200/90">
+              {ownerEmail}
+            </code>
           </p>
         </header>
 
-        <div className="space-y-6">
+        <div className="mt-6 flex flex-col gap-8 pb-[max(1rem,env(safe-area-inset-bottom))] @md:mt-8 @md:gap-10">
           <RoleApplierPanel ownerId={ownerId} />
           <CloseApprovalPanel ownerId={ownerId} />
           <RewardVaultPanel />
