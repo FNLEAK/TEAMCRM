@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchProfilesByIds } from "@/lib/profileSelect";
+import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
 import { teamProfileFromDb, type TeamProfile } from "@/lib/leadTypes";
 import type { CrmAuditLogRow } from "@/lib/adminAuditTypes";
 
@@ -81,18 +81,21 @@ export async function loadActorProfiles(
   const uniq = [...new Set(actorIds.filter(Boolean))];
   if (uniq.length === 0) return {};
   const { data, error } = await fetchProfilesByIds(supabase, uniq);
-  if (error || !data?.length) return {};
   const map: Record<string, TeamProfile> = {};
-  for (const p of data) {
-    const id = p.id as string;
-    map[id] = teamProfileFromDb({
-      id,
-      first_name: p.first_name ?? null,
-      full_name: p.full_name ?? null,
-      avatar_initials: p.avatar_initials ?? null,
-      email: p.email ?? null,
-    });
+  if (!error && data?.length) {
+    for (const p of data) {
+      const id = p.id as string;
+      map[id] = teamProfileFromDb({
+        id,
+        first_name: p.first_name ?? null,
+        full_name: p.full_name ?? null,
+        avatar_initials: p.avatar_initials ?? null,
+        email: p.email ?? null,
+      });
+    }
   }
+  // Teammates often have no `profiles` row yet; `team_roles.account_name` still identifies them.
+  await enrichProfileMapWithTeamRoles(supabase, map, uniq);
   return map;
 }
 
