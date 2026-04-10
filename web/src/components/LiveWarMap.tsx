@@ -39,6 +39,8 @@ const PIN_COLORS: Record<ActivityType, string> = {
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAP_W = 1000;
 const MAP_H = 600;
+/** Must match `<g transform="translate(0, …)">` around state paths in this component. */
+const MAP_STATE_LAYER_OFFSET_Y = 10;
 
 function normalizeStatus(status: string | null | undefined): string {
   return (status ?? "").trim().toLowerCase();
@@ -86,7 +88,7 @@ export default function LiveWarMap() {
       if (!point) return;
       const [px, py] = point;
       const x = (px / MAP_W) * 100;
-      const y = (py / MAP_H) * 100;
+      const y = ((py + MAP_STATE_LAYER_OFFSET_Y) / MAP_H) * 100;
 
       const nextEvent: MapEvent = { id: leadId, type, x, y, label, createdAtMs };
 
@@ -347,18 +349,32 @@ function LegendItem({
 
 function PinBody({ type }: { type: ActivityType }) {
   const colors: Record<ActivityType, string> = {
-    interested: "bg-emerald-400 shadow-[0_0_15px_#22c55e]",
-    demo_sent: "bg-blue-400 shadow-[0_0_15px_#60a5fa]",
-    deal_closed: "bg-yellow-400 shadow-[0_0_20px_#facc15]",
+    interested: "bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.95)]",
+    demo_sent: "bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.9)]",
+    deal_closed: "bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.95)]",
   };
 
+  const ringClass =
+    type === "interested"
+      ? "border-emerald-400/70"
+      : type === "demo_sent"
+        ? "border-blue-400/70"
+        : "border-yellow-300/90";
+
   return (
-    <div className={`relative h-4 w-4 rounded-full border-2 border-white ${colors[type]}`}>
+    <div className={`relative h-2.5 w-2.5 rounded-full border border-white/95 ${colors[type]}`}>
+      {type !== "deal_closed" ? (
+        <motion.div
+          animate={{ scale: [1, 1.55, 1], opacity: [0.4, 0, 0.4] }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+          className={`pointer-events-none absolute inset-[-3px] rounded-full border ${ringClass}`}
+        />
+      ) : null}
       {type === "deal_closed" ? (
         <motion.div
-          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute inset-[-8px] rounded-full border-2 border-yellow-400"
+          animate={{ scale: [1, 1.35, 1], opacity: [0.45, 0, 0.45] }}
+          transition={{ repeat: Infinity, duration: 2.2 }}
+          className="pointer-events-none absolute inset-[-4px] rounded-full border border-yellow-300/80"
         />
       ) : null}
     </div>

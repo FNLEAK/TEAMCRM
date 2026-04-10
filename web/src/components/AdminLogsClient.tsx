@@ -38,6 +38,32 @@ function clipText(s: string, max: number): string {
   return `${s.slice(0, max - 1)}…`;
 }
 
+/** Full date + time for each stream card (local timezone). */
+function formatStreamCardDateTime(iso: string): { dateStr: string; timeStr: string } {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { dateStr: "—", timeStr: "" };
+  return {
+    dateStr: d.toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }),
+    timeStr: d.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }),
+  };
+}
+
+/** Single line for note preview footers — date + time together. */
+function formatStreamNoteTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
 function displayAuditValue(raw: unknown, actors: Record<string, TeamProfile>): string {
   if (raw == null || raw === "null") return "—";
   const s = String(raw).trim();
@@ -138,14 +164,24 @@ function AuditEventBody({
 
   if (action === "note_added") {
     const preview = d.preview != null ? String(d.preview) : "";
+    const noteWhen = formatStreamNoteTimestamp(row.created_at);
     return (
       <div className="mt-1.5 text-sm text-zinc-200">
         <p className="text-zinc-500">
           Note on <span className="font-medium text-white">{company}</span>
         </p>
         {preview ? (
-          <p className="mt-1 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2 py-1.5 text-xs leading-relaxed text-zinc-300">
-            “{clipText(preview, 130)}”
+          <div className="mt-2 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2.5 py-2">
+            <p className="text-[13px] leading-relaxed text-zinc-200">“{clipText(preview, 130)}”</p>
+            {noteWhen ? (
+              <p className="mt-2 border-t border-violet-500/25 pt-2 text-[11px] font-semibold tabular-nums text-violet-200/95">
+                {noteWhen}
+              </p>
+            ) : null}
+          </div>
+        ) : noteWhen ? (
+          <p className="mt-2 rounded-lg border border-violet-500/15 bg-violet-500/[0.06] px-2.5 py-2 text-[11px] font-semibold tabular-nums text-violet-200/95">
+            {noteWhen}
           </p>
         ) : null}
       </div>
@@ -420,12 +456,7 @@ export function AdminLogsClient({
                       const actorName = actorId
                         ? displayProfessionalName(actorId, actors[actorId])
                         : "System";
-                      const t = new Date(row.created_at);
-                      const timeStr = t.toLocaleTimeString(undefined, {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      });
+                      const { dateStr: cardDateStr, timeStr: cardTimeStr } = formatStreamCardDateTime(row.created_at);
                       const d = (row.details ?? {}) as Record<string, unknown>;
                       const statusDelta = d.status as { from?: unknown; to?: unknown } | undefined;
                       const fromStatus = statusDelta?.from ? String(statusDelta.from) : null;
@@ -444,6 +475,12 @@ export function AdminLogsClient({
                             isDealLike && "shadow-[0_0_14px_rgba(250,204,21,0.26)]",
                           )}
                         >
+                          <div className="mb-3 border-b border-white/[0.08] pb-3">
+                            <p className="text-[13px] font-semibold leading-snug text-zinc-50">{cardDateStr}</p>
+                            {cardTimeStr ? (
+                              <p className="mt-1 text-sm font-semibold tabular-nums text-cyan-200/95">{cardTimeStr}</p>
+                            ) : null}
+                          </div>
                           <div className="flex items-start gap-3">
                             <div className="min-w-[7.5rem] shrink-0">
                               <p className="inline-flex rounded-md border border-cyan-400/30 bg-cyan-500/10 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-cyan-200 shadow-[0_0_10px_-5px_rgba(34,211,238,0.8)]">
@@ -492,11 +529,13 @@ export function AdminLogsClient({
                                   </span>
                                 )}
                               </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-mono uppercase tracking-[0.08em] text-zinc-500">
-                                <span>{timeStr}</span>
-                                <span>|</span>
-                                <span>
-                                  Ref: <span className="text-zinc-400">{row.lead_id ? shortLeadRef(row.lead_id) : "n/a"}</span>
+                              <div className="mt-2">
+                                <AuditEventBody row={row} actors={actors} />
+                              </div>
+                              <div className="mt-2 text-[11px] text-zinc-500">
+                                Ref:{" "}
+                                <span className="font-mono text-zinc-400">
+                                  {row.lead_id ? shortLeadRef(row.lead_id) : "n/a"}
                                 </span>
                               </div>
                             </div>
@@ -582,7 +621,9 @@ export function AdminLogsClient({
                 <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto text-xs text-zinc-300">
                   {fallbackDeals.map((d) => (
                     <li key={d.id} className="rounded-lg border border-white/[0.05] bg-black/30 px-2 py-1.5">
-                      <span className="font-mono text-[10px] text-zinc-500">{d.created_at.slice(0, 16)}</span>
+                      <span className="block text-[11px] font-semibold tabular-nums text-zinc-300">
+                        {formatStreamNoteTimestamp(d.created_at) || d.created_at.slice(0, 16)}
+                      </span>
                       <span className="mt-0.5 block">
                         {new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(
                           Number(d.amount),

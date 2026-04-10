@@ -36,6 +36,8 @@ interface MapEvent {
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const MAP_W = 1000;
 const MAP_H = 600;
+/** Must match `<g transform="translate(0, …)">` around state paths — pins were visually “off” without this. */
+const MAP_STATE_LAYER_OFFSET_Y = 8;
 
 const PIN_COLORS: Record<ActivityType, string> = {
   interested: "#22c55e",
@@ -85,7 +87,7 @@ function buildMapEvent(
   if (!projected) return null;
   const [px, py] = projected;
   const x = (px / MAP_W) * 100;
-  const y = (py / MAP_H) * 100;
+  const y = ((py + MAP_STATE_LAYER_OFFSET_Y) / MAP_H) * 100;
   return {
     id: leadId,
     type,
@@ -667,7 +669,9 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-zinc-100">
                         Area Code Pinpointing
                       </p>
-                      <p className="mt-1">Pins are placed automatically based on the lead&apos;s phone number region.</p>
+                      <p className="mt-1">
+                        Pins use the lead&apos;s area code mapped to a rate-center city (same projection as the map).
+                      </p>
                     </div>
 
                     <div>
@@ -689,32 +693,32 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
 
 function PinBody({ type }: { type: ActivityType }) {
   const colors: Record<ActivityType, string> = {
-    interested: "bg-emerald-400 shadow-[0_0_18px_#22c55e,0_0_36px_-4px_rgba(34,197,94,0.65)]",
-    demo_sent: "bg-blue-400 shadow-[0_0_18px_#60a5fa,0_0_36px_-4px_rgba(59,130,246,0.6)]",
-    deal_closed: "bg-yellow-400 shadow-[0_0_20px_#facc15,0_0_40px_-4px_rgba(250,204,21,0.55)]",
+    interested: "bg-emerald-400 shadow-[0_0_6px_rgba(34,197,94,0.95)]",
+    demo_sent: "bg-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.9)]",
+    deal_closed: "bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.95)]",
   };
 
   const ringClass =
     type === "interested"
-      ? "border-emerald-300/90"
+      ? "border-emerald-400/70"
       : type === "demo_sent"
-        ? "border-blue-300/90"
-        : "border-yellow-300";
+        ? "border-blue-400/70"
+        : "border-yellow-300/90";
 
   return (
-    <div className={`relative h-4 w-4 rounded-full border-2 border-white ${colors[type]}`}>
+    <div className={`relative h-2.5 w-2.5 rounded-full border border-white/95 ${colors[type]}`}>
       {type !== "deal_closed" ? (
         <motion.div
-          animate={{ scale: [1, 2.1, 1], opacity: [0.45, 0, 0.45] }}
-          transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
-          className={`pointer-events-none absolute inset-[-10px] rounded-full border-2 ${ringClass}`}
+          animate={{ scale: [1, 1.55, 1], opacity: [0.4, 0, 0.4] }}
+          transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
+          className={`pointer-events-none absolute inset-[-3px] rounded-full border ${ringClass}`}
         />
       ) : null}
       {type === "deal_closed" ? (
         <motion.div
-          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="absolute inset-[-8px] rounded-full border-2 border-yellow-300"
+          animate={{ scale: [1, 1.35, 1], opacity: [0.45, 0, 0.45] }}
+          transition={{ repeat: Infinity, duration: 2.2 }}
+          className="pointer-events-none absolute inset-[-4px] rounded-full border border-yellow-300/80"
         />
       ) : null}
     </div>
