@@ -55,10 +55,10 @@ export type DeskNavSection = {
 
 function navLinkClass(active: boolean) {
   return clsx(
-    "relative rounded-xl border px-4 py-3 text-[14px] font-semibold leading-snug tracking-tight transition duration-200 sm:text-[15px]",
+    "relative rounded-lg border px-3 py-2.5 text-[13px] font-medium leading-snug tracking-tight transition duration-200",
     active
-      ? "border-cyan-300/55 bg-gradient-to-r from-cyan-400/20 via-cyan-300/10 to-transparent text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_30px_-12px_rgba(34,211,238,0.6)]"
-      : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-cyan-300/35 hover:bg-cyan-400/[0.08] hover:text-white active:scale-[0.99]",
+      ? "border-zinc-600/80 bg-zinc-800/80 text-white"
+      : "border-[#222] bg-transparent text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-zinc-100 active:scale-[0.99]",
   );
 }
 
@@ -73,10 +73,10 @@ function navLinkClassDemo(active: boolean) {
 
 function navLinkClassDrawer(active: boolean) {
   return clsx(
-    "relative flex min-h-[48px] touch-manipulation items-center rounded-xl border px-4 py-3 text-[15px] font-semibold leading-snug tracking-tight transition duration-200 active:scale-[0.99]",
+    "relative flex min-h-[48px] touch-manipulation items-center rounded-lg border px-4 py-3 text-[15px] font-medium leading-snug tracking-tight transition duration-200 active:scale-[0.99]",
     active
-      ? "border-cyan-300/55 bg-gradient-to-r from-cyan-400/20 via-cyan-300/10 to-transparent text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_0_30px_-12px_rgba(34,211,238,0.6)]"
-      : "border-white/10 bg-white/[0.02] text-slate-200 hover:border-cyan-300/35 hover:bg-cyan-400/[0.08] hover:text-white",
+      ? "border-zinc-600/80 bg-zinc-800/80 text-white"
+      : "border-[#222] bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-white",
   );
 }
 
@@ -366,8 +366,8 @@ export function DeskShell({
 
   if (isMobileShell) {
     const mobileChrome = (
-      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-[#06080d]">
-        <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-white/[0.07] bg-[#06080d]/92 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl supports-[backdrop-filter]:bg-[#06080d]/80">
+      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-[#050505]">
+        <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-[#222] bg-[#050505]/95 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
           <button
             type="button"
             aria-expanded={drawerOpen}
@@ -396,7 +396,7 @@ export function DeskShell({
         </main>
 
         <nav
-          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-white/[0.08] bg-[#07090d]/95 pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-12px_40px_-28px_rgba(0,0,0,0.85)] backdrop-blur-xl supports-[backdrop-filter]:bg-[#07090d]/88"
+          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-[#222] bg-[#111]/98 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl"
           aria-label="Primary navigation"
         >
           <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-5">
@@ -462,7 +462,7 @@ export function DeskShell({
           />
           <div
             className={clsx(
-              "absolute left-0 top-0 flex h-full w-[min(21rem,90vw)] max-w-full flex-col border-r border-white/10 bg-gradient-to-b from-[#0a0c10] via-[#090b0f] to-[#07090d] shadow-[20px_0_60px_-20px_rgba(0,0,0,0.9)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "absolute left-0 top-0 flex h-full w-[min(21rem,90vw)] max-w-full flex-col border-r border-[#222] bg-[#111] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
               drawerOpen ? "translate-x-0" : "-translate-x-full",
             )}
             role="dialog"
@@ -499,22 +499,10 @@ export function DeskShell({
   }
 
   return (
-    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-[#06080d]">
-      <aside className="relative flex w-[17.5rem] shrink-0 flex-col bg-gradient-to-b from-[#0a0c10] via-[#090b0f] to-[#07090d] shadow-[inset_-1px_0_0_rgba(255,255,255,0.02),20px_0_40px_-35px_rgba(6,182,212,0.22)] backdrop-blur-xl sm:w-72">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-70 [background:linear-gradient(165deg,rgba(34,211,238,0.11)_0%,rgba(34,211,238,0.02)_22%,transparent_42%),linear-gradient(210deg,rgba(167,139,250,0.1)_18%,rgba(167,139,250,0.03)_38%,transparent_58%),linear-gradient(18deg,rgba(16,185,129,0.08)_0%,rgba(16,185,129,0.02)_28%,transparent_46%)]"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-[1px] bg-gradient-to-b from-transparent via-cyan-300/35 to-transparent"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-[-4px] w-2 bg-cyan-300/12 blur-md"
-        />
+    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-[#050505]">
+      <aside className="relative flex w-[17.5rem] shrink-0 flex-col border-r border-[#222] bg-[#111] sm:w-72">
         {asideTop ?? (
-          <div className="relative bg-gradient-to-b from-cyan-400/[0.035] to-transparent px-3 py-4 sm:px-4 sm:py-5">
+          <div className="relative border-b border-[#222] px-3 py-4 sm:px-4 sm:py-5">
             <div className="flex min-h-[220px] items-center justify-center sm:min-h-[248px]">
               <div
                 onMouseEnter={() => setLogoSpinY((n) => n + 1)}
@@ -532,21 +520,17 @@ export function DeskShell({
                 />
               </div>
             </div>
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent"
-            />
           </div>
         )}
 
         {renderNav({ drawer: false })}
 
         {sidebarFooter ? (
-          <div className="mb-4 space-y-2 border-t border-white/[0.07] bg-black/20 p-3">{sidebarFooter}</div>
+          <div className="mb-4 space-y-2 border-t border-[#222] p-3">{sidebarFooter}</div>
         ) : null}
       </aside>
       {/* No @container here: pages use viewport breakpoints on desktop. Mobile shell uses @container on its own <main>. */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden px-4 py-5 md:px-7 md:py-8 lg:px-10 lg:py-10">
+      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden bg-[#050505] px-4 py-5 md:px-7 md:py-8 lg:px-10 lg:py-10">
         {children}
       </main>
       {globalStyles}

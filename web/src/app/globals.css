@@ -2,18 +2,46 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Pulse desk — aligned with CRM BUILD theme tokens */
+/* Tactical OS — depth-first dark UI (Linear / Apple-adjacent) */
 :root {
   color-scheme: dark;
-  --color-canvas: #050508;
-  --color-surface: rgba(12, 14, 22, 0.72);
-  --color-surface-strong: rgba(18, 20, 32, 0.88);
-  --color-border-glass: rgba(255, 255, 255, 0.08);
+  --color-canvas: #050505;
+  --color-surface: #111111;
+  --color-surface-strong: #141414;
+  --color-border-subtle: #222222;
+  --color-border-glass: rgba(255, 255, 255, 0.06);
   --color-neon-cyan: #22d3ee;
   --color-neon-violet: #a78bfa;
   --color-neon-emerald: #34d399;
   --color-neon-amber: #fbbf24;
   --color-neon-rose: #fb7185;
+}
+
+@keyframes tactical-message-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.tactical-message-in {
+  animation: tactical-message-pop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.tactical-panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.tactical-glass-input {
+  background: rgba(17, 17, 17, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 html {
@@ -40,9 +68,10 @@ html {
 }
 
 body {
-  @apply m-0 min-h-svh bg-[var(--color-canvas)] text-slate-200;
+  @apply m-0 min-h-svh bg-[#050505] text-zinc-200;
   overflow-x: clip;
   max-width: 100%;
+  letter-spacing: -0.01em;
 }
 
 /* Snappier taps on real controls (avoids double-tap-to-zoom delay on many mobile browsers) */

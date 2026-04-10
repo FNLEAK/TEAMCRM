@@ -32,6 +32,7 @@ import { DailyBriefingBanner } from "@/components/DailyBriefingBanner";
 import { TeamCalendarSection } from "@/components/TeamCalendarSection";
 import { WeeklyPerformanceCard, type WeeklyApptRank } from "@/components/WeeklyPerformanceCard";
 import { HelpMarker } from "@/components/HelpMarker";
+import { MessageCircle } from "lucide-react";
 import ExpandableWarMap from "@/components/ExpandableWarMap";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { utcCalendarDayBounds } from "@/lib/utcDayBounds";
@@ -701,6 +702,16 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
           />
         </div>
       </div>
+
+      <Link
+        href="/team-chat"
+        prefetch
+        className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-[#222] bg-[#111] text-zinc-400 shadow-[0_8px_32px_-8px_rgba(0,0,0,0.8)] transition hover:border-zinc-600 hover:text-zinc-100 md:bottom-8 md:right-8"
+        aria-label="Team chat"
+        title="Team chat"
+      >
+        <MessageCircle className="h-5 w-5" strokeWidth={2} />
+      </Link>
 
       {drawerLeadLive ? (
         <LeadDetailDrawer

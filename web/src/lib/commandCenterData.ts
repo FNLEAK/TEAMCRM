@@ -20,6 +20,10 @@ export type CommandCenterLead = {
   last_activity_by?: string | null;
   import_filename: string | null;
   created_at: string | null;
+  /** Squad streak migration — best signal for “stuck” time in a stage. */
+  last_activity_at?: string | null;
+  /** Generic row bump when present (fallback if `last_activity_at` not selected). */
+  updated_at?: string | null;
   is_high_priority?: boolean | null;
   demo_site_url?: string | null;
   demo_site_sent?: boolean | null;
@@ -47,6 +51,9 @@ function commandCenterLeadsSelectBase(): string {
 const SELECT = commandCenterLeadsSelectBase();
 
 const SELECT_WITH_LAST_ACT = `${SELECT}, last_activity_by`;
+
+/** Prefer for pipeline stale indicators; falls back in loader if columns missing. */
+const SELECT_WITH_STALE_AND_LAST_ACT = `${SELECT}, last_activity_at, updated_at, last_activity_by`;
 
 /** Kanban / owner filter: prefer explicit claim, then scheduler, then last person who touched the lead. */
 export function pipelineAttributionUserId(lead: CommandCenterLead): string | null {
@@ -249,22 +256,24 @@ export async function loadCommandCenterPayload(
   let leadsRaw: unknown[] | null = null;
   let leadsErr: { message?: string } | null = null;
   {
-    const ext = await supabase
-      .from("leads")
-      .select(SELECT_WITH_LAST_ACT)
-      .order("created_at", { ascending: false, nullsFirst: false })
-      .limit(commandCenterLeadsLimit());
-    if (ext.error && isMissingSchemaPiece(ext.error)) {
-      const base = await supabase
+    const tiers = [SELECT_WITH_STALE_AND_LAST_ACT, SELECT_WITH_LAST_ACT, SELECT];
+    for (let i = 0; i < tiers.length; i += 1) {
+      const r = await supabase
         .from("leads")
-        .select(SELECT)
+        .select(tiers[i])
         .order("created_at", { ascending: false, nullsFirst: false })
         .limit(commandCenterLeadsLimit());
-      leadsRaw = base.data as unknown[] | null;
-      leadsErr = base.error;
-    } else {
-      leadsRaw = ext.data as unknown[] | null;
-      leadsErr = ext.error;
+      if (!r.error) {
+        leadsRaw = r.data as unknown[] | null;
+        leadsErr = null;
+        break;
+      }
+      if (isMissingSchemaPiece(r.error) && i < tiers.length - 1) {
+        continue;
+      }
+      leadsRaw = null;
+      leadsErr = r.error;
+      break;
     }
   }
 
@@ -354,16 +363,15 @@ export async function loadCommandCenterPayload(
 
   const apptsHeldThisWeek = heldWeek.count ?? 0;
 
-  const stageCounts: { status: string; count: number }[] = [];
-  for (const s of LEAD_STATUSES) {
-    const c = leads.filter((l) => (l.status ?? "").trim() === s).length;
-    stageCounts.push({ status: s, count: c });
-  }
-  const known = stageCounts.reduce((a, x) => a + x.count, 0);
-  const other = Math.max(0, leads.length - known);
-  if (other > 0) {
-    stageCounts.push({ status: NON_CANONICAL_STAGE_KEY, count: other });
-  }
+  /** Website-booked / non-canonical stages roll into Appt Set for board + distribution. */
+  const stageCounts: { status: string; count: number }[] = LEAD_STATUSES.map((s) => {
+    if (s === "Appt Set") {
+      const appt = leads.filter((l) => (l.status ?? "").trim() === "Appt Set").length;
+      const web = leads.filter((l) => !(LEAD_STATUSES as readonly string[]).includes((l.status ?? "").trim())).length;
+      return { status: s, count: appt + web };
+    }
+    return { status: s, count: leads.filter((l) => (l.status ?? "").trim() === s).length };
+  });
 
   return {
     data: {

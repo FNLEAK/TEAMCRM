@@ -1321,7 +1321,7 @@ export function LeadDetailDrawer({
                 <span className="text-zinc-600">—</span>
               )}
             </DetailItem>
-            {hasDemoSiteCol ? (
+            {hasDemoSiteCol && isOwner ? (
               <div className="col-span-full sm:col-span-2">
                 <LeadDemoSiteSection
                   leadId={leadId}

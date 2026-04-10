@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { DeskShell } from "@/components/DeskShell";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
 import { HelpMarker } from "@/components/HelpMarker";
 import { cn } from "@/lib/utils";
+import { Command, Plus, X } from "lucide-react";
 import { UiSelect } from "@/components/UiSelect";
 import type { ProfileRow } from "@/lib/profileSelect";
 import {
@@ -81,59 +83,6 @@ function bumpTeamChatMentionNavUnread() {
   }
 }
 
-const MEMBER_PROFILES: Record<
-  string,
-  {
-    role: string;
-    status: "Active now" | "Away" | "Offline";
-    lastSeen: string;
-    avgReply: string;
-    activity: string;
-    readRate: string;
-  }
-> = {
-  Jon: {
-    role: "Member",
-    status: "Active now",
-    lastSeen: "just now",
-    avgReply: "2m",
-    activity: "High",
-    readRate: "94%",
-  },
-  Mykala: {
-    role: "Member",
-    status: "Active now",
-    lastSeen: "1m ago",
-    avgReply: "3m",
-    activity: "High",
-    readRate: "91%",
-  },
-  Richard: {
-    role: "Member",
-    status: "Away",
-    lastSeen: "12m ago",
-    avgReply: "5m",
-    activity: "Medium",
-    readRate: "88%",
-  },
-  Camydn: {
-    role: "Member",
-    status: "Offline",
-    lastSeen: "44m ago",
-    avgReply: "8m",
-    activity: "Medium",
-    readRate: "84%",
-  },
-  Jaylan: {
-    role: "Owner",
-    status: "Active now",
-    lastSeen: "just now",
-    avgReply: "2m",
-    activity: "High",
-    readRate: "96%",
-  },
-};
-
 const TEAM_THREADS = [
   {
     id: "thread-1",
@@ -192,6 +141,16 @@ const ISSUE_NOTES_DEMO = [
   },
 ];
 
+function displayInitials(name: string) {
+  const t = name.trim();
+  if (!t) return "??";
+  const parts = t.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[parts.length - 1]?.[0] ?? ""}`.toUpperCase() || t.slice(0, 2).toUpperCase();
+  }
+  return t.slice(0, 2).toUpperCase();
+}
+
 export function TeamChatShell({
   userId,
   userDisplayName,
@@ -207,7 +166,9 @@ export function TeamChatShell({
   const [conversations, setConversations] = useState<TeamDmConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState("");
   const activeConversationIdRef = useRef("");
-  const [centerMode, setCenterMode] = useState<"dm" | "group" | "issues">("dm");
+  const [centerMode, setCenterMode] = useState<"dm" | "group">("dm");
+  const [issueDrawerOpen, setIssueDrawerOpen] = useState(false);
+  const [ownerIntelOpen, setOwnerIntelOpen] = useState(false);
   const [peerOptions, setPeerOptions] = useState<{ value: string; label: string }[]>([]);
   const [newMessagePeerId, setNewMessagePeerId] = useState("");
   const [newMessageBody, setNewMessageBody] = useState("");
@@ -228,7 +189,6 @@ export function TeamChatShell({
   const [groupAttachments, setGroupAttachments] = useState<ChatAttachment[]>([]);
   const [issueNotes, setIssueNotes] = useState(ISSUE_NOTES_DEMO);
   const [issueDraft, setIssueDraft] = useState("");
-  const [issueReplyDrafts, setIssueReplyDrafts] = useState<Record<string, string>>({});
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
   /** On mobile, group/issues render in row 2 below a tall inbox; scroll into view after mode change. */
@@ -244,17 +204,6 @@ export function TeamChatShell({
   const [ownerDmSendPending, setOwnerDmSendPending] = useState(false);
   const [ownerActiveConversationId, setOwnerActiveConversationId] = useState("");
   const [ownerReplyDraft, setOwnerReplyDraft] = useState("");
-  const [liveProfileStats, setLiveProfileStats] = useState<
-    Record<
-      string,
-      {
-        status: "Active now" | "Away" | "Offline";
-        lastSeen: string;
-        activity: string;
-      }
-    >
-  >({});
-
   const refreshDmsRef = useRef<(() => void) | null>(null);
   const centerModeRef = useRef(centerMode);
   const groupChannelRef = useRef(groupChannel);
@@ -266,7 +215,7 @@ export function TeamChatShell({
   }, [groupChannel]);
 
   useEffect(() => {
-    if (centerMode !== "group" && centerMode !== "issues") return;
+    if (centerMode !== "group") return;
     if (typeof window === "undefined") return;
     if (window.matchMedia("(min-width: 960px)").matches) return;
     const id = window.setTimeout(() => {
@@ -558,139 +507,33 @@ export function TeamChatShell({
   }, [userId, userDisplayName, canManageRoles]);
 
   useEffect(() => {
-    if (!canManageRoles || centerMode !== "issues") return;
+    if (!canManageRoles || !issueDrawerOpen) return;
     window.localStorage.setItem("teamChatIssueUnreadOwner", "0");
     window.dispatchEvent(new Event("team-chat-issue-unread-updated"));
-  }, [canManageRoles, centerMode]);
+  }, [canManageRoles, issueDrawerOpen]);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    let cancelled = false;
-    const participantNames = [...new Set(conversations.flatMap((c) => c.participants))].filter(Boolean);
-    if (participantNames.length === 0) return;
-
-    const formatLastSeen = (date: Date | null): string => {
-      if (!date) return "unknown";
-      const diffMs = Date.now() - date.getTime();
-      if (diffMs < 60_000) return "just now";
-      const mins = Math.floor(diffMs / 60_000);
-      if (mins < 60) return `${mins}m ago`;
-      const hrs = Math.floor(mins / 60);
-      if (hrs < 24) return `${hrs}h ago`;
-      const days = Math.floor(hrs / 24);
-      return `${days}d ago`;
-    };
-
-    const loadLiveStats = async () => {
-      const nameToId = new Map<string, string>();
-      try {
-        const { data: profileRows, error: profileErr } = await supabase
-          .from("profiles")
-          .select("id, first_name, full_name");
-        if (profileErr || !Array.isArray(profileRows)) return;
-
-        for (const raw of profileRows as Array<Record<string, unknown>>) {
-          const id = typeof raw.id === "string" ? raw.id : "";
-          if (!id) continue;
-          const first = typeof raw.first_name === "string" ? raw.first_name.trim() : "";
-          const full = typeof raw.full_name === "string" ? raw.full_name.trim() : "";
-          if (first) nameToId.set(first.toLowerCase(), id);
-          if (full) nameToId.set(full.toLowerCase(), id);
-        }
-      } catch {
-        return;
-      }
-
-      const ids = participantNames
-        .map((name) => ({ name, id: nameToId.get(name.toLowerCase()) }))
-        .filter((x): x is { name: string; id: string } => Boolean(x.id));
-      if (ids.length === 0) return;
-
-      try {
-        const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        const { data: activityRows } = await supabase
-          .from("lead_activity")
-          .select("user_id, created_at")
-          .in("user_id", ids.map((x) => x.id))
-          .gte("created_at", sinceIso);
-
-        const byUser = new Map<string, { count: number; latest: Date | null }>();
-        for (const r of (activityRows as Array<Record<string, unknown>> | null) ?? []) {
-          const uid = typeof r.user_id === "string" ? r.user_id : "";
-          if (!uid) continue;
-          const createdAtRaw = typeof r.created_at === "string" ? r.created_at : "";
-          const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
-          const prev = byUser.get(uid) ?? { count: 0, latest: null };
-          const latest =
-            createdAt && (!prev.latest || createdAt.getTime() > prev.latest.getTime()) ? createdAt : prev.latest;
-          byUser.set(uid, { count: prev.count + 1, latest });
-        }
-
-        const next: Record<string, { status: "Active now" | "Away" | "Offline"; lastSeen: string; activity: string }> = {};
-        for (const { name, id } of ids) {
-          const info = byUser.get(id) ?? { count: 0, latest: null };
-          const diffMs = info.latest ? Date.now() - info.latest.getTime() : Number.POSITIVE_INFINITY;
-          const status: "Active now" | "Away" | "Offline" =
-            diffMs < 5 * 60_000 ? "Active now" : diffMs < 60 * 60_000 ? "Away" : "Offline";
-          const activity = info.count >= 20 ? "High" : info.count >= 8 ? "Medium" : "Low";
-          next[name] = {
-            status,
-            lastSeen: formatLastSeen(info.latest),
-            activity,
-          };
-        }
-
-        if (!cancelled) setLiveProfileStats(next);
-      } catch {
-        // Keep graceful fallback values if schema differs.
+    if (!canManageRoles) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOwnerIntelOpen((v) => !v);
       }
     };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canManageRoles]);
 
-    void loadLiveStats();
-
-    const channel = supabase
-      .channel("team-chat-live-profile-stats")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "lead_activity" }, () => {
-        void loadLiveStats();
-      })
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
+  useEffect(() => {
+    if (!issueDrawerOpen && !ownerIntelOpen) return;
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setIssueDrawerOpen(false);
+      setOwnerIntelOpen(false);
     };
-  }, [conversations]);
-  const profileName = useMemo(() => {
-    if (activeConversation) {
-      const other = activeConversation.participants.find((p) => p.toLowerCase() !== userDisplayName.toLowerCase());
-      return other ?? activeConversation.participants[0];
-    }
-    return newMessagePeerLabel;
-  }, [activeConversation, newMessagePeerLabel, userDisplayName]);
-  const profile = MEMBER_PROFILES[profileName] ?? {
-    role: "Member",
-    status: "Away" as const,
-    lastSeen: "recently",
-    avgReply: "6m",
-    activity: "Medium",
-    readRate: "89%",
-  };
-  const liveProfile = liveProfileStats[profileName];
-  const status = liveProfile?.status ?? profile.status;
-  const lastSeen = liveProfile?.lastSeen ?? profile.lastSeen;
-  const activity = liveProfile?.activity ?? profile.activity;
-  const convoUnread = activeConversation?.unread ?? 0;
-  const convoRead = Math.max((activeConversation?.messages.length ?? 0) - convoUnread, 0);
-  const totalMessages = convoRead + convoUnread;
-  const readPct = totalMessages > 0 ? Math.round((convoRead / totalMessages) * 100) : Number.parseInt(profile.readRate, 10);
-  const responseQuality = profile.avgReply === "2m" || profile.avgReply === "3m" ? "Excellent" : profile.avgReply === "5m" ? "Good" : "Fair";
-  const activityWindow = activity === "High" ? "20+ actions / 24h" : activity === "Medium" ? "8-19 actions / 24h" : "0-7 actions / 24h";
-  const statusTone =
-    status === "Active now"
-      ? "text-emerald-100 border-emerald-400/35 bg-emerald-500/18"
-      : status === "Away"
-        ? "text-amber-100 border-amber-400/35 bg-amber-500/18"
-        : "text-zinc-100 border-zinc-400/35 bg-zinc-500/18";
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [issueDrawerOpen, ownerIntelOpen]);
 
   /** Runs after a successful insert — do not await from send handlers so the composer unlocks immediately. */
   const scheduleDmInboxRefresh = (conversationId: string) => {
@@ -712,6 +555,32 @@ export function TeamChatShell({
         }
       } catch (e) {
         console.error("[dm inbox refresh]", e);
+      }
+    })();
+  };
+
+  const submitOwnerReply = () => {
+    const msg = ownerReplyDraft.trim();
+    if (!msg || !ownerActiveConversation) return;
+    if (ownerDmSendLockRef.current) return;
+    ownerDmSendLockRef.current = true;
+    setOwnerDmSendPending(true);
+    const snap = ownerReplyDraft;
+    const convId = ownerActiveConversation.id;
+    setOwnerReplyDraft("");
+    const sb = createSupabaseBrowserClient();
+    void (async () => {
+      try {
+        const { error } = await insertDmMessage(sb, convId, userId, msg, null);
+        if (error) {
+          console.error("[owner dm]", error.message);
+          setOwnerReplyDraft(snap);
+          return;
+        }
+        scheduleDmInboxRefresh(convId);
+      } finally {
+        ownerDmSendLockRef.current = false;
+        setOwnerDmSendPending(false);
       }
     })();
   };
@@ -893,7 +762,18 @@ export function TeamChatShell({
     <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
       {/* Local @container: desktop main no longer sets one — chat breakpoints stay tied to this column, not the viewport. */}
       <div className="@container relative mx-auto flex w-full min-w-0 max-w-[1600px] flex-col text-zinc-100">
-        <header className="mb-3 rounded-xl border border-zinc-800/80 bg-zinc-950/40 px-3 py-3 text-left shadow-none @min-[960px]:mb-4 @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[radial-gradient(120%_100%_at_10%_0%,rgba(34,211,238,0.15),transparent_58%),radial-gradient(120%_100%_at_90%_0%,rgba(167,139,250,0.12),transparent_62%),linear-gradient(180deg,#0b0e14_0%,#090b11_100%)] @min-[960px]:px-6 @min-[960px]:py-6 @min-[960px]:text-center @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16),0_0_40px_-24px_rgba(34,211,238,0.6)] @lg:mb-6 @lg:py-8">
+        <header className="relative mb-3 rounded-lg border border-[#222] bg-[#111] px-3 py-3 text-left @min-[960px]:mb-4 @min-[960px]:px-6 @min-[960px]:py-5 @lg:mb-6">
+          {canManageRoles ? (
+            <button
+              type="button"
+              onClick={() => setOwnerIntelOpen(true)}
+              className="absolute right-3 top-3 rounded-lg border border-[#222] bg-[#0a0a0a] p-2 text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-200"
+              title="Owner intel (⌘K)"
+              aria-label="Open owner command intel"
+            >
+              <Command className="h-4 w-4" strokeWidth={2} />
+            </button>
+          ) : null}
           <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/75 @min-[960px]:block">
             Internal messaging
           </p>
@@ -914,11 +794,11 @@ export function TeamChatShell({
           ) : null}
         </header>
 
-        <section className="grid min-w-0 shrink-0 grid-cols-1 gap-3 overflow-hidden @max-[959px]:auto-rows-min @min-[960px]:gap-5 @min-[960px]:h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:min-h-[320px] @min-[960px]:max-h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:grid-cols-[360px_minmax(0,1fr)_280px] @min-[960px]:grid-rows-[minmax(0,1fr)]">
+        <section className="grid min-w-0 shrink-0 grid-cols-1 gap-3 overflow-hidden @max-[959px]:auto-rows-min @min-[960px]:gap-4 @min-[960px]:h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:min-h-[320px] @min-[960px]:max-h-[min(72dvh,calc(100dvh-11.5rem))] @min-[960px]:grid-cols-[minmax(240px,280px)_minmax(0,1fr)] @min-[960px]:grid-rows-[minmax(0,1fr)]">
           <aside
             className={cn(
               "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[linear-gradient(180deg,rgba(9,14,24,0.96),rgba(8,11,18,0.93))] @min-[960px]:p-4 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16),0_0_26px_-22px_rgba(34,211,238,0.6)] @min-[960px]:h-full @min-[960px]:max-h-full",
-              centerMode === "group" || centerMode === "issues"
+              centerMode === "group"
                 ? "@max-[959px]:min-h-0"
                 : "@max-[959px]:min-h-[min(64dvh,calc(100dvh-15rem))]",
             )}
@@ -1171,7 +1051,7 @@ export function TeamChatShell({
               <button
                 type="button"
                 onClick={() => {
-                  setCenterMode("issues");
+                  setIssueDrawerOpen(true);
                   setActiveConversationId("");
                 }}
                 className="w-full rounded-xl border border-transparent bg-[linear-gradient(145deg,rgba(250,204,21,0.16),rgba(20,20,18,0.92))] px-3 py-2.5 text-left shadow-[inset_0_0_0_1px_rgba(250,204,21,0.3),0_12px_24px_-20px_rgba(250,204,21,0.65)] transition hover:bg-[linear-gradient(145deg,rgba(250,204,21,0.22),rgba(24,24,22,0.95))]"
@@ -1186,7 +1066,7 @@ export function TeamChatShell({
             ref={teamChatCenterRef}
             className={cn(
               "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-zinc-800/70 bg-zinc-950/50 p-3 shadow-none @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[radial-gradient(120%_120%_at_10%_0%,rgba(34,211,238,0.14),transparent_48%),radial-gradient(120%_120%_at_90%_0%,rgba(167,139,250,0.14),transparent_52%),linear-gradient(180deg,rgba(10,14,26,0.97),rgba(7,10,18,0.96))] @min-[960px]:p-5 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(167,139,250,0.18),0_0_34px_-22px_rgba(34,211,238,0.42)] @min-[960px]:h-full @min-[960px]:max-h-full",
-              (centerMode === "group" || centerMode === "issues") &&
+              centerMode === "group" &&
                 "@max-[959px]:min-h-[min(62dvh,620px)] @max-[959px]:scroll-mt-3",
             )}
           >
@@ -1195,7 +1075,7 @@ export function TeamChatShell({
               className="right-2 top-2 @min-[960px]:right-4 @min-[960px]:top-4"
               text="TEAM CHAT: Use this area to ask teammates for help, share context before handoffs, and unblock deals faster. Keep messages short, action-focused, and tied to the account."
             />
-            {centerMode === "group" || centerMode === "issues" ? null : (
+            {centerMode === "group" ? null : (
               <div className="border-b border-zinc-800/90 pb-3 @min-[960px]:border-cyan-500/18 @min-[960px]:pb-4">
                 <div className="flex flex-col gap-2 @min-[960px]:flex-row @min-[960px]:flex-wrap @min-[960px]:items-center @min-[960px]:justify-between @min-[960px]:gap-3">
                   <div className="min-w-0 flex-1">
@@ -1234,170 +1114,7 @@ export function TeamChatShell({
             )}
 
             <div className="mt-2 flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden @min-[960px]:mt-4 @min-[960px]:gap-3">
-              {centerMode === "issues" ? (
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-transparent bg-[linear-gradient(145deg,rgba(250,204,21,0.12),rgba(14,18,30,0.94))] p-4 shadow-[inset_0_0_0_1px_rgba(250,204,21,0.26),0_18px_34px_-26px_rgba(250,204,21,0.55)]">
-                  <div className="flex items-center justify-between gap-2 border-b border-amber-400/20 pb-3">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200/90">Issue Board</p>
-                      <p className="mt-1 text-sm text-zinc-200/90">Team can post bugs here. Owner gets notified and can mark fixed.</p>
-                    </div>
-                    {canManageRoles ? (
-                      <span className="rounded-md border border-amber-300/35 bg-amber-500/16 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-100">
-                        Owner feed
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-3 grid gap-2 @min-[560px]:grid-cols-[minmax(0,1fr)_auto]">
-                    <input
-                      value={issueDraft}
-                      onChange={(e) => setIssueDraft(e.target.value)}
-                      placeholder="Write a bug or issue note..."
-                      className="h-[40px] self-end rounded-lg border border-transparent bg-black/35 px-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-[inset_0_0_0_1px_rgba(250,204,21,0.18)] focus:shadow-[inset_0_0_0_1px_rgba(250,204,21,0.34)] focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const msg = issueDraft.trim();
-                        if (!msg) return;
-                        const now = new Date();
-                        const hh = now.getHours();
-                        const mm = now.getMinutes().toString().padStart(2, "0");
-                        const suffix = hh >= 12 ? "PM" : "AM";
-                        const hour12 = ((hh + 11) % 12) + 1;
-                        setIssueNotes((prev) => [
-                          {
-                            id: `issue-${Date.now()}`,
-                            author: userDisplayName,
-                            text: msg,
-                            status: "Open",
-                            time: `${hour12}:${mm} ${suffix}`,
-                            replies: [],
-                          },
-                          ...prev,
-                        ]);
-                        if (!canManageRoles) {
-                          const raw = window.localStorage.getItem("teamChatIssueUnreadOwner");
-                          const prevUnread = Number(raw ?? "0");
-                          const next = (Number.isFinite(prevUnread) ? prevUnread : 0) + 1;
-                          window.localStorage.setItem("teamChatIssueUnreadOwner", String(next));
-                          window.dispatchEvent(new Event("team-chat-issue-unread-updated"));
-                        }
-                        setIssueDraft("");
-                      }}
-                      className="h-[40px] self-end rounded-lg border border-amber-300/40 bg-amber-500/16 px-3 text-xs font-semibold text-amber-100 transition hover:bg-amber-500/24"
-                    >
-                      Post note
-                    </button>
-                  </div>
-
-                  <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                    {issueNotes.map((note) => (
-                      <div
-                        key={note.id}
-                        className={`rounded-lg border border-transparent px-2.5 py-2 ${
-                          note.status === "Fixed"
-                            ? "bg-emerald-500/[0.1] shadow-[inset_0_0_0_1px_rgba(52,211,153,0.38),0_0_22px_-16px_rgba(52,211,153,0.85)]"
-                            : "bg-black/35 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.2)]"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="group relative inline-flex">
-                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-500/[0.14] text-[10px] font-bold text-cyan-100">
-                                {note.author
-                                  .split(/\s+/)
-                                  .filter(Boolean)
-                                  .slice(0, 2)
-                                  .map((x) => x[0])
-                                  .join("")
-                                  .toUpperCase() || "?"}
-                              </span>
-                              <span className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md border border-cyan-300/30 bg-[#0b1118]/95 px-2 py-1 text-[10px] font-semibold text-cyan-100 opacity-0 shadow-[0_10px_24px_-14px_rgba(34,211,238,0.7)] transition-opacity duration-150 group-hover:opacity-100">
-                                {note.author}
-                              </span>
-                            </span>
-                            <p className="text-xs font-semibold text-zinc-100">Posted by {note.author}</p>
-                          </div>
-                          <span className="text-[10px] text-zinc-500">{note.time}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-zinc-200">{note.text}</p>
-                        {note.replies.length > 0 ? (
-                          <div className="mt-2 space-y-1.5">
-                            {note.replies.map((reply) => (
-                              <div
-                                key={`${note.id}-${reply.author}-${reply.time}-${reply.text}`}
-                                className="rounded-md border border-transparent bg-zinc-950/55 px-2 py-1.5 text-xs text-zinc-200 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]"
-                              >
-                                <p className="text-[10px] font-semibold uppercase tracking-wide text-cyan-200/85">
-                                  {reply.author} · {reply.time}
-                                </p>
-                                <p className="mt-0.5 text-xs text-zinc-200">{reply.text}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                        <div className="mt-2 flex items-center gap-1.5">
-                          <input
-                            value={issueReplyDrafts[note.id] ?? ""}
-                            onChange={(e) => setIssueReplyDrafts((prev) => ({ ...prev, [note.id]: e.target.value }))}
-                            placeholder="Write a reply..."
-                            className="flex-1 rounded-md border border-transparent bg-black/35 px-2 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-500 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)] focus:shadow-[inset_0_0_0_1px_rgba(148,163,184,0.28)] focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const msg = (issueReplyDrafts[note.id] ?? "").trim();
-                              if (!msg) return;
-                              setIssueNotes((prev) =>
-                                prev.map((x) =>
-                                  x.id === note.id
-                                    ? {
-                                        ...x,
-                                        replies: [
-                                          ...x.replies,
-                                          { author: userDisplayName, text: msg, time: new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) },
-                                        ],
-                                      }
-                                    : x,
-                                ),
-                              );
-                              setIssueReplyDrafts((prev) => ({ ...prev, [note.id]: "" }));
-                            }}
-                            className="rounded-md border border-cyan-300/35 bg-cyan-500/16 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-cyan-100"
-                          >
-                            Send
-                          </button>
-                        </div>
-                        <div className="mt-1.5 flex items-center justify-between">
-                          <span
-                            className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                              note.status === "Fixed"
-                                ? "border-emerald-300/45 bg-emerald-500/20 text-emerald-100"
-                                : "border-zinc-400/30 bg-zinc-700/20 text-zinc-300"
-                            }`}
-                          >
-                            {note.status === "Fixed" ? "Fixed ✓" : `Status: ${note.status}`}
-                          </span>
-                          {canManageRoles ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setIssueNotes((prev) =>
-                                  prev.map((x) => (x.id === note.id ? { ...x, status: x.status === "Fixed" ? "Reviewing" : "Fixed" } : x)),
-                                )
-                              }
-                              className="rounded-md border border-emerald-300/35 bg-emerald-500/16 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-100"
-                            >
-                              {note.status === "Fixed" ? "Reopen" : "Mark fixed"}
-                            </button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : centerMode === "group" ? (
+              {centerMode === "group" ? (
                 <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-transparent bg-[linear-gradient(150deg,rgba(16,185,129,0.16),rgba(8,12,22,0.95)_45%,rgba(14,16,30,0.92))] p-4 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.24),0_24px_48px_-34px_rgba(16,185,129,0.7)]">
                   <div className="flex items-start justify-between gap-3 border-b border-emerald-500/18 pb-3">
                     <div>
@@ -1670,11 +1387,11 @@ export function TeamChatShell({
                         ))}
                       </div>
                     ) : null}
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[11px] text-zinc-500">
                         {groupChannel === "announcements"
-                          ? "Use @everyone to ping the full team"
-                          : "Use @name to mention a teammate in channel"}
+                          ? "@everyone · Enter to post"
+                          : "@name · Enter to send"}
                       </p>
                       <div className="flex items-center gap-2">
                         <input
@@ -1694,17 +1411,11 @@ export function TeamChatShell({
                           type="button"
                           disabled={groupSendPending}
                           onClick={() => groupFileInputRef.current?.click()}
-                          className="touch-manipulation rounded-xl border border-cyan-300/35 bg-cyan-500/14 px-2.5 py-2 text-[11px] font-semibold text-cyan-100 transition duration-100 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
+                          className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#141414] text-zinc-400 transition hover:text-zinc-100 disabled:opacity-40"
+                          title="Attach"
+                          aria-label="Attach file to group message"
                         >
-                          Upload
-                        </button>
-                        <button
-                          type="button"
-                          disabled={groupSendPending}
-                          onClick={sendGroupMessage}
-                          className="touch-manipulation rounded-xl border border-cyan-300/45 bg-gradient-to-r from-cyan-500/[0.24] to-violet-500/[0.24] px-3.5 py-2 text-xs font-semibold text-cyan-100 transition duration-100 hover:border-cyan-300/65 hover:from-cyan-500/[0.34] hover:to-violet-500/[0.34] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
-                        >
-                          Send to group
+                          <Plus className="h-4 w-4" strokeWidth={2} />
                         </button>
                       </div>
                     </div>
@@ -1715,57 +1426,69 @@ export function TeamChatShell({
                 ? null
                 : activeConversation ? (
                 <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden">
-                  <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">Today</p>
                   <div
                     ref={dmScrollRef}
-                    className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 overflow-x-hidden overflow-y-auto overscroll-contain rounded-2xl border border-transparent bg-[linear-gradient(180deg,rgba(9,18,34,0.88),rgba(8,12,24,0.9))] p-2.5 pr-2 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)] [max-height:min(62dvh,720px,calc(100dvh-22rem))]"
+                    className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-2 overflow-x-hidden overflow-y-auto overscroll-contain rounded-xl border border-[#222] bg-[#0a0a0a] p-3 [max-height:min(62dvh,720px,calc(100dvh-22rem))]"
                   >
                   {activeConversation.messages.map((m, idx) => {
                     const isYou = m.from.toLowerCase() === userDisplayName.toLowerCase();
-                    const personTone: Record<string, string> = {
-                      mykala: "bg-[linear-gradient(145deg,rgba(16,185,129,0.22),rgba(10,28,28,0.9))] shadow-[inset_0_0_0_1px_rgba(52,211,153,0.34),0_12px_24px_-20px_rgba(16,185,129,0.46)]",
-                      jon: "bg-[linear-gradient(145deg,rgba(6,182,212,0.22),rgba(8,24,42,0.9))] shadow-[inset_0_0_0_1px_rgba(34,211,238,0.34),0_12px_24px_-20px_rgba(34,211,238,0.44)]",
-                      richard: "bg-[linear-gradient(145deg,rgba(245,158,11,0.2),rgba(36,24,12,0.9))] shadow-[inset_0_0_0_1px_rgba(251,191,36,0.32),0_12px_24px_-20px_rgba(245,158,11,0.42)]",
-                      camydn: "bg-[linear-gradient(145deg,rgba(236,72,153,0.2),rgba(32,14,32,0.9))] shadow-[inset_0_0_0_1px_rgba(244,114,182,0.32),0_12px_24px_-20px_rgba(236,72,153,0.42)]",
-                      jaylan: "bg-[linear-gradient(145deg,rgba(124,58,237,0.22),rgba(24,18,50,0.9))] shadow-[inset_0_0_0_1px_rgba(167,139,250,0.34),0_12px_24px_-20px_rgba(124,58,237,0.44)]",
-                    };
-                    const bubbleClass = personTone[m.from.toLowerCase()] ?? "bg-[linear-gradient(145deg,rgba(71,85,105,0.24),rgba(15,23,42,0.9))] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.3)]";
-                    const nameClass = isYou ? "text-violet-100" : "text-cyan-100";
+                    const bubbleClass = isYou
+                      ? "border border-violet-500/25 bg-gradient-to-br from-violet-600/85 via-indigo-700/75 to-indigo-950/90 text-white shadow-[0_12px_40px_-20px_rgba(109,40,217,0.55)]"
+                      : "border border-[#2a2a2a] bg-[#161616] text-zinc-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]";
                     return (
-                      <div
+                      <motion.div
                         key={`${m.from}-${idx}-${m.text}`}
+                        layout
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: "spring", stiffness: 520, damping: 34 }}
                         className={`flex w-full items-end gap-2 ${isYou ? "justify-end" : "justify-start"}`}
                       >
+                        {!isYou ? (
+                          <span
+                            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#333] bg-[#111] text-[10px] font-semibold tracking-tight text-zinc-300"
+                            aria-hidden
+                          >
+                            {displayInitials(m.from)}
+                          </span>
+                        ) : null}
                         <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => setDmReplyTarget({ from: m.from, text: m.text })}
-                          className={`max-w-[min(82%,28rem)] cursor-pointer rounded-2xl border border-transparent px-3 py-2.5 transition hover:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.28)] ${bubbleClass}`}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              setDmReplyTarget({ from: m.from, text: m.text });
+                            }
+                          }}
+                          className={`max-w-[min(82%,28rem)] cursor-pointer rounded-[18px] px-3 py-2.5 outline-none transition hover:brightness-[1.04] focus-visible:ring-2 focus-visible:ring-violet-500/40 ${bubbleClass}`}
                         >
-                        <p className={`text-xs font-semibold ${nameClass}`}>{m.from}</p>
                         {m.replyTo ? (
-                          <div className="mt-1 flex items-start gap-1.5 rounded-md bg-black/28 px-2 py-1 text-xs text-zinc-300">
-                            <svg viewBox="0 0 28 22" className="mt-0.5 h-4 w-5 shrink-0 text-cyan-200/80">
+                          <div className={`mb-1.5 flex items-start gap-1.5 rounded-lg px-2 py-1 text-xs ${isYou ? "bg-black/20 text-violet-100/90" : "bg-black/35 text-zinc-400"}`}>
+                            <svg viewBox="0 0 28 22" className="mt-0.5 h-4 w-5 shrink-0 opacity-70">
                               <path d="M1 1 H14 Q22 1 22 9 V18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
                               <path d="M17 13 L22 18 L27 13" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             <p>
-                              <span className="font-semibold text-cyan-100">{m.replyTo.from}</span> {m.replyTo.text}
+                              <span className="font-medium opacity-90">{m.replyTo.from}</span> {m.replyTo.text}
                             </p>
                           </div>
                         ) : null}
-                        <p className="mt-1 text-sm text-zinc-100">{renderTextWithLinks(m.text)}</p>
+                        <p className="text-[14px] leading-relaxed">{renderTextWithLinks(m.text)}</p>
                         {Array.isArray(m.attachments) && m.attachments.length > 0 ? (
                           <div className="mt-2 space-y-1.5">
                             {m.attachments.map((att) => (
                               <div
                                 key={`${m.from}-${att.url}`}
-                                className="rounded-md border border-transparent bg-[linear-gradient(145deg,rgba(10,16,30,0.86),rgba(6,10,20,0.9))] p-1.5 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)]"
+                                className="rounded-lg border border-white/10 bg-black/25 p-1.5"
                               >
                                 {att.kind === "image" ? (
                                   <img src={att.url} alt={att.name} className="max-h-56 max-w-full rounded-md object-contain" />
                                 ) : att.kind === "video" ? (
                                   <video src={att.url} controls className="max-h-56 w-full max-w-full rounded-md object-contain" />
                                 ) : (
-                                  <a href={att.url} target="_blank" rel="noreferrer" className="break-all text-xs text-cyan-200 underline">
+                                  <a href={att.url} target="_blank" rel="noreferrer" className="break-all text-xs text-violet-200/90 underline">
                                     {att.name}
                                   </a>
                                 )}
@@ -1776,37 +1499,21 @@ export function TeamChatShell({
                         </div>
                         {isYou ? (
                           <span
+                            className="mb-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-violet-500/30 bg-violet-950/50 text-[10px] font-semibold text-violet-200"
                             aria-hidden
-                            className="mb-3 flex h-5 w-5 shrink-0 items-center justify-center text-violet-400/70"
-                            title="Sent"
                           >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
+                            {displayInitials(userDisplayName)}
                           </span>
                         ) : null}
-                      </div>
+                      </motion.div>
                     );
                   })}
                   </div>
                 </div>
               ) : (
-                <div className="min-h-0 shrink-0 overflow-hidden rounded-xl border border-zinc-800/80 bg-[#1e1f22] p-3 @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[linear-gradient(180deg,rgba(10,18,32,0.94),rgba(8,12,22,0.94))] @min-[960px]:p-5 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2),0_18px_40px_-30px_rgba(34,211,238,0.55)]">
-                  <div className="flex items-center justify-between gap-2 border-b border-zinc-700/80 pb-2.5 @min-[960px]:border-cyan-500/18 @min-[960px]:pb-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-zinc-300 @min-[960px]:text-[11px] @min-[960px]:font-semibold @min-[960px]:uppercase @min-[960px]:tracking-[0.16em] @min-[960px]:text-cyan-200/80">
-                        Direct message
-                      </p>
-                      <p className="mt-0.5 truncate text-[11px] text-zinc-500 @min-[960px]:mt-1 @min-[960px]:text-xs @min-[960px]:text-zinc-400">
-                        Pick who you’re messaging, then type below.
-                      </p>
-                    </div>
-                    <span className="hidden shrink-0 rounded border border-zinc-600/50 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-zinc-400 @min-[960px]:inline @min-[960px]:border-cyan-300/28 @min-[960px]:bg-cyan-500/[0.12] @min-[960px]:text-cyan-100">
-                      Live
-                    </span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-1 gap-3 @min-[960px]:mt-4 @min-[960px]:grid-cols-[minmax(0,240px)_minmax(0,1fr)] @min-[960px]:gap-4">
-                    <label className="min-w-0 text-xs font-medium text-zinc-400 @min-[960px]:font-semibold @min-[960px]:uppercase @min-[960px]:tracking-[0.12em]">
+                <div className="min-h-0 shrink-0 overflow-hidden rounded-xl border border-[#222] bg-[#111] p-3 @min-[960px]:p-4">
+                  <div className="grid grid-cols-1 gap-3 @min-[960px]:grid-cols-[minmax(0,240px)_minmax(0,1fr)] @min-[960px]:gap-4">
+                    <label className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">
                       To
                       <UiSelect
                         value={resolvedDmPeerId}
@@ -1817,15 +1524,12 @@ export function TeamChatShell({
                         options={dmSendToOptions}
                         className="mt-1.5 w-full max-w-full @min-[960px]:mt-2"
                         aria-label="Teammate to message"
-                        triggerClassName="normal-case tracking-normal border-zinc-600/60 bg-zinc-900/90 @min-[960px]:border-cyan-400/30 @min-[960px]:bg-gradient-to-b @min-[960px]:from-[#0e1524] @min-[960px]:to-[#0a0f18] @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)]"
+                        triggerClassName="normal-case tracking-normal border-[#222] bg-[#0a0a0a]"
                       />
                     </label>
-                    <div className="min-w-0 rounded-lg border border-zinc-700/60 bg-zinc-900/50 px-3 py-2.5 @min-[960px]:rounded-xl @min-[960px]:border-transparent @min-[960px]:bg-black/40 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)]">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 @min-[960px]:text-xs @min-[960px]:font-semibold @min-[960px]:tracking-[0.12em]">
-                        With
-                      </p>
-                      <p className="mt-0.5 truncate text-sm font-medium text-zinc-100">{newMessagePeerLabel}</p>
-                      <p className="mt-1 text-[11px] text-zinc-500">Composer is below.</p>
+                    <div className="min-w-0 rounded-lg border border-[#222] bg-[#0a0a0a] px-3 py-2.5">
+                      <p className="truncate text-sm font-medium tracking-tight text-zinc-200">{newMessagePeerLabel}</p>
+                      <p className="mt-1 text-[11px] text-zinc-500">Enter below to start — Shift+Enter for newline.</p>
                     </div>
                   </div>
                 </div>
@@ -1833,50 +1537,76 @@ export function TeamChatShell({
             </div>
 
             {centerMode !== "dm" ? null : (
-            <div className="mt-3 shrink-0 rounded-xl border border-zinc-800/80 bg-zinc-950/80 p-3 @min-[960px]:mt-5 @min-[960px]:rounded-2xl @min-[960px]:border-transparent @min-[960px]:bg-[linear-gradient(180deg,rgba(11,16,28,0.95),rgba(9,13,22,0.95))] @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2),0_18px_30px_-24px_rgba(34,211,238,0.55)]">
-              <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 @min-[960px]:text-[11px] @min-[960px]:font-semibold @min-[960px]:tracking-[0.16em] @min-[960px]:text-cyan-200/80">
-                {activeConversation ? "Message" : "Message"}
-              </p>
+            <div className="tactical-glass-input mt-3 shrink-0 rounded-2xl p-3 @min-[960px]:mt-4">
               {activeConversation && dmReplyTarget ? (
-                <div className="mt-2 flex items-start justify-between gap-2 rounded-md border-l-2 border-cyan-300/45 bg-black/35 px-2.5 py-2 text-xs text-zinc-300 transition-all duration-200">
+                <div className="mb-2 flex items-start justify-between gap-2 rounded-lg border border-[#222] bg-black/30 px-2.5 py-2 text-xs text-zinc-400">
                   <p>
-                    <span className="font-semibold text-cyan-100">↪ Replying to {dmReplyTarget.from}:</span> {dmReplyTarget.text}
+                    <span className="font-medium text-zinc-300">↪ {dmReplyTarget.from}:</span> {dmReplyTarget.text}
                   </p>
                   <button
                     type="button"
                     onClick={() => setDmReplyTarget(null)}
-                    className="rounded-md border border-zinc-400/30 bg-zinc-700/20 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200"
+                    className="rounded-md border border-[#333] px-1.5 py-0.5 text-[10px] font-medium text-zinc-400 hover:text-zinc-200"
                   >
                     Cancel
                   </button>
                 </div>
               ) : null}
-              <textarea
-                rows={3}
-                placeholder={
-                  activeConversation ? "Reply in this conversation..." : "Type your first message..."
-                }
-                value={activeConversation ? draft : newMessageBody}
-                onChange={(e) =>
-                  activeConversation ? setDraft(e.target.value) : setNewMessageBody(e.target.value)
-                }
-                onPaste={(e) => {
-                  const files = Array.from(e.clipboardData?.files ?? []);
-                  if (files.length === 0) return;
-                  e.preventDefault();
-                  setDmAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key !== "Enter" || e.shiftKey) return;
-                  if (dmSendPending) {
-                    e.preventDefault();
-                    return;
+              <div className="flex items-end gap-2">
+                <input
+                  ref={dmFileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+                  className="hidden"
+                  onChange={(e) => {
+                    const fl = e.target.files;
+                    if (!fl?.length) return;
+                    setDmAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={dmSendPending}
+                  onClick={() => dmFileInputRef.current?.click()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#2a2a2a] bg-[#141414] text-zinc-400 transition hover:border-zinc-600 hover:text-zinc-100 disabled:opacity-40"
+                  title="Attach file"
+                  aria-label="Attach file"
+                >
+                  <Plus className="h-5 w-5" strokeWidth={2} />
+                </button>
+                <textarea
+                  rows={2}
+                  placeholder={
+                    activeConversation ? "Message…" : "Start a conversation…"
                   }
-                  e.preventDefault();
-                  sendDmMessage();
-                }}
-                className="mt-2 w-full min-w-0 resize-none rounded-lg border border-zinc-700/70 bg-zinc-900/90 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none @min-[960px]:rounded-xl @min-[960px]:border-transparent @min-[960px]:bg-black/40 @min-[960px]:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.2)] @min-[960px]:focus:shadow-[inset_0_0_0_1px_rgba(34,211,238,0.36)]"
-              />
+                  value={activeConversation ? draft : newMessageBody}
+                  onChange={(e) =>
+                    activeConversation ? setDraft(e.target.value) : setNewMessageBody(e.target.value)
+                  }
+                  onPaste={(e) => {
+                    const files = Array.from(e.clipboardData?.files ?? []);
+                    if (files.length === 0) return;
+                    e.preventDefault();
+                    setDmAttachments((prev) => [...prev, ...toAttachments(files)].slice(0, 6));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" || e.shiftKey) return;
+                    if (dmSendPending) {
+                      e.preventDefault();
+                      return;
+                    }
+                    if (!activeConversation && resolvedDmPeerId === NO_DM_PEER_PLACEHOLDER) {
+                      e.preventDefault();
+                      return;
+                    }
+                    e.preventDefault();
+                    sendDmMessage();
+                  }}
+                  className="min-h-[44px] min-w-0 flex-1 resize-none rounded-xl border border-transparent bg-transparent px-2 py-2.5 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+                />
+              </div>
               {dmAttachments.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {dmAttachments.map((att, idx) => (
@@ -1884,7 +1614,7 @@ export function TeamChatShell({
                       key={`${att.url}-${idx}`}
                       type="button"
                       onClick={() => setDmAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                      className="rounded-md border border-cyan-300/30 bg-cyan-500/14 px-2 py-1 text-[10px] text-cyan-100"
+                      className="rounded-md border border-[#333] bg-black/40 px-2 py-1 text-[10px] text-zinc-400"
                       title="Remove attachment"
                     >
                       {att.kind.toUpperCase()} · {att.name.slice(0, 20)}
@@ -1892,241 +1622,235 @@ export function TeamChatShell({
                   ))}
                 </div>
               ) : null}
-              <div className="mt-2 flex flex-col gap-2 @min-[960px]:flex-row @min-[960px]:items-center @min-[960px]:justify-between">
-                <p className="hidden text-[11px] text-zinc-500 @min-[960px]:block">Use @name to mention a teammate</p>
-                <div className="flex w-full items-stretch gap-2 @min-[960px]:w-auto @min-[960px]:items-center @min-[960px]:justify-start">
-                  <input
-                    ref={dmFileInputRef}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
-                    className="hidden"
-                    onChange={(e) => {
-                      const fl = e.target.files;
-                      if (!fl?.length) return;
-                      setDmAttachments((prev) => [...prev, ...toAttachments(fl)].slice(0, 6));
-                      e.currentTarget.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={dmSendPending}
-                    onClick={() => dmFileInputRef.current?.click()}
-                    className="touch-manipulation rounded-lg border border-zinc-600/60 bg-zinc-800/90 px-3 py-2.5 text-xs font-medium text-zinc-200 transition duration-100 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/35 @min-[960px]:bg-cyan-500/14 @min-[960px]:py-2 @min-[960px]:text-[11px] @min-[960px]:font-semibold @min-[960px]:text-cyan-100"
-                  >
-                    File
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      dmSendPending ||
-                      (!activeConversation && resolvedDmPeerId === NO_DM_PEER_PLACEHOLDER)
-                    }
-                    onClick={sendDmMessage}
-                    className="min-h-[44px] flex-1 touch-manipulation rounded-lg border border-[#5865f2]/50 bg-[#5865f2]/90 px-3 py-2 text-sm font-semibold text-white transition duration-100 hover:bg-[#5865f2] active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 @min-[960px]:min-h-0 @min-[960px]:flex-none @min-[960px]:rounded-xl @min-[960px]:border-cyan-300/45 @min-[960px]:bg-gradient-to-r @min-[960px]:from-cyan-500/[0.24] @min-[960px]:to-violet-500/[0.24] @min-[960px]:px-3.5 @min-[960px]:text-xs @min-[960px]:text-cyan-100 @min-[960px]:hover:border-cyan-300/65"
-                  >
-                    {activeConversation ? "Send" : "Start chat"}
-                  </button>
-                </div>
-              </div>
+              <p className="mt-2 text-[10px] text-zinc-600">Enter to send · Shift+Enter newline</p>
             </div>
             )}
 
           </div>
 
-          <aside className="hidden min-h-0 min-w-0 overflow-y-auto rounded-2xl border border-transparent bg-[linear-gradient(180deg,rgba(10,14,26,0.95),rgba(8,10,18,0.92))] p-4 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.14),0_0_22px_-20px_rgba(34,211,238,0.5)] @min-[960px]:block @min-[960px]:h-full @min-[960px]:max-h-full">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200/80">DM profile</p>
-            <div className="mt-3 rounded-xl border border-transparent bg-black/35 p-3 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.12)]">
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-cyan-300/30 bg-cyan-500/[0.15] text-sm font-bold text-cyan-100">
-                  {profileName.slice(0, 2).toUpperCase()}
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-white">{profileName}</p>
-                  <p className="text-xs text-zinc-400">{profile.role}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-2">
-                <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${statusTone}`}>
-                  {status}
-                </span>
-                <span className="text-[10px] text-zinc-400">Seen {lastSeen}</span>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-transparent bg-zinc-950/55 p-2 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Quality</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-100">{responseQuality}</p>
-                </div>
-                <div className="rounded-lg border border-transparent bg-zinc-950/55 p-2 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">Last touch</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-100">{lastSeen}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-2.5">
-              <div className="rounded-xl border border-transparent bg-[linear-gradient(145deg,rgba(6,30,42,0.72),rgba(8,14,24,0.9))] p-3 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.22),0_12px_26px_-22px_rgba(34,211,238,0.8)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-200/80">Avg reply</p>
-                  <span className="rounded-md border border-cyan-300/30 bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-cyan-100">
-                    Speed
-                  </span>
-                </div>
-                <p className="mt-2 text-3xl font-bold tracking-tight text-cyan-100 [text-shadow:0_0_16px_rgba(34,211,238,0.35)]">
-                  {profile.avgReply}
-                </p>
-                <p className="mt-1 text-[11px] text-zinc-400">Median response speed in active hours</p>
-              </div>
-
-              <div className="rounded-xl border border-transparent bg-[linear-gradient(145deg,rgba(8,34,22,0.7),rgba(8,14,20,0.9))] p-3 shadow-[inset_0_0_0_1px_rgba(52,211,153,0.22),0_12px_26px_-22px_rgba(16,185,129,0.8)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200/80">Activity</p>
-                  <span className="rounded-md border border-emerald-300/30 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-100">
-                    24h
-                  </span>
-                </div>
-                <p className="mt-2 text-3xl font-bold tracking-tight text-emerald-100 [text-shadow:0_0_16px_rgba(16,185,129,0.35)]">
-                  {activity}
-                </p>
-                <p className="mt-1 text-[11px] text-zinc-400">{activityWindow}</p>
-              </div>
-
-              <div className="rounded-xl border border-transparent bg-[linear-gradient(145deg,rgba(22,14,42,0.72),rgba(10,12,24,0.92))] p-3 shadow-[inset_0_0_0_1px_rgba(167,139,250,0.22),0_12px_26px_-22px_rgba(167,139,250,0.8)]">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-200/80">Read / unread</p>
-                  <span className="rounded-md border border-violet-300/30 bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-100">
-                    DM
-                  </span>
-                </div>
-                <p className="mt-2 text-3xl font-bold tracking-tight text-violet-100 [text-shadow:0_0_16px_rgba(167,139,250,0.35)]">
-                  {convoRead} / {convoUnread}
-                </p>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-zinc-800/85">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-400 via-violet-400 to-emerald-400"
-                    style={{ width: `${Math.max(0, Math.min(100, readPct))}%` }}
-                  />
-                </div>
-                <p className="mt-1 text-[11px] text-zinc-400">Read rate: {readPct}%</p>
-              </div>
-            </div>
-
-          </aside>
         </section>
 
-        {canManageRoles ? (
-          <section className="mt-6 min-w-0 overflow-x-hidden rounded-2xl border border-transparent bg-[linear-gradient(180deg,rgba(12,17,30,0.96),rgba(8,10,20,0.94))] p-5 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.22),0_0_36px_-24px_rgba(16,185,129,0.55)]">
-            <div className="mb-4 border-b border-emerald-500/20 pb-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-200/85">Owner only</p>
-              <h2 className="mt-1 text-2xl font-semibold text-white">Owner DM Command Panel</h2>
-              <p className="mt-1 text-sm text-zinc-300/85">
-                Full visibility across all direct messages. Open any conversation and reply directly as owner.
-              </p>
-            </div>
-
-            <div className="grid min-w-0 grid-cols-1 gap-4 @min-[960px]:grid-cols-[340px_minmax(0,1fr)]">
-              <div className="min-w-0 rounded-xl border border-transparent bg-black/30 p-3 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)]">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200/80">All DMs</p>
-                <div className="mt-2 max-h-[min(40vh,320px)] space-y-2 overflow-y-auto pr-1">
-                  {ownerPanelConversations.length === 0 ? (
-                    <div className="rounded-lg border border-emerald-500/20 bg-zinc-950/60 px-3 py-3 text-xs leading-relaxed text-zinc-400 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]">
-                      <p className="font-medium text-zinc-200">No threads loaded yet.</p>
-                      <p className="mt-2">
-                        If you sign in with the owner email but Supabase still hides other people’s DMs, run the latest{" "}
-                        <code className="rounded bg-black/40 px-1 py-0.5 text-[10px] text-emerald-200/90">team-chat-messages.sql</code>{" "}
-                        in the SQL editor (owner JWT email + <code className="rounded bg-black/40 px-1 py-0.5 text-[10px]">team_roles.role = owner</code>{" "}
-                        both allow org-wide reads).
-                      </p>
-                      <p className="mt-2 text-zinc-500">Otherwise, conversations appear here once teammates start DMing each other.</p>
-                    </div>
-                  ) : (
-                    ownerPanelConversations.map((c) => (
-                      <button
-                        key={`owner-panel-${c.id}`}
-                        type="button"
-                        onClick={() => setOwnerActiveConversationId(c.id)}
-                        className={`w-full rounded-lg border border-transparent px-2.5 py-2 text-left transition ${
-                          ownerActiveConversationId === c.id
-                            ? "bg-emerald-500/[0.18] shadow-[inset_0_0_0_1px_rgba(52,211,153,0.4)]"
-                            : "bg-zinc-950/70 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.18)] hover:bg-zinc-900/80"
-                        }`}
+        <AnimatePresence>
+          {issueDrawerOpen ? (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Close issue board"
+                className="fixed inset-0 z-[120] bg-black/65"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setIssueDrawerOpen(false)}
+              />
+              <motion.aside
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="issue-board-title"
+                initial={{ x: "104%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "104%" }}
+                transition={{ type: "spring", stiffness: 380, damping: 36 }}
+                className="fixed right-0 top-0 z-[130] flex h-[100dvh] w-[min(100vw,420px)] flex-col border-l border-[#222] bg-[#111] shadow-[-16px_0_48px_-24px_rgba(0,0,0,0.85)]"
+              >
+                <div className="flex items-center justify-between border-b border-[#222] px-4 py-3">
+                  <div>
+                    <p id="issue-board-title" className="text-sm font-semibold tracking-tight text-zinc-100">
+                      Issue board
+                    </p>
+                    <p className="text-[11px] text-zinc-500">Tactical queue · status glow</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIssueDrawerOpen(false)}
+                    className="rounded-lg border border-[#222] p-2 text-zinc-500 transition hover:border-zinc-600 hover:text-zinc-200"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4">
+                  {issueNotes.map((note) => {
+                    const isFixed = note.status === "Fixed";
+                    return (
+                      <div
+                        key={note.id}
+                        className={cn(
+                          "rounded-lg border border-[#222] bg-[#0a0a0a] p-3",
+                          isFixed
+                            ? "shadow-[0_0_28px_-10px_rgba(34,197,94,0.55)]"
+                            : "shadow-[0_0_24px_-12px_rgba(234,179,8,0.5)]",
+                        )}
                       >
-                        <p className="truncate text-xs font-semibold text-zinc-100">{c.participants.join(" <-> ")}</p>
-                        <p className="truncate text-[11px] text-zinc-400">{c.preview}</p>
-                      </button>
-                    ))
-                  )}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "h-2 w-2 shrink-0 rounded-full",
+                              isFixed
+                                ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)]"
+                                : "bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)]",
+                            )}
+                          />
+                          <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-500">{note.status}</span>
+                          <span className="ml-auto text-[10px] tabular-nums text-zinc-600">{note.time}</span>
+                        </div>
+                        <p className="mt-2 text-[11px] font-medium text-zinc-500">{note.author}</p>
+                        <p className="mt-1 text-sm leading-relaxed tracking-tight text-zinc-200">{note.text}</p>
+                        {note.replies.length > 0 ? (
+                          <div className="mt-2 space-y-1 border-t border-[#222] pt-2">
+                            {note.replies.map((r, i) => (
+                              <p key={`${note.id}-r-${i}`} className="text-xs text-zinc-400">
+                                <span className="font-medium text-zinc-300">{r.author}:</span> {r.text}
+                              </p>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-
-              <div className="min-w-0 rounded-xl border border-transparent bg-black/30 p-3 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)]">
-                <div className="flex min-w-0 items-center justify-between gap-2">
-                  <p className="min-w-0 truncate text-sm font-semibold text-white">
-                    {ownerActiveConversation ? ownerActiveConversation.participants.join(" <-> ") : "No conversation selected"}
-                  </p>
-                  <span className="rounded-md border border-emerald-300/35 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-100">
-                    Owner reply
-                  </span>
-                </div>
-                <div className="mt-3 max-h-[min(38dvh,340px)] min-h-0 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                  {ownerActiveConversation?.messages.map((m, idx) => (
-                    <div
-                      key={`owner-msg-${idx}-${m.text}`}
-                      className="rounded-lg border border-transparent bg-zinc-950/70 px-2.5 py-2 shadow-[inset_0_0_0_1px_rgba(148,163,184,0.16)]"
-                    >
-                      <p className="text-[11px] font-semibold text-cyan-100">{m.from}</p>
-                      <p className="mt-0.5 text-sm text-zinc-100">{m.text}</p>
-                    </div>
-                  )) ?? null}
-                </div>
-
-                <div className="mt-3 rounded-lg border border-transparent bg-zinc-950/75 p-2 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.24)]">
+                <div className="tactical-glass-input m-3 shrink-0 rounded-xl p-3">
                   <textarea
-                    rows={3}
-                    value={ownerReplyDraft}
-                    onChange={(e) => setOwnerReplyDraft(e.target.value)}
-                    placeholder="Owner note / escalation / direct reply..."
-                    className="w-full resize-none rounded-md border border-transparent bg-black/35 px-2.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.2)] focus:shadow-[inset_0_0_0_1px_rgba(16,185,129,0.35)] focus:outline-none"
+                    rows={2}
+                    value={issueDraft}
+                    onChange={(e) => setIssueDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== "Enter" || e.shiftKey) return;
+                      e.preventDefault();
+                      const text = issueDraft.trim();
+                      if (!text) return;
+                      const time = new Date().toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                      setIssueNotes((prev) => [
+                        ...prev,
+                        {
+                          id: `issue-${Date.now()}`,
+                          author: userDisplayName,
+                          text,
+                          status: "Open",
+                          time,
+                          replies: [],
+                        },
+                      ]);
+                      setIssueDraft("");
+                    }}
+                    placeholder="Log an issue… Enter to post"
+                    className="w-full resize-none rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
                   />
-                  <div className="mt-2 flex justify-end">
-                    <button
-                      type="button"
-                      disabled={ownerDmSendPending}
-                      onClick={() => {
-                        const msg = ownerReplyDraft.trim();
-                        if (!msg || !ownerActiveConversation) return;
-                        if (ownerDmSendLockRef.current) return;
-                        ownerDmSendLockRef.current = true;
-                        setOwnerDmSendPending(true);
-                        const snap = ownerReplyDraft;
-                        const convId = ownerActiveConversation.id;
-                        setOwnerReplyDraft("");
-                        const sb = createSupabaseBrowserClient();
-                        void (async () => {
-                          try {
-                            const { error } = await insertDmMessage(sb, convId, userId, msg, null);
-                            if (error) {
-                              console.error("[owner dm]", error.message);
-                              setOwnerReplyDraft(snap);
-                              return;
-                            }
-                            scheduleDmInboxRefresh(convId);
-                          } finally {
-                            ownerDmSendLockRef.current = false;
-                            setOwnerDmSendPending(false);
-                          }
-                        })();
-                      }}
-                      className="touch-manipulation rounded-lg border border-emerald-300/45 bg-emerald-500/20 px-3 py-1.5 text-xs font-semibold text-emerald-100 transition duration-100 hover:bg-emerald-500/30 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45"
-                    >
-                      Send owner reply
-                    </button>
+                </div>
+              </motion.aside>
+            </>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {canManageRoles && ownerIntelOpen ? (
+            <>
+              <motion.button
+                type="button"
+                aria-label="Close owner command"
+                className="fixed inset-0 z-[140] bg-black/70"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setOwnerIntelOpen(false)}
+              />
+              <motion.div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="owner-intel-title"
+                initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: 10 }}
+                transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                className="fixed left-1/2 top-14 z-[150] flex max-h-[min(85dvh,820px)] w-[min(96vw,920px)] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-[#222] bg-[#111] shadow-[0_24px_80px_-32px_rgba(0,0,0,0.9)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-3 border-b border-[#222] px-4 py-3 @min-[960px]:px-5">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500">Command</p>
+                    <h2 id="owner-intel-title" className="mt-0.5 text-lg font-semibold tracking-tight text-zinc-100 @min-[960px]:text-xl">
+                      Internal intelligence feed
+                    </h2>
+                    <p className="mt-1 text-xs text-zinc-500">All org DMs · select a thread · Enter to reply as owner</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOwnerIntelOpen(false)}
+                    className="rounded-lg border border-[#222] p-2 text-zinc-500 hover:text-zinc-200"
+                    aria-label="Close"
+                  >
+                    <X className="h-4 w-4" strokeWidth={2} />
+                  </button>
+                </div>
+
+                <div className="grid min-h-0 min-w-0 flex-1 grid-cols-1 gap-0 overflow-hidden @min-[960px]:grid-cols-[minmax(200px,280px)_minmax(0,1fr)]">
+                  <div className="min-h-0 border-[#222] @min-[960px]:border-r">
+                    <div className="max-h-[40vh] space-y-0 overflow-y-auto @min-[960px]:max-h-none @min-[960px]:h-full">
+                      {ownerPanelConversations.length === 0 ? (
+                        <div className="p-4 text-xs leading-relaxed text-zinc-500">
+                          <p className="font-medium text-zinc-300">No threads yet.</p>
+                          <p className="mt-2">
+                            Run <code className="rounded bg-black/50 px-1 py-0.5 text-[10px] text-zinc-400">team-chat-messages.sql</code> if
+                            owner-wide reads are missing.
+                          </p>
+                        </div>
+                      ) : (
+                        ownerPanelConversations.map((c) => (
+                          <button
+                            key={`owner-panel-${c.id}`}
+                            type="button"
+                            onClick={() => setOwnerActiveConversationId(c.id)}
+                            className={cn(
+                              "w-full border-b border-[#222] px-3 py-2 text-left transition hover:bg-[#141414]",
+                              ownerActiveConversationId === c.id ? "bg-[#141414]" : "bg-transparent",
+                            )}
+                          >
+                            <p className="truncate text-[11px] font-medium tracking-tight text-zinc-200">{c.participants.join(" · ")}</p>
+                            <p className="truncate text-[10px] text-zinc-600">{c.preview}</p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex min-h-0 min-w-0 flex-col border-t border-[#222] @min-[960px]:border-t-0">
+                    <div className="shrink-0 border-b border-[#222] px-4 py-2">
+                      <p className="truncate text-xs font-medium text-zinc-300">
+                        {ownerActiveConversation ? ownerActiveConversation.participants.join(" · ") : "Select a thread"}
+                      </p>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-2">
+                      {ownerActiveConversation?.messages.map((m, idx) => (
+                        <div key={`owner-msg-${idx}-${m.text}`} className="rounded-md border border-[#222] bg-[#0a0a0a] px-2 py-1.5">
+                          <p className="text-[10px] font-medium text-zinc-500">{m.from}</p>
+                          <p className="text-xs leading-snug text-zinc-200">{m.text}</p>
+                        </div>
+                      )) ?? null}
+                    </div>
+                    <div className="tactical-glass-input m-3 shrink-0 rounded-xl p-2">
+                      <textarea
+                        rows={2}
+                        value={ownerReplyDraft}
+                        onChange={(e) => setOwnerReplyDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== "Enter" || e.shiftKey) return;
+                          e.preventDefault();
+                          if (ownerDmSendPending) return;
+                          submitOwnerReply();
+                        }}
+                        placeholder="Reply as owner… Enter to send"
+                        disabled={ownerDmSendPending}
+                        className="w-full resize-none rounded-lg border border-transparent bg-transparent px-2 py-2 text-sm tracking-tight text-zinc-100 placeholder:text-zinc-600 focus:outline-none disabled:opacity-50"
+                      />
+                      <p className="px-2 pb-1 text-[10px] text-zinc-600">Enter send · Shift+Enter newline</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </section>
-        ) : null}
+              </motion.div>
+            </>
+          ) : null}
+        </AnimatePresence>
       </div>
     </DeskShell>
   );

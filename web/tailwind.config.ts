@@ -5,14 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-dm-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"],
         mono: ["var(--font-geist-mono)", "monospace"],
       },
       colors: {
+        tactical: {
+          canvas: "#050505",
+          panel: "#111111",
+          line: "#222222",
+        },
         surface: {
-          DEFAULT: "#050508",
-          card: "rgba(18, 20, 32, 0.88)",
-          muted: "rgba(12, 14, 22, 0.72)",
+          DEFAULT: "#050505",
+          card: "#111111",
+          muted: "rgba(17, 17, 17, 0.92)",
         },
         ink: {
           DEFAULT: "#e2e8f0",

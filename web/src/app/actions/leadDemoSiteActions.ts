@@ -35,7 +35,7 @@ export async function setDemoSiteUrlAction(
   return { ok: true };
 }
 
-/** Any signed-in teammate with normal `leads` update access. */
+/** Owners only — same as demo URL / build claim (internal demo ops). */
 export async function setDemoSiteSentAction(
   leadId: string,
   sent: boolean,
@@ -45,6 +45,11 @@ export async function setDemoSiteSentAction(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Unauthorized" };
+
+  const allowed = await canManageRoles(supabase, user.id, user.email);
+  if (!allowed) {
+    return { ok: false, error: "Only account owners can update demo sent status." };
+  }
 
   const demo_site_sent_at = sent ? new Date().toISOString() : null;
   const { error } = await supabase

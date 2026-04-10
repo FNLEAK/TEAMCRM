@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import clsx from "clsx";
+import { motion } from "framer-motion";
+import { AlertTriangle, Clock } from "lucide-react";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
@@ -33,6 +35,8 @@ const CC_LEAD_REALTIME_KEYS = [
   "last_activity_by",
   "import_filename",
   "created_at",
+  "last_activity_at",
+  "updated_at",
   "is_high_priority",
   "demo_site_url",
   "demo_site_sent",
@@ -57,6 +61,9 @@ import { UiSelect } from "@/components/UiSelect";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 
 const KANBAN_COLUMNS = [...LEAD_STATUSES, NON_CANONICAL_STAGE_KEY] as const;
+
+/** Kanban board: website bookings share the Appt Set column */
+const PIPELINE_BOARD_COLUMNS = [...LEAD_STATUSES] as const;
 
 const STAGE_CARD_STYLE: Record<string, string> = {
   New: "border-emerald-500/35 bg-emerald-500/10 shadow-[0_0_32px_-12px_rgba(52,211,153,0.35)]",
@@ -129,6 +136,16 @@ function columnKey(lead: CommandCenterLead): (typeof KANBAN_COLUMNS)[number] {
   return NON_CANONICAL_STAGE_KEY;
 }
 
+function boardColumnForLead(lead: CommandCenterLead): (typeof PIPELINE_BOARD_COLUMNS)[number] {
+  const k = columnKey(lead);
+  if (k === NON_CANONICAL_STAGE_KEY) return "Appt Set";
+  return k as (typeof PIPELINE_BOARD_COLUMNS)[number];
+}
+
+function isWebSourcePipelineLead(lead: CommandCenterLead): boolean {
+  return columnKey(lead) === NON_CANONICAL_STAGE_KEY;
+}
+
 function hashHue(id: string): number {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
@@ -148,6 +165,30 @@ function formatRelative(iso: string | null): string {
   if (h < 36) return `${h}h ago`;
   const d = Math.floor(h / 24);
   return `${d}d ago`;
+}
+
+/** Hours since last touch (squad streak) or row update, else created — for New/Called stagnation only. */
+const STALE_WARN_HOURS = 24;
+const STALE_CRITICAL_HOURS = 48;
+
+function stagnantHoursInStage(lead: CommandCenterLead): number | null {
+  const iso =
+    (lead.last_activity_at ?? "").trim() ||
+    (lead.updated_at ?? "").trim() ||
+    (lead.created_at ?? "").trim() ||
+    null;
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return (Date.now() - t) / (1000 * 60 * 60);
+}
+
+function newOrCalledStaleLevel(col: string, hours: number | null): "warn" | "critical" | null {
+  if (col !== "New" && col !== "Called") return null;
+  if (hours == null) return null;
+  if (hours >= STALE_CRITICAL_HOURS) return "critical";
+  if (hours >= STALE_WARN_HOURS) return "warn";
+  return null;
 }
 
 function HoverTiltCard({
@@ -400,7 +441,11 @@ export function PipelineCommandCenter({
   const stageFilterOptions = useMemo(
     () => [
       { value: "all", label: "All stages" },
-      ...KANBAN_COLUMNS.map((k) => ({ value: k, label: pipelineStageDisplayLabel(k) })),
+      ...PIPELINE_BOARD_COLUMNS.map((k) => ({
+        value: k,
+        label: k === "Appt Set" ? "Appt Set (incl. web)" : k,
+      })),
+      { value: "__web_booking__", label: "Web bookings only" },
     ],
     [],
   );
@@ -431,9 +476,9 @@ export function PipelineCommandCenter({
         if (pipelineAttributionUserId(l) !== owner) return false;
       }
       if (stageFilter !== "all") {
-        if (stageFilter === NON_CANONICAL_STAGE_KEY) {
+        if (stageFilter === "__web_booking__") {
           if (columnKey(l) !== NON_CANONICAL_STAGE_KEY) return false;
-        } else if ((l.status ?? "").trim() !== stageFilter) {
+        } else if (boardColumnForLead(l) !== stageFilter) {
           return false;
         }
       }
@@ -447,12 +492,12 @@ export function PipelineCommandCenter({
 
   const byColumn = useMemo(() => {
     const m = new Map<string, CommandCenterLead[]>();
-    for (const k of KANBAN_COLUMNS) m.set(k, []);
+    for (const k of PIPELINE_BOARD_COLUMNS) m.set(k, []);
     for (const l of filtered) {
-      const k = columnKey(l);
+      const k = boardColumnForLead(l);
       m.get(k)!.push(l);
     }
-    for (const k of KANBAN_COLUMNS) {
+    for (const k of PIPELINE_BOARD_COLUMNS) {
       m.get(k)!.sort((a, b) => {
         const pa = isLeadHighPriority(a) ? 1 : 0;
         const pb = isLeadHighPriority(b) ? 1 : 0;
@@ -852,7 +897,9 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
         <div className={clsx("flex flex-col gap-1", layoutMobileShell ? "@sm:block" : "sm:block")}>
           <h2 className="text-sm font-semibold text-white">Kanban pipeline</h2>
           <p className={clsx("text-xs text-slate-500", layoutMobileShell ? "@sm:mt-1" : "sm:mt-1")}>
-            Click a card to jump to the lead list with search.
+            Click a card to jump to the lead list with search. In <span className="text-slate-400">New</span> or{" "}
+            <span className="text-slate-400">Called</span>, cards show an <span className="text-amber-200/80">Aging</span> hint
+            after 24h and <span className="text-rose-200/80">Stale</span> after 48h (from last activity on the lead).
           </p>
           <p
             className={clsx(
@@ -877,7 +924,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                 : "min-[780px]:min-w-[1320px] min-[780px]:flex-row min-[780px]:gap-3",
             )}
           >
-            {KANBAN_COLUMNS.map((col) => {
+            {PIPELINE_BOARD_COLUMNS.map((col) => {
               const cols = byColumn.get(col) ?? [];
               const stageStyle =
                 KANBAN_COLUMN_STYLE[col] ?? KANBAN_COLUMN_STYLE[NON_CANONICAL_STAGE_KEY];
@@ -885,31 +932,22 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                 <div
                   key={col}
                   className={clsx(
-                    "relative flex w-full min-w-0 flex-col overflow-hidden rounded-xl",
+                    "relative flex w-full min-w-0 flex-col overflow-hidden rounded-lg border border-[#222] bg-[#111]",
                     layoutMobileShell
                       ? "@min-[780px]:min-w-[185px] @min-[780px]:flex-1 @min-[780px]:shrink-0"
                       : "min-[780px]:min-w-[185px] min-[780px]:flex-1 min-[780px]:shrink-0",
-                    stageStyle.shell,
                   )}
                 >
-                  <div
-                    className={clsx(
-                      "pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent",
-                      stageStyle.topLine,
-                    )}
-                  />
-                  <div className="sticky top-0 z-10 border-b border-cyan-400/18 bg-[linear-gradient(180deg,rgba(20,25,37,0.96),rgba(15,20,30,0.94))] px-3 py-2.5 backdrop-blur">
-                    <p
-                      className={clsx(
-                        "text-[11px] font-extrabold uppercase tracking-[0.16em] [text-shadow:0_0_12px_rgba(34,211,238,0.28)]",
-                        stageStyle.heading,
-                      )}
-                    >
-                      {pipelineStageDisplayLabel(col)}
-                    </p>
-                    <p className="mt-0.5 text-2xl font-extrabold leading-none tabular-nums text-cyan-100 [text-shadow:0_0_12px_rgba(34,211,238,0.32)]">
-                      {cols.length}
-                    </p>
+                  <div className="sticky top-0 z-10 border-b border-[#222] bg-[#111] px-3 py-2">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className={clsx("text-[11px] font-semibold uppercase tracking-[0.12em]", stageStyle.heading)}>
+                        {col === "Appt Set" ? "Appt Set" : pipelineStageDisplayLabel(col)}
+                      </p>
+                      <span className="text-xs font-medium tabular-nums text-zinc-500">{cols.length}</span>
+                    </div>
+                    {col === "Appt Set" ? (
+                      <p className="mt-0.5 text-[10px] leading-snug text-zinc-600">Includes website bookings</p>
+                    ) : null}
                   </div>
                   <div
                     className={clsx(
@@ -940,18 +978,38 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                       const demoBuilderLabel = demoClaimUid
                         ? profileLabels[demoClaimUid] ?? "Owner"
                         : null;
+                      const stagnantH = stagnantHoursInStage(lead);
+                      const staleLevel = newOrCalledStaleLevel(col, stagnantH);
+                      const staleTitle =
+                        stagnantH != null
+                          ? `In ${col} · ~${Math.floor(stagnantH)}h since last activity — prioritize follow-up`
+                          : undefined;
+                      const isWebLead = isWebSourcePipelineLead(lead);
                       return (
-                        <Link
+                        <motion.div
                           key={lead.id}
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ type: "spring", stiffness: 380, damping: 28 }}
+                          className="min-w-0"
+                        >
+                        <Link
                           href={searchHref(lead.company_name ?? "")}
+                          title={staleLevel ? staleTitle : undefined}
                           className={clsx(
-                            "relative block overflow-hidden rounded-lg border border-cyan-400/20 bg-gradient-to-b from-[#0f1422]/92 to-[#0a0e18]/92 px-2.5 py-2 shadow-[inset_0_1px_0_rgba(34,211,238,0.12),0_10px_20px_-16px_rgba(0,0,0,0.9)] transition",
+                            "group relative block overflow-hidden rounded-lg border border-[#222] bg-[#0c0c0c] px-2.5 py-2 transition hover:border-zinc-600",
                             stageStyle.card,
                             (lead.status ?? "").trim().toLowerCase() === "pending close" &&
-                              "border-amber-400/55 bg-amber-500/[0.08] shadow-[0_0_26px_-8px_rgba(251,191,36,0.75)]",
+                              "border-amber-500/40 bg-amber-950/20",
+                            staleLevel === "warn" &&
+                              "border-amber-500/40 ring-1 ring-amber-500/25 shadow-[0_0_20px_-10px_rgba(245,158,11,0.35)]",
+                            staleLevel === "critical" &&
+                              "border-rose-500/45 ring-1 ring-rose-500/30 shadow-[0_0_22px_-8px_rgba(244,63,94,0.45)]",
+                            isWebLead &&
+                              "border-cyan-500/30 bg-[linear-gradient(135deg,rgba(34,211,238,0.07),rgba(12,12,14,0.98))] shadow-[0_0_28px_-14px_rgba(34,211,238,0.25)]",
                           )}
                         >
-                          <span className={clsx("pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent to-transparent", stageStyle.topLine)} />
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0 flex-1">
                               <span className="block truncate text-[13px] font-semibold text-slate-100">
@@ -961,19 +1019,41 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                           </div>
                           <p className="mt-1 truncate text-[12px] font-semibold text-slate-300">{lead.phone ?? "—"}</p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
+                            {staleLevel === "critical" ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-md border border-rose-400/55 bg-rose-500/22 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-100"
+                                title={staleTitle}
+                              >
+                                <AlertTriangle className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+                                Stale
+                              </span>
+                            ) : staleLevel === "warn" ? (
+                              <span
+                                className="inline-flex items-center gap-0.5 rounded-md border border-amber-400/50 bg-amber-500/18 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-100"
+                                title={staleTitle}
+                              >
+                                <Clock className="h-3 w-3 shrink-0" strokeWidth={2.5} aria-hidden />
+                                Aging
+                              </span>
+                            ) : null}
                             {isLeadHighPriority(lead) ? (
                               <span className="rounded-md border border-rose-400/45 bg-rose-500/22 px-2 py-0.5 text-[10px] font-bold text-rose-100">
                                 Priority
                               </span>
                             ) : null}
-                            <span className="rounded-md border border-cyan-400/22 bg-cyan-500/[0.08] px-2 py-0.5 text-[10px] font-bold text-cyan-100/95">
+                            <span className="rounded border border-[#333] bg-zinc-900/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-zinc-400">
                               {(lead.status ?? "—").slice(0, 12)}
                             </span>
-                            <span className="rounded-md border border-violet-300/35 bg-violet-500/18 px-2 py-0.5 text-[10px] font-bold text-violet-100">
+                            <span className="rounded border border-[#333] bg-zinc-900/80 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-500">
                               {src}
                             </span>
+                            {isWebLead ? (
+                              <span className="rounded border border-cyan-500/35 bg-cyan-950/40 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-cyan-200/90">
+                                Web
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5 max-[779px]:opacity-100 min-[780px]:opacity-0 min-[780px]:transition-opacity min-[780px]:duration-200 min-[780px]:group-hover:opacity-100">
                             <span
                               className={clsx(
                                 "inline-flex rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em]",
@@ -1021,6 +1101,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                             <p className="mt-1 line-clamp-2 text-[10px] text-slate-600">{lead.notes}</p>
                           ) : null}
                         </Link>
+                        </motion.div>
                       );
                     })}
                   </div>
