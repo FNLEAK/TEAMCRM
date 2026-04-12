@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { BulkImportModal } from "@/components/BulkImportModal";
+import { normalizeLeadPhoneForStorage } from "@/lib/phone";
 import { ImportHistory } from "@/components/ImportHistory";
 
 type ToastState = { message: string; tone: "success" | "error" } | null;
@@ -54,7 +55,7 @@ export function CommandCenterBar({
     const supabase = createSupabaseBrowserClient();
     const { error } = await supabase.from("leads").insert({
       company_name: name,
-      phone: phone.trim() || null,
+      phone: normalizeLeadPhoneForStorage(phone),
       website: website.trim() || null,
       status: "New",
     });

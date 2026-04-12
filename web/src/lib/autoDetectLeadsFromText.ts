@@ -3,6 +3,7 @@
  */
 
 import type { LeadInsertPayload } from "@/lib/csvLeadMapping";
+import { formatUsPhoneDisplay } from "@/lib/phone";
 
 export type AutoDetectResult = {
   leads: LeadInsertPayload[];
@@ -51,14 +52,9 @@ const EMAIL_SINGLE_RE = /\b([A-Za-z0-9._%+-]+)@([A-Za-z0-9.-]+\.[A-Za-z]{2,})\b/
 const WEBSITE_RE =
   /\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9-]+)*\.(?:com|org|io|net|us|co|biz|info|edu|gov|ai|app|dev))\b/gi;
 
-function formatUsPhone10(digits10: string): string {
-  if (digits10.length !== 10) return digits10;
-  return `(${digits10.slice(0, 3)}) ${digits10.slice(3, 6)}-${digits10.slice(6)}`;
-}
-
 /**
  * Find first valid US-style 10-digit number (optionally 11 starting with 1) in a line.
- * Returns formatted (XXX) XXX-XXXX and the raw 10 digits for deduping.
+ * Returns formatted (XXX)-XXX-XXXX and the raw 10 digits for deduping.
  */
 export function extractFirstPhoneFromText(line: string): { display: string; digits10: string } | null {
   const d = line.replace(/\D/g, "");
@@ -69,12 +65,16 @@ export function extractFirstPhoneFromText(line: string): { display: string; digi
       const eleven = d.slice(i, i + 11);
       if (/^1\d{10}$/.test(eleven)) {
         const ten = eleven.slice(1);
-        return { display: formatUsPhone10(ten), digits10: ten };
+        const display = formatUsPhoneDisplay(ten);
+        if (!display) return null;
+        return { display, digits10: ten };
       }
     }
     const ten = d.slice(i, i + 10);
     if (/^\d{10}$/.test(ten)) {
-      return { display: formatUsPhone10(ten), digits10: ten };
+      const display = formatUsPhoneDisplay(ten);
+      if (!display) return null;
+      return { display, digits10: ten };
     }
   }
   return null;

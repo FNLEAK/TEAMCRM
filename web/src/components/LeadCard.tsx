@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import Link from "next/link";
 import clsx from "clsx";
 import type { Lead } from "@/lib/types";
+import { displayLeadPhone } from "@/lib/phone";
 
 type Props = {
   lead: Lead;
@@ -35,6 +36,7 @@ export function LeadCard({ lead, selected, onToggleSelect }: Props) {
         ? `${lead.notes.slice(0, 100)}…`
         : lead.notes
       : null;
+  const phoneLabel = displayLeadPhone(lead.phone);
 
   return (
     <div ref={setNodeRef} style={style} className={clsx(isDragging && "z-50 opacity-90")}>
@@ -84,7 +86,7 @@ export function LeadCard({ lead, selected, onToggleSelect }: Props) {
               <p className="mt-1 truncate text-xs text-slate-400">{lead.contactName}</p>
             )}
             <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500">
-              {lead.phone && <span>{lead.phone}</span>}
+              {phoneLabel ? <span>{phoneLabel}</span> : null}
               <span className="font-medium text-slate-300">{formatMoney(lead.dealValue)}</span>
             </div>
             {preview && <p className="mt-2 line-clamp-2 text-xs text-slate-500">{preview}</p>}

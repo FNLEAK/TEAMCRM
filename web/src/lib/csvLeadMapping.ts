@@ -4,6 +4,7 @@
  */
 
 import Papa from "papaparse";
+import { normalizeLeadPhoneForStorage } from "@/lib/phone";
 
 export type LeadInsertPayload = {
   company_name: string;
@@ -457,9 +458,10 @@ export function csvRowToLeadPayload(
 ): LeadInsertPayload | null {
   const company = cell(row, columnByField.company_name);
   if (!company) return null;
+  const rawPhone = cell(row, columnByField.phone);
   return {
     company_name: company,
-    phone: cell(row, columnByField.phone),
+    phone: normalizeLeadPhoneForStorage(rawPhone),
     website: cell(row, columnByField.website),
     status: DEFAULT_STATUS,
   };

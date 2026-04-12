@@ -12,6 +12,7 @@ const LeadFormModal = dynamic(() =>
 import { api } from "@/lib/api";
 import { STAGE_LABELS } from "@/lib/stages";
 import type { Lead } from "@/lib/types";
+import { displayLeadPhone } from "@/lib/phone";
 import { useAuthStore } from "@/store/auth";
 
 type UserOpt = { id: string; email: string; name: string | null };
@@ -190,7 +191,7 @@ export default function LeadDetailPage() {
               </div>
               <div>
                 <dt className="text-xs text-slate-500">Phone</dt>
-                <dd className="text-slate-200">{lead.phone ?? "—"}</dd>
+                <dd className="text-slate-200">{displayLeadPhone(lead.phone) || "—"}</dd>
               </div>
               <div>
                 <dt className="text-xs text-slate-500">Owner</dt>

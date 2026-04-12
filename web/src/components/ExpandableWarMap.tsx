@@ -11,6 +11,7 @@ import { feature, mesh } from "topojson-client";
 import usAtlas from "us-atlas/states-10m.json";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { getLocationFromPhone } from "@/lib/phoneGeo";
+import { displayLeadPhone } from "@/lib/phone";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
@@ -622,7 +623,9 @@ export default function ExpandableWarMap({ onExpandedChange }: ExpandableWarMapP
                                     </p>
                                     <p className="mt-1 truncate text-sm font-bold text-white">{event.companyName}</p>
                                     <p className="mt-1 flex items-center gap-2 text-zinc-300">
-                                      <span className="truncate">{event.phone ?? "No phone"}</span>
+                                      <span className="truncate">
+                                        {displayLeadPhone(event.phone) || "No phone"}
+                                      </span>
                                       {event.website ? (
                                         <a
                                           href={event.website}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { autoDetectLeadsFromText } from "@/lib/autoDetectLeadsFromText";
 import { CSV_IMPORT_BATCH_SIZE, type LeadInsertPayload } from "@/lib/csvLeadMapping";
+import { displayLeadPhone, normalizeLeadPhoneForStorage } from "@/lib/phone";
 
 const PREVIEW_DISPLAY_CAP = 200;
 
@@ -90,6 +91,7 @@ export function BulkImportModal({ open, onClose, onDataChanged, onNotify }: Bulk
     for (let i = 0; i < payloads.length; i += CSV_IMPORT_BATCH_SIZE) {
       const chunk: LeadInsertPayload[] = payloads.slice(i, i + CSV_IMPORT_BATCH_SIZE).map((row) => ({
         ...row,
+        phone: normalizeLeadPhoneForStorage(row.phone),
         import_batch_id: importBatchId,
         import_filename: importFilename,
       }));
@@ -208,7 +210,9 @@ export function BulkImportModal({ open, onClose, onDataChanged, onNotify }: Bulk
                       <td className="max-w-[220px] truncate px-3 py-2 font-medium text-zinc-100" title={row.company_name}>
                         {row.company_name}
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-emerald-300/95">{row.phone ?? "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-emerald-300/95">
+                        {displayLeadPhone(row.phone) || "—"}
+                      </td>
                       <td className="max-w-[260px] truncate px-3 py-2 text-zinc-400" title={row.website ?? ""}>
                         {row.website ?? "—"}
                       </td>

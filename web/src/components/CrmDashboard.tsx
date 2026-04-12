@@ -25,7 +25,7 @@ import { CommandCenterBar } from "@/components/CommandCenterBar";
 import { DeskShell } from "@/components/DeskShell";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { LeadDetailDrawer } from "@/components/LeadDetailDrawer";
-import { buildTelHref } from "@/lib/phone";
+import { buildTelHref, displayLeadPhone } from "@/lib/phone";
 import { mergeLeadFromRealtime } from "@/lib/realtimeLead";
 import { getLeadSelectColumns } from "@/lib/leadSelectColumns";
 import { DailyBriefingBanner } from "@/components/DailyBriefingBanner";
@@ -1099,6 +1099,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
               </tr>
             ) : (
               leads.map((row) => {
+                const phoneLabel = displayLeadPhone(row.phone);
                 const telHref = row.phone ? buildTelHref(row.phone) : null;
                 const apptLocked = isApptLeadLockedForViewer(row, userId);
                 const isPendingClose = (row.status ?? "").trim().toLowerCase() === "pending close";
@@ -1143,13 +1144,13 @@ const LeadsTableSection = memo(function LeadsTableSection({
                       </div>
                     </td>
                     <td className="px-4 py-2 align-top">
-                      {row.phone && telHref ? (
+                      {phoneLabel && telHref ? (
                         <a
                           href={telHref}
                           onClick={(e) => e.stopPropagation()}
                           className="font-medium text-zinc-200 hover:text-cyan-200 hover:underline"
                         >
-                          {row.phone}
+                          {phoneLabel}
                         </a>
                       ) : (
                         <span className="text-zinc-600">—</span>

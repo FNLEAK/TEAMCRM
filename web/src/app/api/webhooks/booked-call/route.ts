@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { WEBSITE_BOOKED_LEAD_STATUS } from "@/lib/webFriendlyBooking";
 import { buildWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
+import { normalizeLeadPhoneForStorage } from "@/lib/phone";
 
 export const runtime = "nodejs";
 
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
   const row = {
     source_booking_id: externalId,
     company_name: name,
-    phone: phone && phone.length > 0 ? phone : null,
+    phone: normalizeLeadPhoneForStorage(phone),
     website: null as string | null,
     status: WEBSITE_BOOKED_LEAD_STATUS,
     notes: notes.length > 0 ? notes : null,

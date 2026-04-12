@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import { UiSelect } from "@/components/UiSelect";
 import { STAGE_ORDER, STAGE_LABELS, type Stage } from "@/lib/stages";
 import type { Lead } from "@/lib/types";
+import { displayLeadPhone, normalizeLeadPhoneForStorage } from "@/lib/phone";
 
 type UserOpt = { id: string; email: string; name: string | null };
 
@@ -49,7 +50,7 @@ export function LeadFormModal({ token, open, onClose, onSaved, lead, users }: Pr
       setTitle(lead.title);
       setContactName(lead.contactName ?? "");
       setEmail(lead.email ?? "");
-      setPhone(lead.phone ?? "");
+      setPhone(displayLeadPhone(lead.phone) || lead.phone || "");
       setDealValue(lead.dealValue ?? "0");
       setNotes(lead.notes ?? "");
       setStage(lead.stage);
@@ -81,7 +82,7 @@ export function LeadFormModal({ token, open, onClose, onSaved, lead, users }: Pr
         title: title.trim(),
         contactName: contactName || null,
         email: email || null,
-        phone: phone || null,
+        phone: normalizeLeadPhoneForStorage(phone),
         dealValue: dealValue,
         notes: notes || null,
         stage,

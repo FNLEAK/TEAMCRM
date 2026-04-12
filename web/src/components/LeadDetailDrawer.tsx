@@ -27,7 +27,7 @@ import clsx from "clsx";
 import { Check, Flag, Loader2, Trash2 } from "lucide-react";
 import { fetchProfileById, fetchProfilesByIds } from "@/lib/profileSelect";
 import { displayProfessionalName } from "@/lib/profileDisplay";
-import { buildTelHref } from "@/lib/phone";
+import { buildTelHref, displayLeadPhone } from "@/lib/phone";
 import { timezoneHintFromPhone } from "@/lib/phoneTimezone";
 import { GlassAppointmentDatetimePicker } from "@/components/ui/glass-calendar";
 import { WebsiteBookingNotesCard } from "@/components/WebsiteBookingNotesCard";
@@ -1282,7 +1282,7 @@ export function LeadDetailDrawer({
                   href={buildTelHref(lead.phone)}
                   className="font-medium text-emerald-400 hover:text-emerald-300 hover:underline"
                 >
-                  {lead.phone}
+                  {displayLeadPhone(lead.phone)}
                 </a>
               ) : (
                 <span className="text-zinc-600">—</span>

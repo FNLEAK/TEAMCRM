@@ -22,6 +22,7 @@ import {
   type CommandCenterLead,
   type CommandCenterPayload,
 } from "@/lib/commandCenterData";
+import { displayLeadPhone } from "@/lib/phone";
 
 const CC_LEAD_REALTIME_KEYS = [
   "company_name",
@@ -462,9 +463,11 @@ export function PipelineCommandCenter({
     const q = search.trim().toLowerCase();
     return leads.filter((l) => {
       if (q) {
+        const rawPhone = l.phone ?? "";
         const blob = [
           l.company_name ?? "",
-          l.phone ?? "",
+          rawPhone,
+          rawPhone.replace(/\D/g, ""),
           l.notes ?? "",
           l.website ?? "",
         ]
@@ -1017,7 +1020,9 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                               </span>
                             </div>
                           </div>
-                          <p className="mt-1 truncate text-[12px] font-semibold text-slate-300">{lead.phone ?? "—"}</p>
+                          <p className="mt-1 truncate text-[12px] font-semibold text-slate-300">
+                            {displayLeadPhone(lead.phone) || "—"}
+                          </p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {staleLevel === "critical" ? (
                               <span
