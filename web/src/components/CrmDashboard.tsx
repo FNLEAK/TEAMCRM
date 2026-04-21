@@ -32,7 +32,8 @@ import { DailyBriefingBanner } from "@/components/DailyBriefingBanner";
 import { TeamCalendarSection } from "@/components/TeamCalendarSection";
 import { WeeklyPerformanceCard, type WeeklyApptRank } from "@/components/WeeklyPerformanceCard";
 import { HelpMarker } from "@/components/HelpMarker";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Trash2 } from "lucide-react";
+import { deleteLeadsBulkAction } from "@/app/actions/deleteLeadsBulkAction";
 import ExpandableWarMap from "@/components/ExpandableWarMap";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { utcCalendarDayBounds } from "@/lib/utcDayBounds";
@@ -147,6 +148,9 @@ export function CrmDashboard({
   const calendarBumpTimer = useRef<number | null>(null);
   const [dailyLeadUpdateCount, setDailyLeadUpdateCount] = useState(0);
   const [dailyLeadUpdateAt, setDailyLeadUpdateAt] = useState<Date | null>(null);
+  /** Owner-only: multi-select rows on this page for bulk delete. */
+  const [bulkDeleteSelected, setBulkDeleteSelected] = useState<Set<string>>(() => new Set());
+  const [bulkDeletePending, setBulkDeletePending] = useState(false);
   const totalLeadsKnownRef = useRef(stats.totalLeads);
   /** Avoid repeat client fetches for `claimed_by` profiles that still lack name/email after first try. */
   const claimedProfileFetchAttemptedRef = useRef<Set<string>>(new Set());
@@ -264,6 +268,20 @@ export function CrmDashboard({
 
   useEffect(() => {
     setLeads(initialLeads);
+  }, [initialLeads]);
+
+  useEffect(() => {
+    setBulkDeleteSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(initialLeads.map((l) => l.id));
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (visible.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
   }, [initialLeads]);
 
   useEffect(() => {
@@ -458,6 +476,56 @@ export function CrmDashboard({
     },
     [bumpStatsAndCalendar, router],
   );
+
+  const toggleBulkDeleteSelect = useCallback((id: string) => {
+    setBulkDeleteSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllVisibleForBulkDelete = useCallback(() => {
+    setBulkDeleteSelected(new Set(leads.map((l) => l.id)));
+  }, [leads]);
+
+  const deselectAllVisibleForBulkDelete = useCallback(() => {
+    setBulkDeleteSelected((prev) => {
+      const next = new Set(prev);
+      for (const l of leads) next.delete(l.id);
+      return next;
+    });
+  }, [leads]);
+
+  const clearBulkDeleteSelection = useCallback(() => setBulkDeleteSelected(new Set()), []);
+
+  const handleBulkDeleteLeads = useCallback(async () => {
+    if (!canManageRoles || bulkDeleteSelected.size === 0) return;
+    const ids = [...bulkDeleteSelected];
+    const idSet = new Set(ids);
+    const confirmed = window.confirm(
+      `Permanently delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setBulkDeletePending(true);
+    try {
+      const res = await deleteLeadsBulkAction(ids);
+      if (!res.ok) {
+        window.alert(res.error ?? "Delete failed.");
+        return;
+      }
+      setLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      setDrawerLead((d) => (d && idSet.has(d.id) ? null : d));
+      setBulkDeleteSelected(new Set());
+      setTotalLeadsLive((n) => Math.max(0, n - ids.length));
+      totalLeadsKnownRef.current = Math.max(0, totalLeadsKnownRef.current - ids.length);
+      bumpStatsAndCalendar();
+      startTransition(() => router.refresh());
+    } finally {
+      setBulkDeletePending(false);
+    }
+  }, [bulkDeleteSelected, bumpStatsAndCalendar, canManageRoles, router]);
 
   const handleToggleFavorite = useCallback(
     async (e: MouseEvent<Element>, row: LeadRow) => {
@@ -663,6 +731,34 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
             layoutMobileShell={layoutMobileShell}
           />
 
+          {canManageRoles && bulkDeleteSelected.size > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/[0.08] px-3.5 py-3">
+              <p className="text-sm font-medium text-rose-100/95">
+                {bulkDeleteSelected.size} lead{bulkDeleteSelected.size === 1 ? "" : "s"} selected
+                <span className="ml-2 text-xs font-normal text-zinc-400">Owners only · permanent delete</span>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleBulkDeleteLeads()}
+                  disabled={bulkDeletePending}
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-400/50 bg-rose-600/90 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4 shrink-0" aria-hidden />
+                  {bulkDeletePending ? "Deleting…" : "Delete selected"}
+                </button>
+                <button
+                  type="button"
+                  onClick={clearBulkDeleteSelection}
+                  disabled={bulkDeletePending}
+                  className="rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-300 transition hover:bg-white/[0.06] disabled:opacity-50"
+                >
+                  Clear selection
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           <LeadsTableSection
             leads={leads}
             mergedProfileMap={mergedProfileMap}
@@ -676,6 +772,11 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
             hrefNext={hrefNext}
             onRowClick={openDrawerForLead}
             onToggleFavorite={handleToggleFavorite}
+            canBulkDelete={canManageRoles}
+            bulkDeleteSelected={bulkDeleteSelected}
+            onToggleBulkDeleteSelect={toggleBulkDeleteSelect}
+            onSelectAllVisibleForBulkDelete={selectAllVisibleForBulkDelete}
+            onDeselectAllVisibleForBulkDelete={deselectAllVisibleForBulkDelete}
           />
         </section>
 
@@ -1051,6 +1152,11 @@ const LeadsTableSection = memo(function LeadsTableSection({
   hrefNext,
   onRowClick,
   onToggleFavorite,
+  canBulkDelete,
+  bulkDeleteSelected,
+  onToggleBulkDeleteSelect,
+  onSelectAllVisibleForBulkDelete,
+  onDeselectAllVisibleForBulkDelete,
 }: {
   leads: LeadRow[];
   mergedProfileMap: Record<string, TeamProfile>;
@@ -1064,13 +1170,50 @@ const LeadsTableSection = memo(function LeadsTableSection({
   hrefNext: string;
   onRowClick: (row: LeadRow) => void;
   onToggleFavorite: (e: MouseEvent<Element>, row: LeadRow) => void | Promise<void>;
+  canBulkDelete: boolean;
+  bulkDeleteSelected: Set<string>;
+  onToggleBulkDeleteSelect: (id: string) => void;
+  onSelectAllVisibleForBulkDelete: () => void;
+  onDeselectAllVisibleForBulkDelete: () => void;
 }) {
+  const selectAllCheckboxRef = useRef<HTMLInputElement>(null);
+  const selectedOnPage = useMemo(
+    () => leads.filter((l) => bulkDeleteSelected.has(l.id)).length,
+    [leads, bulkDeleteSelected],
+  );
+
+  useEffect(() => {
+    const el = selectAllCheckboxRef.current;
+    if (!el || !canBulkDelete) return;
+    el.indeterminate = leads.length > 0 && selectedOnPage > 0 && selectedOnPage < leads.length;
+  }, [canBulkDelete, leads.length, selectedOnPage]);
+
+  const colCount = canBulkDelete ? 6 : 5;
+
   return (
     <>
       <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] max-md:overflow-y-visible md:max-h-[58vh] md:overflow-y-auto">
-        <table className="w-full min-w-[780px] border-separate border-spacing-0 text-left text-[13px]">
+        <table className="w-full min-w-[820px] border-separate border-spacing-0 text-left text-[13px]">
           <thead>
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+              {canBulkDelete ? (
+                <th className="sticky top-0 z-10 w-11 border-b border-white/[0.08] bg-[#090b10] px-2 py-2.5 text-center font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <span className="sr-only">Select rows</span>
+                  <input
+                    ref={selectAllCheckboxRef}
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer rounded border-zinc-500 bg-zinc-900 text-cyan-500 focus:ring-2 focus:ring-cyan-500/40"
+                    checked={leads.length > 0 && selectedOnPage === leads.length}
+                    onChange={(e) => {
+                      if (e.target.checked) onSelectAllVisibleForBulkDelete();
+                      else onDeselectAllVisibleForBulkDelete();
+                    }}
+                    aria-label={
+                      selectedOnPage === leads.length ? "Deselect all leads on this page" : "Select all leads on this page"
+                    }
+                  />
+                </th>
+              ) : null}
               <th className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#090b10] px-4 py-2.5 font-medium shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 Company
               </th>
@@ -1091,7 +1234,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
           <tbody className="divide-y divide-cyan-300/[0.08]">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-20 text-center text-sm text-zinc-500">
+                <td colSpan={colCount} className="px-5 py-20 text-center text-sm text-zinc-500">
                   {hasSearch
                     ? `No companies match “${searchQuery}”.`
                     : `No leads on this page${favoritesOnly ? " (favorites only)" : ""}.`}
@@ -1125,6 +1268,22 @@ const LeadsTableSection = memo(function LeadsTableSection({
                       apptLocked && "opacity-[0.42] saturate-50 hover:bg-zinc-900/40",
                     )}
                   >
+                    {canBulkDelete ? (
+                      <td
+                        className="px-2 py-2 align-middle"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 cursor-pointer rounded border-zinc-500 bg-zinc-900 text-cyan-500 focus:ring-2 focus:ring-cyan-500/40"
+                          checked={bulkDeleteSelected.has(row.id)}
+                          onChange={() => onToggleBulkDeleteSelect(row.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          aria-label={`Select ${row.company_name ?? "lead"}`}
+                        />
+                      </td>
+                    ) : null}
                     <td className="px-4 py-2 align-top font-medium text-zinc-100">
                       <div className="flex flex-wrap items-center gap-2">
                         <span>{row.company_name ?? "—"}</span>
@@ -1197,6 +1356,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
       <footer className="flex flex-col gap-2 border-t border-cyan-300/15 bg-cyan-500/[0.03] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] font-medium uppercase tracking-wide text-cyan-100/70">
           Page {page} of {totalPages} · {PAGE_SIZE} per page · click a row for drawer
+          {canBulkDelete ? " · owners: check rows, then delete in bulk" : ""}
         </p>
         <div className="flex gap-2">
           <PaginationLink disabled={page <= 1} href={hrefPrev} label="Previous" />
