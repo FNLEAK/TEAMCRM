@@ -508,6 +508,10 @@ export function CrmDashboard({
       `Permanently delete ${ids.length} lead${ids.length === 1 ? "" : "s"}? This cannot be undone.`,
     );
     if (!confirmed) return;
+    const confirmedAgain = window.confirm(
+      `Are you sure? ${ids.length} lead${ids.length === 1 ? "" : "s"} will be removed from the database forever.`,
+    );
+    if (!confirmedAgain) return;
     setBulkDeletePending(true);
     try {
       const res = await deleteLeadsBulkAction(ids);

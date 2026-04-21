@@ -1466,6 +1466,10 @@ export function LeadDetailDrawer({
                   disabled={deleteBusy}
                   onClick={() => {
                     void (async () => {
+                      const sure = window.confirm(
+                        "Are you sure you want to permanently delete this lead? This cannot be undone.",
+                      );
+                      if (!sure) return;
                       setDeleteBusy(true);
                       setCloseToast(null);
                       const r = await deleteLeadAction(leadId);
