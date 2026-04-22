@@ -31,6 +31,7 @@ type SearchParams = {
   favorites?: string;
   q?: string;
   status?: string;
+  openLead?: string;
 };
 
 function normalizeSearchQuery(raw: string | undefined): string {
@@ -67,6 +68,11 @@ export default async function Page({
   const searchQuery = normalizeSearchQuery(typeof sp.q === "string" ? sp.q : undefined);
   const statusFilter = parseLeadStatusFilterParam(typeof sp.status === "string" ? sp.status : undefined);
   const statusFilterParam = statusFilter ?? "";
+  const openLeadRaw = typeof sp.openLead === "string" ? sp.openLead.trim() : "";
+  const initialOpenLeadId =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(openLeadRaw)
+      ? openLeadRaw
+      : null;
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -281,6 +287,7 @@ export default async function Page({
       weeklyApptLeaderboard={weeklyApptLeaderboard}
       calendarTeamMemberOrder={calendarTeamMemberOrder}
       canManageRoles={allowRoleApplier}
+      initialOpenLeadId={initialOpenLeadId}
       stats={{
         totalLeads: totalLeads ?? 0,
         appointmentsToday: apptErr ? 0 : (appointmentsToday ?? 0),

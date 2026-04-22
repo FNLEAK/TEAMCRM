@@ -9,6 +9,7 @@ import {
   BarChart2,
   BookOpen,
   Crosshair,
+  HardHat,
   LayoutDashboard,
   Menu,
   MessageCircle,
@@ -100,6 +101,7 @@ const MOBILE_TAB_LABEL: Record<string, string> = {
   "/": "Leads",
   "/personal-stats": "Stats",
   "/role-applier": "Admin",
+  "/roofing-leads": "Roofing",
   "/packages": "Plans",
   "/team-chat": "Chat",
   "/how-to": "Guide",
@@ -274,6 +276,7 @@ export function DeskShell({
     if (href === "/") return Users;
     if (href === "/personal-stats") return BarChart2;
     if (href === "/role-applier") return Shield;
+    if (href === "/roofing-leads") return HardHat;
     if (href === "/packages") return Package;
     if (href === "/team-chat") return MessageCircle;
     if (href === "/how-to") return BookOpen;

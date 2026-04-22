@@ -91,6 +91,8 @@ type CrmDashboardProps = {
   weeklyApptLeaderboard: WeeklyApptRank[];
   calendarTeamMemberOrder: string[];
   canManageRoles: boolean;
+  /** Deep link from Roofing Leads (or elsewhere): open drawer once, then strip `openLead` from the URL. */
+  initialOpenLeadId?: string | null;
   stats: {
     totalLeads: number;
     appointmentsToday: number;
@@ -141,6 +143,7 @@ export function CrmDashboard({
   weeklyApptLeaderboard,
   calendarTeamMemberOrder,
   canManageRoles,
+  initialOpenLeadId = null,
   stats,
 }: CrmDashboardProps) {
   const router = useRouter();
@@ -161,6 +164,7 @@ export function CrmDashboard({
   const totalLeadsKnownRef = useRef(stats.totalLeads);
   /** Avoid repeat client fetches for `claimed_by` profiles that still lack name/email after first try. */
   const claimedProfileFetchAttemptedRef = useRef<Set<string>>(new Set());
+  const openLeadFromUrlConsumedRef = useRef(false);
 
   const drawerLeadLive = drawerLead
     ? (leads.find((l) => l.id === drawerLead.id) ?? drawerLead)
@@ -450,6 +454,15 @@ export function CrmDashboard({
     if (!data || typeof data !== "object" || !("id" in data)) return;
     setDrawerLead(data as LeadRow);
   }, []);
+
+  useEffect(() => {
+    if (!initialOpenLeadId || openLeadFromUrlConsumedRef.current) return;
+    openLeadFromUrlConsumedRef.current = true;
+    void (async () => {
+      await openLeadById(initialOpenLeadId);
+      router.replace(buildListPath(page, favoritesOnly, searchQuery, statusFilter));
+    })();
+  }, [initialOpenLeadId, openLeadById, router, page, favoritesOnly, searchQuery, statusFilter]);
 
   const syncLeadInState = useCallback((id: string, patch: Partial<LeadRow>) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
