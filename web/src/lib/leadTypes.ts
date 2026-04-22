@@ -54,6 +54,13 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatusValue = (typeof LEAD_STATUSES)[number];
 
+/** `?status=` on the CRM list — only canonical pipeline values are accepted. */
+export function parseLeadStatusFilterParam(raw: string | null | undefined): LeadStatusValue | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  return (LEAD_STATUSES as readonly string[]).includes(t) ? (t as LeadStatusValue) : null;
+}
+
 /** Pipeline stages where the teammate who saves the update becomes `claimed_by` (list + drawer “Claimed by …”). */
 export function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
   return (

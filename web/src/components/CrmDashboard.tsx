@@ -50,7 +50,9 @@ import {
   isFavoritedBy,
   isLeadHighPriority,
   isNewLeadStatus,
+  LEAD_STATUSES,
   normalizeFavoritedIds,
+  parseLeadStatusFilterParam,
   teamProfileFromDb,
   type LeadRow,
   type TeamProfile,
@@ -62,12 +64,14 @@ const MemoTeamCalendarSection = memo(TeamCalendarSection);
 const MemoWeeklyPerformanceCard = memo(WeeklyPerformanceCard);
 const DAILY_LEAD_BADGE_THRESHOLD = 3;
 
-function buildListPath(pageNum: number, favoritesOnly: boolean, q: string): string {
+function buildListPath(pageNum: number, favoritesOnly: boolean, q: string, status: string): string {
   const p = new URLSearchParams();
   p.set("page", String(pageNum));
   if (favoritesOnly) p.set("favorites", "1");
   const trimmed = q.trim();
   if (trimmed) p.set("q", trimmed);
+  const st = status.trim();
+  if (st && parseLeadStatusFilterParam(st)) p.set("status", st);
   const qs = p.toString();
   return qs ? `/?${qs}` : "/";
 }
@@ -78,6 +82,8 @@ type CrmDashboardProps = {
   page: number;
   favoritesOnly: boolean;
   searchQuery: string;
+  /** Canonical `LEAD_STATUSES` value or "" for all. */
+  statusFilter: string;
   userId: string;
   userDisplayName: string;
   welcomeFirstName: string;
@@ -127,6 +133,7 @@ export function CrmDashboard({
   page,
   favoritesOnly,
   searchQuery,
+  statusFilter,
   userId,
   userDisplayName,
   welcomeFirstName,
@@ -417,12 +424,12 @@ export function CrmDashboard({
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const hrefPrev = useMemo(
-    () => buildListPath(page - 1, favoritesOnly, searchQuery),
-    [page, favoritesOnly, searchQuery],
+    () => buildListPath(page - 1, favoritesOnly, searchQuery, statusFilter),
+    [page, favoritesOnly, searchQuery, statusFilter],
   );
   const hrefNext = useMemo(
-    () => buildListPath(page + 1, favoritesOnly, searchQuery),
-    [page, favoritesOnly, searchQuery],
+    () => buildListPath(page + 1, favoritesOnly, searchQuery, statusFilter),
+    [page, favoritesOnly, searchQuery, statusFilter],
   );
 
   const refresh = useCallback(() => {
@@ -554,6 +561,8 @@ export function CrmDashboard({
 
   const apptsActive = apptsToday > 0;
   const hasSearch = searchQuery.trim().length > 0;
+  const hasStatusFilter = Boolean(statusFilter.trim());
+  const listFilterActive = hasSearch || hasStatusFilter;
   const { isMobileShell: layoutMobileShell } = useDeskLayout();
 
   const sidebarFooter = (
@@ -713,7 +722,7 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
                 Live
               </span>
               <span className="rounded-full border border-cyan-200/55 bg-white/[0.08] px-3 py-0.5 text-[12px] font-bold uppercase tracking-wide text-zinc-100">
-                {formatStat(totalCount)} {hasSearch ? "matches" : "in view"}
+                {formatStat(totalCount)} {listFilterActive ? "matches" : "in view"}
               </span>
               {/* Always reserve width so isPending doesn’t reflow the row and push the calendar */}
               <span
@@ -732,6 +741,13 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
           <DebouncedCompanySearch
             favoritesOnly={favoritesOnly}
             searchQuery={searchQuery}
+            statusFilter={statusFilter}
+            layoutMobileShell={layoutMobileShell}
+          />
+          <LeadStatusFilterBar
+            favoritesOnly={favoritesOnly}
+            searchQuery={searchQuery}
+            statusFilter={statusFilter}
             layoutMobileShell={layoutMobileShell}
           />
 
@@ -770,6 +786,7 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
             hasSearch={hasSearch}
             searchQuery={searchQuery}
             favoritesOnly={favoritesOnly}
+            statusFilter={statusFilter}
             page={page}
             totalPages={totalPages}
             hrefPrev={hrefPrev}
@@ -836,13 +853,75 @@ SYNC: When you set an appointment, it automatically updates the shared Team Cale
   );
 }
 
-function DebouncedCompanySearch({
+function LeadStatusFilterBar({
   favoritesOnly,
   searchQuery,
+  statusFilter,
   layoutMobileShell,
 }: {
   favoritesOnly: boolean;
   searchQuery: string;
+  statusFilter: string;
+  layoutMobileShell: boolean;
+}) {
+  const normalized = parseLeadStatusFilterParam(statusFilter);
+  const current = normalized ?? "";
+
+  return (
+    <div className="border-b border-white/[0.06] bg-black/20 px-4 py-2.5">
+      <div
+        className={clsx(
+          "flex flex-col gap-2",
+          layoutMobileShell ? "@sm:flex-row @sm:items-center @sm:gap-3" : "sm:flex-row sm:items-center sm:gap-3",
+        )}
+      >
+        <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Status</p>
+        <div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
+          <Link
+            href={buildListPath(1, favoritesOnly, searchQuery, "")}
+            scroll={false}
+            className={clsx(
+              "rounded-full px-3 py-1.5 text-xs font-medium transition",
+              !current
+                ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-400/40"
+                : "border border-white/[0.08] bg-zinc-950/60 text-zinc-400 hover:border-white/[0.12] hover:text-zinc-200",
+            )}
+          >
+            All
+          </Link>
+          {LEAD_STATUSES.map((s) => {
+            const active = current === s;
+            return (
+              <Link
+                key={s}
+                href={buildListPath(1, favoritesOnly, searchQuery, s)}
+                scroll={false}
+                className={clsx(
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition",
+                  active
+                    ? "bg-cyan-500/20 text-cyan-100 ring-1 ring-cyan-400/40"
+                    : "border border-white/[0.08] bg-zinc-950/60 text-zinc-400 hover:border-white/[0.12] hover:text-zinc-200",
+                )}
+              >
+                {s}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DebouncedCompanySearch({
+  favoritesOnly,
+  searchQuery,
+  statusFilter,
+  layoutMobileShell,
+}: {
+  favoritesOnly: boolean;
+  searchQuery: string;
+  statusFilter: string;
   layoutMobileShell: boolean;
 }) {
   const router = useRouter();
@@ -862,13 +941,15 @@ function DebouncedCompanySearch({
       p.set("page", "1");
       if (favoritesOnly) p.set("favorites", "1");
       if (next) p.set("q", next);
+      const st = statusFilter.trim();
+      if (st && parseLeadStatusFilterParam(st)) p.set("status", st);
       const qs = p.toString();
       startTransition(() => router.replace(qs ? `/?${qs}` : "/"));
     }, SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [value, favoritesOnly, searchQuery, router]);
+  }, [value, favoritesOnly, searchQuery, statusFilter, router]);
 
-  const clearHref = buildListPath(1, favoritesOnly, "");
+  const clearHref = buildListPath(1, favoritesOnly, "", statusFilter);
 
   return (
       <div className="border-b border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.035] via-black/25 to-black/25 px-4 py-2.5">
@@ -1150,6 +1231,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
   hasSearch,
   searchQuery,
   favoritesOnly,
+  statusFilter,
   page,
   totalPages,
   hrefPrev,
@@ -1168,6 +1250,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
   hasSearch: boolean;
   searchQuery: string;
   favoritesOnly: boolean;
+  statusFilter: string;
   page: number;
   totalPages: number;
   hrefPrev: string;
@@ -1193,6 +1276,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
   }, [canBulkDelete, leads.length, selectedOnPage]);
 
   const colCount = canBulkDelete ? 6 : 5;
+  const statusParsed = parseLeadStatusFilterParam(statusFilter);
 
   return (
     <>
@@ -1241,7 +1325,9 @@ const LeadsTableSection = memo(function LeadsTableSection({
                 <td colSpan={colCount} className="px-5 py-20 text-center text-sm text-zinc-500">
                   {hasSearch
                     ? `No companies match “${searchQuery}”.`
-                    : `No leads on this page${favoritesOnly ? " (favorites only)" : ""}.`}
+                    : statusParsed
+                      ? `No leads with status “${statusParsed}” on this page${favoritesOnly ? " (favorites only)" : ""}.`
+                      : `No leads on this page${favoritesOnly ? " (favorites only)" : ""}.`}
                 </td>
               </tr>
             ) : (
@@ -1360,7 +1446,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
       <footer className="flex flex-col gap-2 border-t border-cyan-300/15 bg-cyan-500/[0.03] px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] font-medium uppercase tracking-wide text-cyan-100/70">
           Page {page} of {totalPages} · {PAGE_SIZE} per page · click a row for drawer
-          {canBulkDelete ? " · owners: check rows, then delete in bulk" : ""}
+          {canBulkDelete ? " · owners: filter by status, select rows, delete in bulk" : ""}
         </p>
         <div className="flex gap-2">
           <PaginationLink disabled={page <= 1} href={hrefPrev} label="Previous" />

@@ -5,6 +5,7 @@ import {
   COMPANY_SEARCH_MAX_LEN,
   escapeForIlike,
   normalizeFavoritedIds,
+  parseLeadStatusFilterParam,
   teamProfileFromDb,
   type LeadRow,
   type TeamProfile,
@@ -29,6 +30,7 @@ type SearchParams = {
   page?: string;
   favorites?: string;
   q?: string;
+  status?: string;
 };
 
 function normalizeSearchQuery(raw: string | undefined): string {
@@ -63,6 +65,8 @@ export default async function Page({
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const favoritesOnly = sp.favorites === "1";
   const searchQuery = normalizeSearchQuery(typeof sp.q === "string" ? sp.q : undefined);
+  const statusFilter = parseLeadStatusFilterParam(typeof sp.status === "string" ? sp.status : undefined);
+  const statusFilterParam = statusFilter ?? "";
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -124,6 +128,10 @@ export default async function Page({
     dataQuery = favoritesAsArray
       ? dataQuery.contains("favorited_by", [userId])
       : dataQuery.eq("favorited_by", userId);
+  }
+
+  if (statusFilter) {
+    dataQuery = dataQuery.eq("status", statusFilter);
   }
 
   const { weekStartIso, weekEndExclusiveIso } = utcCalendarWeekBounds();
@@ -265,6 +273,7 @@ export default async function Page({
       page={page}
       favoritesOnly={favoritesOnly}
       searchQuery={searchQuery}
+      statusFilter={statusFilterParam}
       userId={userId}
       userDisplayName={userDisplayName}
       welcomeFirstName={welcomeFirstNameResolved}
