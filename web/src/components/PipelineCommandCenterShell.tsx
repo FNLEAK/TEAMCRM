@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { DeskShell } from "@/components/DeskShell";
+import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { PipelineCommandCenter } from "@/components/PipelineCommandCenter";
@@ -42,7 +43,11 @@ export function PipelineCommandCenterShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      sidebarBelowFooter={canManageRoles ? <OwnerRoofingLeadsFooterLink /> : null}
+    >
       <PipelineCommandCenter initial={initial} userId={userId} />
     </DeskShell>
   );

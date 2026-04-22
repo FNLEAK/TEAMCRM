@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { DeskShell } from "@/components/DeskShell";
+import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
@@ -41,7 +42,11 @@ export function PackagesShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      sidebarBelowFooter={canManageRoles ? <OwnerRoofingLeadsFooterLink /> : null}
+    >
       <div className="relative mx-auto w-full min-w-0 max-w-[1600px] @container text-zinc-100">
         <header
           className={cn(

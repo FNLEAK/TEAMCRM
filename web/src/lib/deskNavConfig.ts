@@ -13,9 +13,6 @@ export function commandDeskSections(opts: DeskNavOptions = {}): DeskNavSection[]
       items: [
         { href: "/pipeline-command-center", label: "Performance KPI Header", end: true },
         { href: "/", label: "Lead Management", end: true },
-        ...(canManageRoles
-          ? [{ href: "/roofing-leads", label: "Roofing Leads", end: true as const }]
-          : []),
         { href: "/personal-stats", label: "Personal Stats", end: true },
         ...(canManageRoles ? [{ href: "/role-applier", label: "Admin Panel", end: true as const }] : []),
         { href: "/packages", label: "Packages", end: true },

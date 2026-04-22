@@ -1,35 +1,43 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
 import { DeskShell } from "@/components/DeskShell";
-import { TeamCalendarSection } from "@/components/TeamCalendarSection";
+import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
+import { RoofingLeadsManagementClient } from "@/components/RoofingLeadsManagementClient";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
-import type { TeamProfile } from "@/lib/leadTypes";
+import type { LeadRow, TeamProfile } from "@/lib/leadTypes";
 
 export function RoofingLeadsShell({
+  poolEnabled,
   userId,
   userDisplayName,
+  welcomeFirstName,
   canManageRoles,
   profileMap,
   calendarTeamMemberOrder,
+  leads,
+  totalCount,
+  page,
+  favoritesOnly,
+  searchQuery,
+  statusFilter,
 }: {
+  poolEnabled: boolean;
   userId: string;
   userDisplayName: string;
+  welcomeFirstName: string;
   canManageRoles: boolean;
   profileMap: Record<string, TeamProfile>;
   calendarTeamMemberOrder: string[];
+  leads: LeadRow[];
+  totalCount: number;
+  page: number;
+  favoritesOnly: boolean;
+  searchQuery: string;
+  statusFilter: string;
 }) {
   const router = useRouter();
-  const [calendarRefreshKey] = useState(0);
-
-  const onOpenLeadById = useCallback(
-    (leadId: string) => {
-      router.push(`/?openLead=${encodeURIComponent(leadId)}`);
-    },
-    [router],
-  );
 
   const sidebarFooter = (
     <>
@@ -53,30 +61,26 @@ export function RoofingLeadsShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
-      <div className="@container relative mx-auto w-full max-w-[1600px] text-zinc-100">
-        <header className="mb-8 rounded-2xl border border-teal-300/15 bg-gradient-to-b from-teal-500/[0.07] via-[#0b0c0f]/95 to-[#0b0c0f]/95 px-6 py-8 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_34px_-22px_rgba(20,184,166,0.55)]">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-teal-200/75">Owners</p>
-          <h1 className="mt-3 font-sans text-3xl font-semibold tracking-tight text-teal-300 drop-shadow-[0_0_24px_rgba(45,212,191,0.3)] sm:text-[2.35rem]">
-            Roofing Leads
-          </h1>
-          <p className="mx-auto mt-3 max-w-4xl text-base leading-relaxed text-zinc-300/85">
-            Team schedule and day notes — same calendar as Command, on a dedicated owner page.
-          </p>
-        </header>
-
-        <TeamCalendarSection
-          userId={userId}
-          onOpenLeadById={onOpenLeadById}
-          teamMemberColorOrder={calendarTeamMemberOrder}
-          profileMap={profileMap}
-          calendarRefreshKey={calendarRefreshKey}
-        />
-
-        <p className="mt-4 text-center text-xs text-zinc-500">
-          Tip: open a lead from the calendar to jump to Lead Management with that lead in the drawer.
-        </p>
-      </div>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      sidebarBelowFooter={canManageRoles ? <OwnerRoofingLeadsFooterLink /> : null}
+    >
+      <RoofingLeadsManagementClient
+        poolEnabled={poolEnabled}
+        leads={leads}
+        totalCount={totalCount}
+        page={page}
+        favoritesOnly={favoritesOnly}
+        searchQuery={searchQuery}
+        statusFilter={statusFilter}
+        userId={userId}
+        welcomeFirstName={welcomeFirstName}
+        userDisplayName={userDisplayName}
+        profileMap={profileMap}
+        calendarTeamMemberOrder={calendarTeamMemberOrder}
+        canManageRoles={canManageRoles}
+      />
     </DeskShell>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { DeskShell } from "@/components/DeskShell";
+import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { RoleApplierPanel } from "@/components/RoleApplierPanel";
@@ -41,7 +42,11 @@ export function RoleApplierShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles: true })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles: true })}
+      sidebarFooter={sidebarFooter}
+      sidebarBelowFooter={<OwnerRoofingLeadsFooterLink />}
+    >
       <div className="relative w-full min-w-0 max-w-[1400px] bg-[#000000] @container text-zinc-100">
         <header className="border-b border-white/[0.06] px-1 pb-5 pt-1 @md:pb-6">
           <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-zinc-600 @md:text-[11px]">Command</p>

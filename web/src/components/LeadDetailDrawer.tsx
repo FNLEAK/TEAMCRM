@@ -24,7 +24,7 @@ import {
   type TeamProfile,
 } from "@/lib/leadTypes";
 import clsx from "clsx";
-import { Check, Flag, Loader2, Trash2 } from "lucide-react";
+import { Check, Flag, HardHat, Loader2, Trash2 } from "lucide-react";
 import { fetchProfileById, fetchProfilesByIds } from "@/lib/profileSelect";
 import { displayProfessionalName } from "@/lib/profileDisplay";
 import { buildTelHref, displayLeadPhone } from "@/lib/phone";
@@ -35,6 +35,7 @@ import { LeadDemoSiteSection } from "@/components/LeadDemoSiteSection";
 import { deleteLeadAction } from "@/app/actions/deleteLeadAction";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
+import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
@@ -241,6 +242,7 @@ export function LeadDetailDrawer({
   const [activityProfileExtras, setActivityProfileExtras] = useState<Record<string, TeamProfile>>({});
   const [presenceProfileExtras, setPresenceProfileExtras] = useState<Record<string, TeamProfile>>({});
   const [highPriorityBusy, setHighPriorityBusy] = useState(false);
+  const [roofingPoolBusy, setRoofingPoolBusy] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -274,6 +276,7 @@ export function LeadDetailDrawer({
   const hasClaimedCol = process.env.NEXT_PUBLIC_LEADS_HAS_CLAIMED_BY !== "false";
   const hasHighPriorityCol = process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false";
   const hasDemoSiteCol = isDemoSiteFeatureEnabled();
+  const hasRoofingPoolCol = isRoofingLeadPoolEnabled();
 
   useEffect(() => {
     setStatus(normalizeStatus(lead.status));
@@ -751,6 +754,23 @@ export function LeadDetailDrawer({
     [hasHighPriorityCol, highPriorityBusy, leadId, syncLeadInState],
   );
 
+  const persistRoofingPool = useCallback(
+    async (next: boolean) => {
+      if (!hasRoofingPoolCol || !isOwner || roofingPoolBusy) return;
+      setRoofingPoolBusy(true);
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.from("leads").update({ is_roofing_lead: next }).eq("id", leadId);
+      setRoofingPoolBusy(false);
+      if (error) {
+        setCloseToast(supabaseErrorText(error) || "Could not update roofing pool.");
+        return;
+      }
+      syncLeadInState(leadId, { is_roofing_lead: next });
+      onLeadMetaChanged?.();
+    },
+    [hasRoofingPoolCol, isOwner, roofingPoolBusy, leadId, syncLeadInState, onLeadMetaChanged],
+  );
+
   const persistApptDate = useCallback(
     async (local: string) => {
       if (isApptLeadLockedForViewer(lead, userId)) return;
@@ -1099,6 +1119,44 @@ export function LeadDetailDrawer({
                   />
                   <span className="sr-only">
                     {lead.is_high_priority === true ? "High priority on" : "High priority off"}
+                  </span>
+                </button>
+              </div>
+            </section>
+          ) : null}
+          {hasRoofingPoolCol && isOwner ? (
+            <section className="mb-4 rounded-xl border border-teal-800/70 bg-zinc-950/35 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-teal-400/90">
+                    <HardHat className="h-3.5 w-3.5 shrink-0" strokeWidth={2.5} aria-hidden />
+                    Roofing pool
+                  </h3>
+                  <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+                    On — lead appears only under Roofing Leads Management. Off — back to main Lead Management.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={lead.is_roofing_lead === true}
+                  disabled={roofingPoolBusy}
+                  onClick={() => void persistRoofingPool(!(lead.is_roofing_lead === true))}
+                  className={clsx(
+                    "relative h-7 w-12 shrink-0 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40 disabled:opacity-50",
+                    lead.is_roofing_lead === true
+                      ? "border-teal-400/50 bg-teal-600/35"
+                      : "border-zinc-600/60 bg-zinc-800/80",
+                  )}
+                >
+                  <span
+                    className={clsx(
+                      "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] duration-200",
+                      lead.is_roofing_lead === true ? "left-[calc(100%-1.625rem)]" : "left-0.5",
+                    )}
+                  />
+                  <span className="sr-only">
+                    {lead.is_roofing_lead === true ? "Roofing pool on" : "Roofing pool off"}
                   </span>
                 </button>
               </div>

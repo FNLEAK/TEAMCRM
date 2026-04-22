@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { DeskShell } from "@/components/DeskShell";
+import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { ensureSupabaseRealtimeAuth } from "@/lib/supabaseRealtimeAuth";
@@ -1044,7 +1045,11 @@ export function TeamChatShell({
   );
 
   return (
-    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
+    <DeskShell
+      sections={commandDeskSections({ canManageRoles })}
+      sidebarFooter={sidebarFooter}
+      sidebarBelowFooter={canManageRoles ? <OwnerRoofingLeadsFooterLink /> : null}
+    >
       <div className="@container relative flex min-h-0 w-full min-w-0 flex-1 flex-col bg-[#000000] text-zinc-100">
         <header className="flex shrink-0 flex-wrap items-center gap-2 border-b border-white/[0.06] bg-black/80 px-3 py-2.5 backdrop-blur-xl sm:gap-3 sm:px-4 sm:py-3">
           <div className="min-w-0">

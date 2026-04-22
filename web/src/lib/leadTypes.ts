@@ -41,6 +41,8 @@ export type LeadRow = {
   /** Owner building the demo (see `leads-demo-build-claim.sql`) — selected when demo site feature is on. */
   demo_build_claimed_by?: string | null;
   demo_build_claimed_at?: string | null;
+  /** Roofing-only pool — see `web/supabase/leads-roofing-pool.sql` + NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL. */
+  is_roofing_lead?: boolean | null;
 };
 
 /** Canonical pipeline values (store exact casing in DB for consistent pills). */

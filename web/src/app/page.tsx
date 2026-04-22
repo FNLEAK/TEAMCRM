@@ -20,6 +20,7 @@ import {
 } from "@/lib/utcDayBounds";
 import { redirect } from "next/navigation";
 import { canManageRoles } from "@/lib/roleAccess";
+import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 
 const CrmDashboard = dynamic(
   () => import("@/components/CrmDashboard").then((m) => ({ default: m.CrmDashboard })),
@@ -140,19 +141,34 @@ export default async function Page({
     dataQuery = dataQuery.eq("status", statusFilter);
   }
 
+  const roofingPool = isRoofingLeadPoolEnabled();
+  if (roofingPool) {
+    dataQuery = dataQuery.eq("is_roofing_lead", false);
+  }
+
   const { weekStartIso, weekEndExclusiveIso } = utcCalendarWeekBounds();
   const { weekStartIso: prevWeekStart, weekEndExclusiveIso: prevWeekEndEx } = utcPreviousCalendarWeekBounds();
 
   let favQ = supabase.from("leads").select("*", { count: "exact", head: true });
   favQ = favoritesAsArray ? favQ.contains("favorited_by", [userId]) : favQ.eq("favorited_by", userId);
+  if (roofingPool) {
+    favQ = favQ.eq("is_roofing_lead", false);
+  }
+
+  let totalLeadsHead = supabase.from("leads").select("*", { count: "exact", head: true });
+  let apptTodayHead = supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .gte("appt_date", dayStr)
+    .lt("appt_date", nextDayStr);
+  if (roofingPool) {
+    totalLeadsHead = totalLeadsHead.eq("is_roofing_lead", false);
+    apptTodayHead = apptTodayHead.eq("is_roofing_lead", false);
+  }
 
   const [totalLeadsRes, apptRes, favRes, leadsRes, weekClosedRes, prevWeekClosedRes] = await Promise.all([
-    supabase.from("leads").select("*", { count: "exact", head: true }),
-    supabase
-      .from("leads")
-      .select("*", { count: "exact", head: true })
-      .gte("appt_date", dayStr)
-      .lt("appt_date", nextDayStr),
+    totalLeadsHead,
+    apptTodayHead,
     favQ,
     (() => {
       let q = dataQuery;
