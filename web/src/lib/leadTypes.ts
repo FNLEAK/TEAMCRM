@@ -41,13 +41,6 @@ export type LeadRow = {
   /** Owner building the demo (see `leads-demo-build-claim.sql`) — selected when demo site feature is on. */
   demo_build_claimed_by?: string | null;
   demo_build_claimed_at?: string | null;
-  /** Roofing-only pool — see `web/supabase/leads-roofing-pool.sql` + NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL. */
-  is_roofing_lead?: boolean | null;
-  /**
-   * Which CRM tab owns this row (`main` | `roofing` | future `hvac`) — see `web/supabase/leads-crm-pool.sql`.
-   * Main Lead Management only loads `main`; vertical tabs load their own pool. Same columns/behavior per lead.
-   */
-  crm_pool?: string | null;
 };
 
 /** Canonical pipeline values (store exact casing in DB for consistent pills). */
@@ -61,21 +54,6 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatusValue = (typeof LEAD_STATUSES)[number];
 
-/** Roofing pool — post-appointment workflow (same `leads.status` column; see `leads-status-check.sql`). */
-export const ROOFING_PIPELINE_EXTENSION = ["Quotes", "Estimates", "Inspections"] as const;
-export type RoofingPipelineExtensionStatus = (typeof ROOFING_PIPELINE_EXTENSION)[number];
-
-/** Core stages plus roofing-only columns (Kanban order on `/roofing-leads` and extended Command Center board). */
-export const ROOFING_PIPELINE_BOARD_ORDER = [...LEAD_STATUSES, ...ROOFING_PIPELINE_EXTENSION] as const;
-export type LeadPipelineStatusWithRoofing = LeadStatusValue | RoofingPipelineExtensionStatus;
-
-const PIPELINE_STATUS_KNOWN_SET = new Set<string>([...LEAD_STATUSES, ...ROOFING_PIPELINE_EXTENSION]);
-
-/** True when `status` maps to its own Kanban column (excludes legacy website-booking strings). */
-export function isExtendedPipelineBoardStatus(status: string | null | undefined): boolean {
-  return PIPELINE_STATUS_KNOWN_SET.has((status ?? "").trim());
-}
-
 /** `?status=` on the CRM list — only canonical pipeline values are accepted. */
 export function parseLeadStatusFilterParam(raw: string | null | undefined): LeadStatusValue | null {
   const t = (raw ?? "").trim();
@@ -83,23 +61,13 @@ export function parseLeadStatusFilterParam(raw: string | null | undefined): Lead
   return (LEAD_STATUSES as readonly string[]).includes(t) ? (t as LeadStatusValue) : null;
 }
 
-/** `?status=` on `/roofing-leads` — core stages plus Quotes / Estimates / Inspections. */
-export function parseRoofingLeadStatusFilterParam(raw: string | null | undefined): LeadPipelineStatusWithRoofing | null {
-  const t = (raw ?? "").trim();
-  if (!t) return null;
-  return (ROOFING_PIPELINE_BOARD_ORDER as readonly string[]).includes(t) ? (t as LeadPipelineStatusWithRoofing) : null;
-}
-
 /** Pipeline stages where the teammate who saves the update becomes `claimed_by` (list + drawer “Claimed by …”). */
-export function statusAssignsClaimToActor(next: LeadPipelineStatusWithRoofing | string): boolean {
+export function statusAssignsClaimToActor(next: LeadStatusValue): boolean {
   return (
     next === "Called" ||
     next === "Interested" ||
     next === "Appt Set" ||
-    next === "Pending Close" ||
-    next === "Quotes" ||
-    next === "Estimates" ||
-    next === "Inspections"
+    next === "Pending Close"
   );
 }
 

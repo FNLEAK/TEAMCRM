@@ -53,7 +53,6 @@ export function requiresSupabaseSession(pathname: string): boolean {
     "/",
     "/pipeline-command-center",
     "/personal-stats",
-    "/roofing-leads",
     "/role-applier",
     "/packages",
     "/team-chat",

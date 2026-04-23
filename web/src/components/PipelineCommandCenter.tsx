@@ -8,14 +8,12 @@ import { AlertTriangle, Clock } from "lucide-react";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
 import {
-  COMPANY_SEARCH_MAX_LEN,
   demoBuildClaimedByUserId,
   hasDemoSiteUrl,
-  isExtendedPipelineBoardStatus,
   isLeadHighPriority,
+  LEAD_STATUSES,
   NON_CANONICAL_STAGE_KEY,
   pipelineStageDisplayLabel,
-  ROOFING_PIPELINE_BOARD_ORDER,
 } from "@/lib/leadTypes";
 import {
   loadCommandCenterPayload,
@@ -24,7 +22,6 @@ import {
   type CommandCenterLead,
   type CommandCenterPayload,
 } from "@/lib/commandCenterData";
-import { PIPELINE_KANBAN_COLUMN_STYLE, PIPELINE_STAGE_CARD_STYLE } from "@/lib/pipelineKanbanVisuals";
 import { displayLeadPhone } from "@/lib/phone";
 
 const CC_LEAD_REALTIME_KEYS = [
@@ -64,17 +61,77 @@ import { HelpMarker } from "@/components/HelpMarker";
 import { UiSelect } from "@/components/UiSelect";
 import { useDeskLayout } from "@/components/DeskLayoutContext";
 
-/** Kanban board: website bookings share the Appt Set column; roofing stages are their own columns. */
-const PIPELINE_BOARD_COLUMNS = [...ROOFING_PIPELINE_BOARD_ORDER] as const;
+const KANBAN_COLUMNS = [...LEAD_STATUSES, NON_CANONICAL_STAGE_KEY] as const;
 
-const KANBAN_COLUMNS = [...PIPELINE_BOARD_COLUMNS, NON_CANONICAL_STAGE_KEY] as const;
+/** Kanban board: website bookings share the Appt Set column */
+const PIPELINE_BOARD_COLUMNS = [...LEAD_STATUSES] as const;
 
-const STAGE_CARD_STYLE = PIPELINE_STAGE_CARD_STYLE;
-const KANBAN_COLUMN_STYLE = PIPELINE_KANBAN_COLUMN_STYLE;
+const STAGE_CARD_STYLE: Record<string, string> = {
+  New: "border-emerald-500/35 bg-emerald-500/10 shadow-[0_0_32px_-12px_rgba(52,211,153,0.35)]",
+  Called: "border-cyan-500/35 bg-cyan-500/10 shadow-[0_0_32px_-12px_rgba(34,211,238,0.25)]",
+  Interested: "border-violet-500/35 bg-violet-500/10 shadow-[0_0_32px_-12px_rgba(167,139,250,0.3)]",
+  "Appt Set": "border-amber-500/35 bg-amber-500/10 shadow-[0_0_32px_-12px_rgba(251,191,36,0.25)]",
+  "Pending Close": "border-amber-300/50 bg-amber-500/12 shadow-[0_0_34px_-10px_rgba(251,191,36,0.45)]",
+  "Not Interested": "border-rose-500/35 bg-rose-500/10 shadow-[0_0_32px_-12px_rgba(251,113,133,0.25)]",
+  [NON_CANONICAL_STAGE_KEY]:
+    "border-slate-500/40 bg-slate-500/10 shadow-[0_0_24px_-12px_rgba(148,163,184,0.2)]",
+};
+
+const KANBAN_COLUMN_STYLE: Record<string, { shell: string; topLine: string; heading: string; empty: string; card: string }> = {
+  New: {
+    shell: "border-emerald-400/20 bg-gradient-to-b from-emerald-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_28px_-18px_rgba(52,211,153,0.8)]",
+    topLine: "via-emerald-300/50",
+    heading: "text-emerald-100/80",
+    empty: "border-emerald-300/20 from-emerald-500/[0.07]",
+    card: "hover:border-emerald-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(52,211,153,0.7)]",
+  },
+  Called: {
+    shell: "border-cyan-400/20 bg-gradient-to-b from-cyan-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_28px_-18px_rgba(34,211,238,0.8)]",
+    topLine: "via-cyan-300/50",
+    heading: "text-cyan-100/80",
+    empty: "border-cyan-300/20 from-cyan-500/[0.07]",
+    card: "hover:border-cyan-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(34,211,238,0.7)]",
+  },
+  Interested: {
+    shell: "border-violet-400/20 bg-gradient-to-b from-violet-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_28px_-18px_rgba(167,139,250,0.8)]",
+    topLine: "via-violet-300/50",
+    heading: "text-violet-100/80",
+    empty: "border-violet-300/20 from-violet-500/[0.07]",
+    card: "hover:border-violet-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(167,139,250,0.7)]",
+  },
+  "Appt Set": {
+    shell: "border-amber-400/20 bg-gradient-to-b from-amber-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_28px_-18px_rgba(251,191,36,0.8)]",
+    topLine: "via-amber-300/50",
+    heading: "text-amber-100/80",
+    empty: "border-amber-300/20 from-amber-500/[0.07]",
+    card: "hover:border-amber-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(251,191,36,0.7)]",
+  },
+  "Pending Close": {
+    shell: "border-amber-300/25 bg-gradient-to-b from-amber-500/[0.09] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_30px_-18px_rgba(251,191,36,0.85)]",
+    topLine: "via-amber-200/55",
+    heading: "text-amber-100/85",
+    empty: "border-amber-300/22 from-amber-500/[0.08]",
+    card: "hover:border-amber-300/55 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_24px_-10px_rgba(251,191,36,0.75)]",
+  },
+  "Not Interested": {
+    shell: "border-rose-400/20 bg-gradient-to-b from-rose-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_28px_-18px_rgba(251,113,133,0.8)]",
+    topLine: "via-rose-300/50",
+    heading: "text-rose-100/80",
+    empty: "border-rose-300/20 from-rose-500/[0.07]",
+    card: "hover:border-rose-400/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_20px_-10px_rgba(251,113,133,0.7)]",
+  },
+  [NON_CANONICAL_STAGE_KEY]: {
+    shell: "border-slate-400/20 bg-gradient-to-b from-slate-500/[0.08] via-[#121827]/95 to-[#0f1320]/95 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_24px_-18px_rgba(148,163,184,0.8)]",
+    topLine: "via-slate-300/45",
+    heading: "text-slate-100/75",
+    empty: "border-slate-300/20 from-slate-500/[0.06]",
+    card: "hover:border-slate-300/45 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_0_16px_-10px_rgba(148,163,184,0.6)]",
+  },
+};
 
 function columnKey(lead: CommandCenterLead): (typeof KANBAN_COLUMNS)[number] {
   const s = (lead.status ?? "").trim();
-  if (isExtendedPipelineBoardStatus(s)) {
+  if ((LEAD_STATUSES as readonly string[]).includes(s)) {
     return s as (typeof KANBAN_COLUMNS)[number];
   }
   return NON_CANONICAL_STAGE_KEY;
@@ -456,13 +513,9 @@ export function PipelineCommandCenter({
     return m;
   }, [filtered]);
 
-  /** Deep-link by id so Lead Management opens the drawer even when the lead is not on the main pool list (e.g. roofing-only). */
-  const leadManagementHref = (lead: CommandCenterLead) => {
-    const p = new URLSearchParams();
-    p.set("openLead", lead.id);
-    const q = (lead.company_name ?? "").trim().slice(0, COMPANY_SEARCH_MAX_LEN);
-    if (q) p.set("q", q);
-    return `/?${p.toString()}`;
+  const searchHref = (company: string) => {
+    const q = encodeURIComponent(company.trim() || "");
+    return q ? `/?q=${q}` : "/";
   };
 
   useEffect(() => {
@@ -870,8 +923,8 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
             className={clsx(
               "flex w-full min-w-0 flex-col gap-4",
               layoutMobileShell
-                ? "@min-[780px]:min-w-[1720px] @min-[780px]:flex-row @min-[780px]:gap-3"
-                : "min-[780px]:min-w-[1720px] min-[780px]:flex-row min-[780px]:gap-3",
+                ? "@min-[780px]:min-w-[1320px] @min-[780px]:flex-row @min-[780px]:gap-3"
+                : "min-[780px]:min-w-[1320px] min-[780px]:flex-row min-[780px]:gap-3",
             )}
           >
             {PIPELINE_BOARD_COLUMNS.map((col) => {
@@ -945,7 +998,7 @@ LEAD ORIGIN: Track where your leads came from. This helps you identify which mar
                           className="min-w-0"
                         >
                         <Link
-                          href={leadManagementHref(lead)}
+                          href={searchHref(lead.company_name ?? "")}
                           title={staleLevel ? staleTitle : undefined}
                           className={clsx(
                             "group relative block overflow-hidden rounded-lg border border-[#222] bg-[#0c0c0c] px-2.5 py-2 transition hover:border-zinc-600",

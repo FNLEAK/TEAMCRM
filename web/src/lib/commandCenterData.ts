@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
-import { isExtendedPipelineBoardStatus, LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
+import { LEAD_STATUSES, NON_CANONICAL_STAGE_KEY, teamProfileFromDb } from "@/lib/leadTypes";
 import { displayProfessionalName } from "@/lib/profileDisplay";
 import { fetchProfilesByIds } from "@/lib/profileSelect";
 import { utcCalendarDayBounds, utcCalendarWeekBounds } from "@/lib/utcDayBounds";
@@ -367,7 +367,7 @@ export async function loadCommandCenterPayload(
   const stageCounts: { status: string; count: number }[] = LEAD_STATUSES.map((s) => {
     if (s === "Appt Set") {
       const appt = leads.filter((l) => (l.status ?? "").trim() === "Appt Set").length;
-      const web = leads.filter((l) => !isExtendedPipelineBoardStatus(l.status)).length;
+      const web = leads.filter((l) => !(LEAD_STATUSES as readonly string[]).includes((l.status ?? "").trim())).length;
       return { status: s, count: appt + web };
     }
     return { status: s, count: leads.filter((l) => (l.status ?? "").trim() === s).length };

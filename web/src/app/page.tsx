@@ -20,12 +20,6 @@ import {
 } from "@/lib/utcDayBounds";
 import { redirect } from "next/navigation";
 import { canManageRoles } from "@/lib/roleAccess";
-import { CRM_POOL_MAIN } from "@/lib/crmPool";
-import {
-  isCrmPoolColumnEnabled,
-  isRoofingLeadPoolEnabled,
-  MAIN_POOL_ROOFING_LEAD_FILTER,
-} from "@/lib/roofingLeadPoolFeature";
 
 const CrmDashboard = dynamic(
   () => import("@/components/CrmDashboard").then((m) => ({ default: m.CrmDashboard })),
@@ -37,7 +31,6 @@ type SearchParams = {
   favorites?: string;
   q?: string;
   status?: string;
-  openLead?: string;
 };
 
 function normalizeSearchQuery(raw: string | undefined): string {
@@ -74,11 +67,6 @@ export default async function Page({
   const searchQuery = normalizeSearchQuery(typeof sp.q === "string" ? sp.q : undefined);
   const statusFilter = parseLeadStatusFilterParam(typeof sp.status === "string" ? sp.status : undefined);
   const statusFilterParam = statusFilter ?? "";
-  const openLeadRaw = typeof sp.openLead === "string" ? sp.openLead.trim() : "";
-  const initialOpenLeadId =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(openLeadRaw)
-      ? openLeadRaw
-      : null;
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     return (
@@ -146,41 +134,19 @@ export default async function Page({
     dataQuery = dataQuery.eq("status", statusFilter);
   }
 
-  const roofingPool = isRoofingLeadPoolEnabled();
-  if (roofingPool) {
-    dataQuery = isCrmPoolColumnEnabled()
-      ? dataQuery.eq("crm_pool", CRM_POOL_MAIN)
-      : dataQuery.or(MAIN_POOL_ROOFING_LEAD_FILTER);
-  }
-
   const { weekStartIso, weekEndExclusiveIso } = utcCalendarWeekBounds();
   const { weekStartIso: prevWeekStart, weekEndExclusiveIso: prevWeekEndEx } = utcPreviousCalendarWeekBounds();
 
   let favQ = supabase.from("leads").select("*", { count: "exact", head: true });
   favQ = favoritesAsArray ? favQ.contains("favorited_by", [userId]) : favQ.eq("favorited_by", userId);
-  if (roofingPool) {
-    favQ = isCrmPoolColumnEnabled() ? favQ.eq("crm_pool", CRM_POOL_MAIN) : favQ.or(MAIN_POOL_ROOFING_LEAD_FILTER);
-  }
-
-  let totalLeadsHead = supabase.from("leads").select("*", { count: "exact", head: true });
-  let apptTodayHead = supabase
-    .from("leads")
-    .select("*", { count: "exact", head: true })
-    .gte("appt_date", dayStr)
-    .lt("appt_date", nextDayStr);
-  if (roofingPool) {
-    if (isCrmPoolColumnEnabled()) {
-      totalLeadsHead = totalLeadsHead.eq("crm_pool", CRM_POOL_MAIN);
-      apptTodayHead = apptTodayHead.eq("crm_pool", CRM_POOL_MAIN);
-    } else {
-      totalLeadsHead = totalLeadsHead.or(MAIN_POOL_ROOFING_LEAD_FILTER);
-      apptTodayHead = apptTodayHead.or(MAIN_POOL_ROOFING_LEAD_FILTER);
-    }
-  }
 
   const [totalLeadsRes, apptRes, favRes, leadsRes, weekClosedRes, prevWeekClosedRes] = await Promise.all([
-    totalLeadsHead,
-    apptTodayHead,
+    supabase.from("leads").select("*", { count: "exact", head: true }),
+    supabase
+      .from("leads")
+      .select("*", { count: "exact", head: true })
+      .gte("appt_date", dayStr)
+      .lt("appt_date", nextDayStr),
     favQ,
     (() => {
       let q = dataQuery;
@@ -217,7 +183,6 @@ export default async function Page({
   if (leadsRes.error) {
     console.error("[CRM] leads query:", leadsRes.error.message);
   }
-  const leadsQueryError = leadsRes.error?.message?.trim() || null;
   const leads = (leadsRes.data as LeadRow[] | null) ?? [];
   const totalCount = leadsRes.count ?? 0;
   const teamIds = collectTeamIds(leads);
@@ -304,7 +269,6 @@ export default async function Page({
   return (
     <CrmDashboard
       leads={leads}
-      leadsQueryError={leadsQueryError}
       totalCount={totalCount}
       page={page}
       favoritesOnly={favoritesOnly}
@@ -317,7 +281,6 @@ export default async function Page({
       weeklyApptLeaderboard={weeklyApptLeaderboard}
       calendarTeamMemberOrder={calendarTeamMemberOrder}
       canManageRoles={allowRoleApplier}
-      initialOpenLeadId={initialOpenLeadId}
       stats={{
         totalLeads: totalLeads ?? 0,
         appointmentsToday: apptErr ? 0 : (appointmentsToday ?? 0),

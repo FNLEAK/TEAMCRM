@@ -9,7 +9,6 @@ import {
   BarChart2,
   BookOpen,
   Crosshair,
-  HardHat,
   LayoutDashboard,
   Menu,
   MessageCircle,
@@ -101,7 +100,6 @@ const MOBILE_TAB_LABEL: Record<string, string> = {
   "/": "Leads",
   "/personal-stats": "Stats",
   "/role-applier": "Admin",
-  "/roofing-leads": "Roofing",
   "/packages": "Plans",
   "/team-chat": "Chat",
   "/how-to": "Guide",
@@ -140,7 +138,6 @@ export function DeskShell({
   navItems,
   sections,
   sidebarFooter,
-  sidebarBelowFooter,
   asideTop,
 }: {
   children: ReactNode;
@@ -148,8 +145,6 @@ export function DeskShell({
   navItems?: DeskNavItem[];
   sections?: DeskNavSection[];
   sidebarFooter?: ReactNode;
-  /** Rendered below `sidebarFooter` (e.g. owner-only link after Sign out). */
-  sidebarBelowFooter?: ReactNode;
   asideTop?: ReactNode;
 }) {
   const pathname = usePathname();
@@ -279,7 +274,6 @@ export function DeskShell({
     if (href === "/") return Users;
     if (href === "/personal-stats") return BarChart2;
     if (href === "/role-applier") return Shield;
-    if (href === "/roofing-leads") return HardHat;
     if (href === "/packages") return Package;
     if (href === "/team-chat") return MessageCircle;
     if (href === "/how-to") return BookOpen;
@@ -489,10 +483,9 @@ export function DeskShell({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
               {renderNav({ drawer: true, onNavigate: closeDrawer })}
             </div>
-            {sidebarFooter || sidebarBelowFooter ? (
+            {sidebarFooter ? (
               <div className="shrink-0 space-y-2 border-t border-white/[0.07] bg-black/25 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 {sidebarFooter}
-                {sidebarBelowFooter}
               </div>
             ) : null}
           </div>
@@ -532,11 +525,8 @@ export function DeskShell({
 
         {renderNav({ drawer: false })}
 
-        {sidebarFooter || sidebarBelowFooter ? (
-          <div className="mb-4 space-y-2 border-t border-[#222] p-3">
-            {sidebarFooter}
-            {sidebarBelowFooter}
-          </div>
+        {sidebarFooter ? (
+          <div className="mb-4 space-y-2 border-t border-[#222] p-3">{sidebarFooter}</div>
         ) : null}
       </aside>
       {/* No @container here: pages use viewport breakpoints on desktop. Mobile shell uses @container on its own <main>. */}

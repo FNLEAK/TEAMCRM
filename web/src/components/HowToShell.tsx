@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { DeskShell } from "@/components/DeskShell";
-import { OwnerRoofingLeadsFooterLink } from "@/components/OwnerRoofingLeadsFooterLink";
 import { commandDeskSections } from "@/lib/deskNavConfig";
 import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 
@@ -95,11 +94,7 @@ export function HowToShell({
   );
 
   return (
-    <DeskShell
-      sections={commandDeskSections({ canManageRoles })}
-      sidebarFooter={sidebarFooter}
-      sidebarBelowFooter={canManageRoles ? <OwnerRoofingLeadsFooterLink /> : null}
-    >
+    <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
       <div className="relative mx-auto w-full max-w-[1400px] text-zinc-100">
         <header className="mb-8 rounded-2xl border border-transparent bg-[radial-gradient(120%_100%_at_10%_0%,rgba(34,211,238,0.16),transparent_58%),radial-gradient(120%_100%_at_90%_0%,rgba(167,139,250,0.14),transparent_62%),linear-gradient(180deg,#0b0e14_0%,#090b11_100%)] px-6 py-8 text-center shadow-[inset_0_0_0_1px_rgba(34,211,238,0.16),0_0_44px_-24px_rgba(34,211,238,0.55)]">
           <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-200/75">Team Handbook</p>
