@@ -40,7 +40,8 @@ import { useDeskLayout } from "@/components/DeskLayoutContext";
 import { utcCalendarDayBounds } from "@/lib/utcDayBounds";
 import { displayFirstName, displayProfessionalName, formatLiveViewerMonogram } from "@/lib/profileDisplay";
 import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
-import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
+import { CRM_POOL_MAIN, crmPoolFromRealtimePayload } from "@/lib/crmPool";
+import { isCrmPoolColumnEnabled, isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 import {
   COMPANY_SEARCH_MAX_LEN,
   isFavoritedBy,
@@ -73,6 +74,8 @@ function buildListPath(pageNum: number, favoritesOnly: boolean, q: string, statu
 
 type CrmDashboardProps = {
   leads: LeadRow[];
+  /** Set when the server `leads` query failed (otherwise empty list is easy to misread as “no data”). */
+  leadsQueryError?: string | null;
   totalCount: number;
   page: number;
   favoritesOnly: boolean;
@@ -126,6 +129,7 @@ function formatStat(n: number) {
 
 export function CrmDashboard({
   leads: initialLeads,
+  leadsQueryError = null,
   totalCount,
   page,
   favoritesOnly,
@@ -371,7 +375,10 @@ export function CrmDashboard({
             const rowId = raw.id as string;
 
             if (isRoofingLeadPoolEnabled()) {
-              if (raw.is_roofing_lead === true) {
+              const leftMain = isCrmPoolColumnEnabled()
+                ? crmPoolFromRealtimePayload(raw) !== CRM_POOL_MAIN
+                : raw.is_roofing_lead === true;
+              if (leftMain) {
                 setLeads((prev) => prev.filter((l) => l.id !== rowId));
                 setDrawerLead((d) => (d?.id === rowId ? null : d));
                 setTotalLeadsLive((n) => Math.max(0, n - 1));
@@ -381,7 +388,13 @@ export function CrmDashboard({
                 bumpStatsAndCalendar();
                 return;
               }
-              if (old && old.is_roofing_lead === true && raw.is_roofing_lead === false) {
+              if (isCrmPoolColumnEnabled()) {
+                const oldPool = old ? crmPoolFromRealtimePayload(old as Record<string, unknown>) : CRM_POOL_MAIN;
+                if (old && oldPool !== CRM_POOL_MAIN && crmPoolFromRealtimePayload(raw) === CRM_POOL_MAIN) {
+                  startTransition(() => router.refresh());
+                  return;
+                }
+              } else if (old && old.is_roofing_lead === true && raw.is_roofing_lead === false) {
                 startTransition(() => router.refresh());
                 return;
               }
@@ -736,6 +749,32 @@ export function CrmDashboard({
           id="crm-leads-section"
           className="relative overflow-visible rounded-xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.035] via-[#0a0d12]/95 to-[#090b10]/95 ring-1 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.45)]"
         >
+          {leadsQueryError ? (
+            <div className="border-b border-rose-500/25 bg-rose-500/[0.08] px-3.5 py-3 text-sm text-rose-100/95">
+              <p className="font-semibold">Leads could not be loaded</p>
+              <p className="mt-1 font-mono text-xs text-rose-200/80">{leadsQueryError}</p>
+              <p className="mt-2 text-xs text-rose-100/75">
+                Often this is a missing column (run <code className="rounded bg-black/30 px-1">web/supabase/leads-roofing-pool.sql</code> then{" "}
+                <code className="rounded bg-black/30 px-1">web/supabase/leads-crm-pool.sql</code> when{" "}
+                <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL=true</code>) or an RLS policy blocking{" "}
+                <code className="rounded bg-black/30 px-1">select</code> on <code className="rounded bg-black/30 px-1">leads</code>. Check the browser
+                Network tab and Supabase logs.
+              </p>
+            </div>
+          ) : null}
+          {!leadsQueryError && isRoofingLeadPoolEnabled() && totalCount === 0 && stats.totalLeads === 0 ? (
+            <div className="border-b border-amber-500/20 bg-amber-500/[0.07] px-3.5 py-3 text-sm text-amber-100/90">
+              <p className="font-semibold">Main list is empty — roofing pool is on</p>
+              <p className="mt-1 text-xs text-amber-100/75">
+                With <code className="rounded bg-black/30 px-1">NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL=true</code>, this page only shows leads in the{" "}
+                <code className="rounded bg-black/30 px-1">main</code> pool (<code className="rounded bg-black/30 px-1">crm_pool</code>). Open{" "}
+                <Link href="/roofing-leads" className="font-medium text-amber-50 underline decoration-amber-300/50 hover:text-white">
+                  Roofing Leads Management
+                </Link>{" "}
+                for roofing-only rows, or turn a lead&apos;s &quot;Roofing pool&quot; toggle off in the drawer to bring it back here.
+              </p>
+            </div>
+          ) : null}
           <div className="flex flex-col gap-1 border-b border-white/[0.08] px-3.5 py-2">
             <div className="flex min-h-[1.5rem] flex-wrap items-center justify-center gap-2.5 text-center">
               <h2 className="text-[19px] font-semibold tracking-tight text-zinc-100">Leads</h2>

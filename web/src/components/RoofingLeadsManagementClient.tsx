@@ -23,14 +23,17 @@ import { createSupabaseBrowserClient } from "@/lib/supabaseClient";
 import { upsertTeamProfileFromSession } from "@/lib/syncTeamProfile";
 import { getLeadSelectColumns } from "@/lib/leadSelectColumns";
 import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
+import { RoofingPipelineKanban } from "@/components/RoofingPipelineKanban";
 import { displayProfessionalName, formatLiveViewerMonogram } from "@/lib/profileDisplay";
+import { CRM_POOL_ROOFING, crmPoolFromRealtimePayload } from "@/lib/crmPool";
 import { mergeLeadFromRealtime } from "@/lib/realtimeLead";
+import { isCrmPoolColumnEnabled } from "@/lib/roofingLeadPoolFeature";
 import { buildRoofingLeadsListPath } from "@/lib/roofingLeadsRoutes";
 import {
   COMPANY_SEARCH_MAX_LEN,
-  LEAD_STATUSES,
   normalizeFavoritedIds,
-  parseLeadStatusFilterParam,
+  ROOFING_PIPELINE_BOARD_ORDER,
+  parseRoofingLeadStatusFilterParam,
   teamProfileFromDb,
   type LeadRow,
   type TeamProfile,
@@ -80,7 +83,7 @@ function RoofingDebouncedCompanySearch({
       if (favoritesOnly) p.set("favorites", "1");
       if (next) p.set("q", next);
       const st = statusFilter.trim();
-      if (st && parseLeadStatusFilterParam(st)) p.set("status", st);
+      if (st && parseRoofingLeadStatusFilterParam(st)) p.set("status", st);
       const qs = p.toString();
       startTransition(() => router.replace(qs ? `/roofing-leads?${qs}` : "/roofing-leads"));
     }, SEARCH_DEBOUNCE_MS);
@@ -141,7 +144,7 @@ function RoofingLeadStatusFilterBar({
   statusFilter: string;
   layoutMobileShell: boolean;
 }) {
-  const normalized = parseLeadStatusFilterParam(statusFilter);
+  const normalized = parseRoofingLeadStatusFilterParam(statusFilter);
   const current = normalized ?? "";
 
   return (
@@ -166,7 +169,7 @@ function RoofingLeadStatusFilterBar({
           >
             All
           </Link>
-          {LEAD_STATUSES.map((s) => {
+          {ROOFING_PIPELINE_BOARD_ORDER.map((s) => {
             const active = current === s;
             return (
               <Link
@@ -218,6 +221,7 @@ function toggleFavoritedValue(
 export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagementClient({
   poolEnabled,
   leads: initialLeads,
+  roofingKanbanLeads: initialRoofingKanbanLeads,
   totalCount,
   page,
   favoritesOnly,
@@ -232,6 +236,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
 }: {
   poolEnabled: boolean;
   leads: LeadRow[];
+  roofingKanbanLeads: LeadRow[];
   totalCount: number;
   page: number;
   favoritesOnly: boolean;
@@ -247,6 +252,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [leads, setLeads] = useState(initialLeads);
+  const [roofingKanbanLeads, setRoofingKanbanLeads] = useState(initialRoofingKanbanLeads);
   const [drawerLead, setDrawerLead] = useState<LeadRow | null>(null);
   const [profileExtras, setProfileExtras] = useState<Record<string, TeamProfile>>({});
   const [calendarRefreshKey, setCalendarRefreshKey] = useState(0);
@@ -280,6 +286,18 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
   }, [initialLeads]);
 
   useEffect(() => {
+    setRoofingKanbanLeads(initialRoofingKanbanLeads);
+  }, [initialRoofingKanbanLeads]);
+
+  const kanbanProfileLabels = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const [id, p] of Object.entries(mergedProfileMap)) {
+      out[id] = displayProfessionalName(id, p);
+    }
+    return out;
+  }, [mergedProfileMap]);
+
+  useEffect(() => {
     setBulkDeleteSelected((prev) => {
       if (prev.size === 0) return prev;
       const visible = new Set(initialLeads.map((l) => l.id));
@@ -300,7 +318,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
 
   useEffect(() => {
     const need: string[] = [];
-    for (const row of leads) {
+    for (const row of [...leads, ...roofingKanbanLeads]) {
       const id = row.claimed_by?.trim();
       if (!id) continue;
       if (claimedProfileFetchAttemptedRef.current.has(id)) continue;
@@ -343,7 +361,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
         return next;
       });
     })();
-  }, [leads, mergedProfileMap]);
+  }, [leads, roofingKanbanLeads, mergedProfileMap]);
 
   const bumpCalendar = useCallback(() => {
     setCalendarRefreshKey((k) => k + 1);
@@ -352,6 +370,13 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
   const syncLeadInState = useCallback((id: string, patch: Partial<LeadRow>) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
     setDrawerLead((d) => (d?.id === id ? { ...d, ...patch } : d));
+    setRoofingKanbanLeads((prev) => {
+      const idx = prev.findIndex((l) => l.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...patch };
+      return next;
+    });
   }, []);
 
   const openLeadById = useCallback(async (leadId: string) => {
@@ -376,6 +401,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
   const handleLeadDeleted = useCallback(
     (leadId: string) => {
       setLeads((prev) => prev.filter((l) => l.id !== leadId));
+      setRoofingKanbanLeads((prev) => prev.filter((l) => l.id !== leadId));
       setDrawerLead((d) => (d?.id === leadId ? null : d));
       bumpCalendar();
       startTransition(() => router.refresh());
@@ -447,6 +473,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
         return;
       }
       setLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
+      setRoofingKanbanLeads((prev) => prev.filter((l) => !idSet.has(l.id)));
       setDrawerLead((d) => (d && idSet.has(d.id) ? null : d));
       setBulkDeleteSelected(new Set());
       bumpCalendar();
@@ -469,6 +496,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
             const oldId = (payload.old as { id?: string })?.id;
             if (oldId) {
               setLeads((prev) => prev.filter((l) => l.id !== oldId));
+              setRoofingKanbanLeads((prev) => prev.filter((l) => l.id !== oldId));
               setDrawerLead((d) => (d?.id === oldId ? null : d));
               bumpCalendar();
             }
@@ -477,14 +505,27 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
           if (payload.eventType === "UPDATE") {
             const raw = payload.new as Record<string, unknown>;
             const rowId = raw.id as string;
-            const roofing = raw.is_roofing_lead === true;
+            const roofing = isCrmPoolColumnEnabled()
+              ? crmPoolFromRealtimePayload(raw) === CRM_POOL_ROOFING
+              : raw.is_roofing_lead === true;
             if (!roofing) {
               setLeads((prev) => prev.filter((l) => l.id !== rowId));
+              setRoofingKanbanLeads((prev) => prev.filter((l) => l.id !== rowId));
               setDrawerLead((d) => (d?.id === rowId ? null : d));
               bumpCalendar();
               return;
             }
             setLeads((prev) => {
+              const idx = prev.findIndex((l) => l.id === rowId);
+              if (idx === -1) {
+                startTransition(() => router.refresh());
+                return prev;
+              }
+              const next = [...prev];
+              next[idx] = mergeLeadFromRealtime(next[idx], raw);
+              return next;
+            });
+            setRoofingKanbanLeads((prev) => {
               const idx = prev.findIndex((l) => l.id === rowId);
               if (idx === -1) {
                 startTransition(() => router.refresh());
@@ -543,7 +584,7 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
               <h2 className="text-[19px] font-semibold tracking-tight text-zinc-100">Roofing leads</h2>
               <HelpMarker
                 accent="crimson"
-                text="ROOFING POOL: Same columns as Command — only leads marked Roofing in the owner drawer appear here. Toggle off in the drawer to move a lead back to main Lead Management."
+                text="ROOFING POOL: Pipeline matches Command plus Quotes, Estimates, and Inspections for roofing work. Only leads marked Roofing in the owner drawer appear here. Toggle off in the drawer to move a lead back to main Lead Management."
               />
               <span className="rounded-full border border-emerald-400/35 bg-emerald-500/14 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-emerald-200 shadow-[0_0_16px_-8px_rgba(16,185,129,0.75)]">
                 Live
@@ -566,6 +607,14 @@ export const RoofingLeadsManagementClient = memo(function RoofingLeadsManagement
             statusFilter={statusFilter}
             layoutMobileShell={layoutMobileShell}
           />
+
+          <div className="px-3.5 pb-4">
+            <RoofingPipelineKanban
+              leads={roofingKanbanLeads}
+              profileLabels={kanbanProfileLabels}
+              onOpenLead={openDrawerForLead}
+            />
+          </div>
 
           {canManageRoles && bulkDeleteSelected.size > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rose-500/20 bg-rose-500/[0.08] px-3.5 py-3">

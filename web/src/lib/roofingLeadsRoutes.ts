@@ -1,7 +1,4 @@
-import {
-  COMPANY_SEARCH_MAX_LEN,
-  parseLeadStatusFilterParam,
-} from "@/lib/leadTypes";
+import { COMPANY_SEARCH_MAX_LEN, parseRoofingLeadStatusFilterParam } from "@/lib/leadTypes";
 
 /** List/search URL builder for `/roofing-leads` (mirrors home `buildListPath` semantics). */
 export function buildRoofingLeadsListPath(
@@ -16,7 +13,7 @@ export function buildRoofingLeadsListPath(
   const trimmed = q.trim().slice(0, COMPANY_SEARCH_MAX_LEN);
   if (trimmed) p.set("q", trimmed);
   const st = status.trim();
-  if (st && parseLeadStatusFilterParam(st)) p.set("status", st);
+  if (st && parseRoofingLeadStatusFilterParam(st)) p.set("status", st);
   const qs = p.toString();
   return qs ? `/roofing-leads?${qs}` : "/roofing-leads";
 }

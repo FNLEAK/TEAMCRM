@@ -1,6 +1,6 @@
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
-import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
+import { isCrmPoolColumnEnabled, isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 
 /**
  * Shared SELECT list for `leads` (server + client) — keep in sync with `LeadRow`.
@@ -44,6 +44,9 @@ export function getLeadSelectColumns(): string {
 
   if (isRoofingLeadPoolEnabled()) {
     parts.push("is_roofing_lead");
+    if (isCrmPoolColumnEnabled()) {
+      parts.push("crm_pool");
+    }
   }
 
   if (isDemoSiteFeatureEnabled()) {

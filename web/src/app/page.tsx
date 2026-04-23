@@ -20,7 +20,12 @@ import {
 } from "@/lib/utcDayBounds";
 import { redirect } from "next/navigation";
 import { canManageRoles } from "@/lib/roleAccess";
-import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
+import { CRM_POOL_MAIN } from "@/lib/crmPool";
+import {
+  isCrmPoolColumnEnabled,
+  isRoofingLeadPoolEnabled,
+  MAIN_POOL_ROOFING_LEAD_FILTER,
+} from "@/lib/roofingLeadPoolFeature";
 
 const CrmDashboard = dynamic(
   () => import("@/components/CrmDashboard").then((m) => ({ default: m.CrmDashboard })),
@@ -143,7 +148,9 @@ export default async function Page({
 
   const roofingPool = isRoofingLeadPoolEnabled();
   if (roofingPool) {
-    dataQuery = dataQuery.eq("is_roofing_lead", false);
+    dataQuery = isCrmPoolColumnEnabled()
+      ? dataQuery.eq("crm_pool", CRM_POOL_MAIN)
+      : dataQuery.or(MAIN_POOL_ROOFING_LEAD_FILTER);
   }
 
   const { weekStartIso, weekEndExclusiveIso } = utcCalendarWeekBounds();
@@ -152,7 +159,7 @@ export default async function Page({
   let favQ = supabase.from("leads").select("*", { count: "exact", head: true });
   favQ = favoritesAsArray ? favQ.contains("favorited_by", [userId]) : favQ.eq("favorited_by", userId);
   if (roofingPool) {
-    favQ = favQ.eq("is_roofing_lead", false);
+    favQ = isCrmPoolColumnEnabled() ? favQ.eq("crm_pool", CRM_POOL_MAIN) : favQ.or(MAIN_POOL_ROOFING_LEAD_FILTER);
   }
 
   let totalLeadsHead = supabase.from("leads").select("*", { count: "exact", head: true });
@@ -162,8 +169,13 @@ export default async function Page({
     .gte("appt_date", dayStr)
     .lt("appt_date", nextDayStr);
   if (roofingPool) {
-    totalLeadsHead = totalLeadsHead.eq("is_roofing_lead", false);
-    apptTodayHead = apptTodayHead.eq("is_roofing_lead", false);
+    if (isCrmPoolColumnEnabled()) {
+      totalLeadsHead = totalLeadsHead.eq("crm_pool", CRM_POOL_MAIN);
+      apptTodayHead = apptTodayHead.eq("crm_pool", CRM_POOL_MAIN);
+    } else {
+      totalLeadsHead = totalLeadsHead.or(MAIN_POOL_ROOFING_LEAD_FILTER);
+      apptTodayHead = apptTodayHead.or(MAIN_POOL_ROOFING_LEAD_FILTER);
+    }
   }
 
   const [totalLeadsRes, apptRes, favRes, leadsRes, weekClosedRes, prevWeekClosedRes] = await Promise.all([
@@ -205,6 +217,7 @@ export default async function Page({
   if (leadsRes.error) {
     console.error("[CRM] leads query:", leadsRes.error.message);
   }
+  const leadsQueryError = leadsRes.error?.message?.trim() || null;
   const leads = (leadsRes.data as LeadRow[] | null) ?? [];
   const totalCount = leadsRes.count ?? 0;
   const teamIds = collectTeamIds(leads);
@@ -291,6 +304,7 @@ export default async function Page({
   return (
     <CrmDashboard
       leads={leads}
+      leadsQueryError={leadsQueryError}
       totalCount={totalCount}
       page={page}
       favoritesOnly={favoritesOnly}

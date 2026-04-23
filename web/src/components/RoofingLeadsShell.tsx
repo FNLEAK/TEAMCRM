@@ -22,6 +22,7 @@ export function RoofingLeadsShell({
   favoritesOnly,
   searchQuery,
   statusFilter,
+  roofingKanbanLeads,
 }: {
   poolEnabled: boolean;
   userId: string;
@@ -31,6 +32,7 @@ export function RoofingLeadsShell({
   profileMap: Record<string, TeamProfile>;
   calendarTeamMemberOrder: string[];
   leads: LeadRow[];
+  roofingKanbanLeads: LeadRow[];
   totalCount: number;
   page: number;
   favoritesOnly: boolean;
@@ -69,6 +71,7 @@ export function RoofingLeadsShell({
       <RoofingLeadsManagementClient
         poolEnabled={poolEnabled}
         leads={leads}
+        roofingKanbanLeads={roofingKanbanLeads}
         totalCount={totalCount}
         page={page}
         favoritesOnly={favoritesOnly}

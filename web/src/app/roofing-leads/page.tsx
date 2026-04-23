@@ -7,7 +7,7 @@ import {
   COMPANY_SEARCH_MAX_LEN,
   escapeForIlike,
   normalizeFavoritedIds,
-  parseLeadStatusFilterParam,
+  parseRoofingLeadStatusFilterParam,
   teamProfileFromDb,
   type LeadRow,
   type TeamProfile,
@@ -15,7 +15,9 @@ import {
 } from "@/lib/leadTypes";
 import { getLeadSelectColumns } from "@/lib/leadSelectColumns";
 import { enrichProfileMapWithTeamRoles, fetchProfilesByIds } from "@/lib/profileSelect";
-import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
+import { commandCenterLeadsLimit } from "@/lib/commandCenterData";
+import { CRM_POOL_ROOFING } from "@/lib/crmPool";
+import { isCrmPoolColumnEnabled, isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 
 const RoofingLeadsShell = dynamic(
   () => import("@/components/RoofingLeadsShell").then((m) => ({ default: m.RoofingLeadsShell })),
@@ -68,7 +70,7 @@ export default async function RoofingLeadsPage({
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const favoritesOnly = sp.favorites === "1";
   const searchQuery = normalizeSearchQuery(typeof sp.q === "string" ? sp.q : undefined);
-  const statusFilter = parseLeadStatusFilterParam(typeof sp.status === "string" ? sp.status : undefined);
+  const statusFilter = parseRoofingLeadStatusFilterParam(typeof sp.status === "string" ? sp.status : undefined);
   const statusFilterParam = statusFilter ?? "";
 
   const supabase = await createSupabaseServerClient();
@@ -111,9 +113,13 @@ export default async function RoofingLeadsPage({
 
   let leads: LeadRow[] = [];
   let totalCount = 0;
+  let roofingKanbanLeads: LeadRow[] = [];
 
   if (poolEnabled) {
-    let dataQuery = supabase.from("leads").select(getLeadSelectColumns(), { count: "exact" }).eq("is_roofing_lead", true);
+    let dataQuery = supabase.from("leads").select(getLeadSelectColumns(), { count: "exact" });
+    dataQuery = isCrmPoolColumnEnabled()
+      ? dataQuery.eq("crm_pool", CRM_POOL_ROOFING)
+      : dataQuery.eq("is_roofing_lead", true);
 
     if (searchQuery) {
       const pattern = `%${escapeForIlike(searchQuery)}%`;
@@ -144,8 +150,29 @@ export default async function RoofingLeadsPage({
     leads = (leadsRes.data as LeadRow[] | null) ?? [];
     totalCount = leadsRes.count ?? 0;
 
+    const kanbanLimit = commandCenterLeadsLimit();
+    let kanbanQuery = supabase.from("leads").select(getLeadSelectColumns());
+    kanbanQuery = isCrmPoolColumnEnabled()
+      ? kanbanQuery.eq("crm_pool", CRM_POOL_ROOFING)
+      : kanbanQuery.eq("is_roofing_lead", true);
+    if (process.env.NEXT_PUBLIC_LEADS_HAS_HIGH_PRIORITY !== "false") {
+      kanbanQuery = kanbanQuery.order("is_high_priority", { ascending: false, nullsFirst: false });
+    }
+    const kanbanRes = await kanbanQuery
+      .order("created_at", { ascending: false, nullsFirst: false })
+      .limit(kanbanLimit);
+    if (kanbanRes.error) {
+      console.error("[Roofing Leads] kanban query:", kanbanRes.error.message);
+    }
+    roofingKanbanLeads = (kanbanRes.data as LeadRow[] | null) ?? [];
+
     const teamIds = collectTeamIds(leads);
     for (const id of teamIds) profileIdSet.add(id);
+    for (const r of roofingKanbanLeads) {
+      normalizeFavoritedIds(r.favorited_by).forEach((id) => profileIdSet.add(id));
+      if (r.claimed_by) profileIdSet.add(r.claimed_by);
+      if (r.appt_scheduled_by) profileIdSet.add(r.appt_scheduled_by);
+    }
   }
 
   const profileMap: Record<string, TeamProfile> = {};
@@ -207,6 +234,7 @@ export default async function RoofingLeadsPage({
       favoritesOnly={favoritesOnly}
       searchQuery={searchQuery}
       statusFilter={statusFilterParam}
+      roofingKanbanLeads={roofingKanbanLeads}
     />
   );
 }

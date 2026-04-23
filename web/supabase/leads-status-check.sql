@@ -1,4 +1,4 @@
--- Align `public.leads.status` CHECK with the CRM app (`LEAD_STATUSES` in `web/src/lib/leadTypes.ts`).
+-- Align `public.leads.status` CHECK with the CRM app (`LEAD_STATUSES` + `ROOFING_PIPELINE_EXTENSION` in `web/src/lib/leadTypes.ts`).
 -- Fixes: "new row for relation \"leads\" violates check constraint \"leads_status_check\""
 -- when sending a close request (status → `Pending Close`) or using pipeline stages.
 --
@@ -19,6 +19,9 @@ alter table public.leads
       'Appt Set',
       'Pending Close',
       'Not Interested',
+      'Quotes',
+      'Estimates',
+      'Inspections',
       'Website Booked',
       'Website booked calls'
     )

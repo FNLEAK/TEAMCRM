@@ -16,11 +16,12 @@ import {
   isApptSetStatus,
   isNewLeadStatus,
   LEAD_STATUSES,
+  ROOFING_PIPELINE_BOARD_ORDER,
   statusAssignsClaimToActor,
   teamProfileFromDb,
   teamProfileFromSchedulerEmbed,
+  type LeadPipelineStatusWithRoofing,
   type LeadRow,
-  type LeadStatusValue,
   type TeamProfile,
 } from "@/lib/leadTypes";
 import clsx from "clsx";
@@ -35,18 +36,19 @@ import { LeadDemoSiteSection } from "@/components/LeadDemoSiteSection";
 import { deleteLeadAction } from "@/app/actions/deleteLeadAction";
 import { isDemoBuildClaimFeatureEnabled } from "@/lib/demoBuildClaimFeature";
 import { isDemoSiteFeatureEnabled } from "@/lib/demoSiteFeature";
-import { isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
+import { CRM_POOL_MAIN, CRM_POOL_ROOFING, isRoofingCrmPoolLead } from "@/lib/crmPool";
+import { isCrmPoolColumnEnabled, isRoofingLeadPoolEnabled } from "@/lib/roofingLeadPoolFeature";
 import { isWebsiteCallBookingNotes } from "@/lib/websiteCallBookingNotes";
 
 function teamProfileHasDisplayName(p: TeamProfile | undefined): boolean {
   return Boolean(p?.fullName?.trim() || p?.firstName?.trim() || p?.email?.trim());
 }
 
-function normalizeStatus(s: string | null): LeadStatusValue {
+function normalizeStatus(s: string | null): LeadPipelineStatusWithRoofing {
   const t = (s ?? "").trim();
   if (t.toLowerCase() === "claimed") return "Interested";
   if (t.toLowerCase() === "pending close") return "Pending Close";
-  const m = LEAD_STATUSES.find((x) => x.toLowerCase() === t.toLowerCase());
+  const m = ROOFING_PIPELINE_BOARD_ORDER.find((x) => x.toLowerCase() === t.toLowerCase());
   return m ?? "New";
 }
 
@@ -221,7 +223,7 @@ export function LeadDetailDrawer({
   isOwner,
   onLeadDeleted,
 }: LeadDetailDrawerProps) {
-  const [status, setStatus] = useState<LeadStatusValue>(() => normalizeStatus(lead.status));
+  const [status, setStatus] = useState<LeadPipelineStatusWithRoofing>(() => normalizeStatus(lead.status));
   const [statusBusy, setStatusBusy] = useState(false);
   const [apptLocal, setApptLocal] = useState(() => toDatetimeLocalValue(lead.appt_date));
   const [apptDirty, setApptDirty] = useState(false);
@@ -667,7 +669,7 @@ export function LeadDetailDrawer({
   const showScheduleSection = status === "Appt Set";
 
   const persistStatus = useCallback(
-    async (next: LeadStatusValue) => {
+    async (next: LeadPipelineStatusWithRoofing) => {
       if (isApptLeadLockedForViewer(lead, userId)) {
         setCloseToast("This lead is appointment-locked by another teammate. Status is view-only for you.");
         setStatus(normalizeStatus(lead.status));
@@ -678,7 +680,7 @@ export function LeadDetailDrawer({
         const supabase = createSupabaseBrowserClient();
         const clearsAppt = next === "New" || next === "Called";
         const payload: {
-          status: LeadStatusValue;
+          status: LeadPipelineStatusWithRoofing;
           claimed_by?: string | null;
           appt_date?: string | null;
           appt_scheduled_by?: string | null;
@@ -759,13 +761,18 @@ export function LeadDetailDrawer({
       if (!hasRoofingPoolCol || !isOwner || roofingPoolBusy) return;
       setRoofingPoolBusy(true);
       const supabase = createSupabaseBrowserClient();
-      const { error } = await supabase.from("leads").update({ is_roofing_lead: next }).eq("id", leadId);
+      const crm_pool = next ? CRM_POOL_ROOFING : CRM_POOL_MAIN;
+      const payload = isCrmPoolColumnEnabled() ? { crm_pool, is_roofing_lead: next } : { is_roofing_lead: next };
+      const { error } = await supabase.from("leads").update(payload).eq("id", leadId);
       setRoofingPoolBusy(false);
       if (error) {
         setCloseToast(supabaseErrorText(error) || "Could not update roofing pool.");
         return;
       }
-      syncLeadInState(leadId, { is_roofing_lead: next });
+      syncLeadInState(
+        leadId,
+        isCrmPoolColumnEnabled() ? { crm_pool, is_roofing_lead: next } : { is_roofing_lead: next },
+      );
       onLeadMetaChanged?.();
     },
     [hasRoofingPoolCol, isOwner, roofingPoolBusy, leadId, syncLeadInState, onLeadMetaChanged],
@@ -1139,12 +1146,12 @@ export function LeadDetailDrawer({
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={lead.is_roofing_lead === true}
+                  aria-checked={isRoofingCrmPoolLead(lead)}
                   disabled={roofingPoolBusy}
-                  onClick={() => void persistRoofingPool(!(lead.is_roofing_lead === true))}
+                  onClick={() => void persistRoofingPool(!isRoofingCrmPoolLead(lead))}
                   className={clsx(
                     "relative h-7 w-12 shrink-0 rounded-full border transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/40 disabled:opacity-50",
-                    lead.is_roofing_lead === true
+                    isRoofingCrmPoolLead(lead)
                       ? "border-teal-400/50 bg-teal-600/35"
                       : "border-zinc-600/60 bg-zinc-800/80",
                   )}
@@ -1152,11 +1159,11 @@ export function LeadDetailDrawer({
                   <span
                     className={clsx(
                       "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-[left] duration-200",
-                      lead.is_roofing_lead === true ? "left-[calc(100%-1.625rem)]" : "left-0.5",
+                      isRoofingCrmPoolLead(lead) ? "left-[calc(100%-1.625rem)]" : "left-0.5",
                     )}
                   />
                   <span className="sr-only">
-                    {lead.is_roofing_lead === true ? "Roofing pool on" : "Roofing pool off"}
+                    {isRoofingCrmPoolLead(lead) ? "Roofing pool on" : "Roofing pool off"}
                   </span>
                 </button>
               </div>
@@ -1171,7 +1178,8 @@ export function LeadDetailDrawer({
               Tap a stage — saves right away, no reload.
               {hasClaimedCol ? (
                 <span className="block pt-1 text-zinc-500">
-                  New leads stay unclaimed. Called, Interested, Appt Set, and Pending Close record you as the teammate
+                  New leads stay unclaimed. Called, Interested, Appt Set, Pending Close
+                  {isRoofingCrmPoolLead(lead) ? ", Quotes, Estimates, and Inspections" : ""} record you as the teammate
                   (Claimed by — uses the name from their profile). Moving back to New clears the claim.
                 </span>
               ) : null}
@@ -1181,7 +1189,7 @@ export function LeadDetailDrawer({
               role="listbox"
               aria-label="Lead status pipeline"
             >
-              {LEAD_STATUSES.map((s) => {
+              {(isRoofingCrmPoolLead(lead) ? ROOFING_PIPELINE_BOARD_ORDER : LEAD_STATUSES).map((s) => {
                 const active = status === s;
                 const isAppt = s === "Appt Set";
                 return (

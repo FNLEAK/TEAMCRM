@@ -79,5 +79,6 @@ export function mergeLeadFromRealtime(prev: LeadRow, raw: Record<string, unknown
       raw.is_roofing_lead === undefined
         ? prev.is_roofing_lead
         : (raw.is_roofing_lead as boolean | null),
+    crm_pool: raw.crm_pool === undefined ? prev.crm_pool : (raw.crm_pool as string | null),
   };
 }

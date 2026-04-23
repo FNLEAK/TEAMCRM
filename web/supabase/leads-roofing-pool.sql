@@ -1,5 +1,5 @@
--- Roofing vs main Command pool: `public.leads.is_roofing_lead`
--- After applying, set NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL=true in web env and redeploy.
+-- Legacy boolean: `public.leads.is_roofing_lead` (kept in sync with `crm_pool` — see `web/supabase/leads-crm-pool.sql`).
+-- After applying both files, set NEXT_PUBLIC_LEADS_HAS_ROOFING_POOL=true in web env and redeploy.
 
 alter table public.leads
   add column if not exists is_roofing_lead boolean not null default false;
