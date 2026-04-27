@@ -17,6 +17,10 @@
   --color-neon-rose: #fb7185;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 @keyframes tactical-message-pop {
   from {
     opacity: 0;
@@ -72,6 +76,11 @@ body {
   overflow-x: clip;
   max-width: 100%;
   letter-spacing: -0.01em;
+}
+
+html[data-theme="light"] body {
+  background: #f1f5f9;
+  color: #1f2937;
 }
 
 /* Snappier taps on real controls (avoids double-tap-to-zoom delay on many mobile browsers) */

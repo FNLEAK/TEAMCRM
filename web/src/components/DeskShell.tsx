@@ -12,9 +12,11 @@ import {
   LayoutDashboard,
   Menu,
   MessageCircle,
+  Moon,
   MoreHorizontal,
   Package,
   Shield,
+  Sun,
   Users,
   X,
 } from "lucide-react";
@@ -53,12 +55,16 @@ export type DeskNavSection = {
   items: DeskNavItem[];
 };
 
-function navLinkClass(active: boolean) {
+function navLinkClass(active: boolean, isLight: boolean) {
   return clsx(
     "relative rounded-lg border px-3 py-2.5 text-[13px] font-medium leading-snug tracking-tight transition duration-200",
-    active
-      ? "border-zinc-600/80 bg-zinc-800/80 text-white"
-      : "border-[#222] bg-transparent text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-zinc-100 active:scale-[0.99]",
+    isLight
+      ? active
+        ? "border-slate-300 bg-slate-100 text-slate-900"
+        : "border-slate-300 bg-transparent text-slate-600 hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900 active:scale-[0.99]"
+      : active
+        ? "border-zinc-600/80 bg-zinc-800/80 text-white"
+        : "border-[#222] bg-transparent text-zinc-400 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-zinc-100 active:scale-[0.99]",
   );
 }
 
@@ -71,12 +77,16 @@ function navLinkClassDemo(active: boolean) {
   );
 }
 
-function navLinkClassDrawer(active: boolean) {
+function navLinkClassDrawer(active: boolean, isLight: boolean) {
   return clsx(
     "relative flex min-h-[48px] touch-manipulation items-center rounded-lg border px-4 py-3 text-[15px] font-medium leading-snug tracking-tight transition duration-200 active:scale-[0.99]",
-    active
-      ? "border-zinc-600/80 bg-zinc-800/80 text-white"
-      : "border-[#222] bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-white",
+    isLight
+      ? active
+        ? "border-slate-300 bg-slate-100 text-slate-900"
+        : "border-slate-300 bg-transparent text-slate-700 hover:border-slate-400 hover:bg-slate-100 hover:text-slate-900"
+      : active
+        ? "border-zinc-600/80 bg-zinc-800/80 text-white"
+        : "border-[#222] bg-transparent text-zinc-300 hover:border-zinc-600 hover:bg-zinc-900/60 hover:text-white",
   );
 }
 
@@ -152,6 +162,27 @@ export function DeskShell({
   pathnameRef.current = pathname;
   const [logoSpinY, setLogoSpinY] = useState(0);
   const [teamChatUnread, setTeamChatUnread] = useState(0);
+  const [themeMode, setThemeMode] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const saved = window.localStorage.getItem("crm-theme-mode");
+    if (saved === "light" || saved === "dark") {
+      setThemeMode(saved);
+      root.setAttribute("data-theme", saved);
+      return;
+    }
+    root.setAttribute("data-theme", "dark");
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", themeMode);
+    try {
+      window.localStorage.setItem("crm-theme-mode", themeMode);
+    } catch {
+      /* private mode */
+    }
+  }, [themeMode]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -268,6 +299,28 @@ export function DeskShell({
   }, [drawerOpen]);
 
   const closeDrawer = () => setDrawerOpen(false);
+  const isLight = themeMode === "light";
+  const shellCanvas = isLight ? "bg-slate-50 text-slate-800" : "bg-[#050505] text-zinc-200";
+  const chromePanel = isLight ? "border-slate-300 bg-white" : "border-[#222] bg-[#111]";
+  const mainCanvas = isLight ? "bg-slate-100" : "bg-[#050505]";
+
+  const toggleThemeButton = (
+    <button
+      type="button"
+      className={clsx(
+        "inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold tracking-tight transition",
+        isLight
+          ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
+          : "border-white/10 bg-black/30 text-zinc-200 hover:bg-white/10",
+      )}
+      onClick={() => setThemeMode((prev) => (prev === "dark" ? "light" : "dark"))}
+      aria-label={isLight ? "Switch to night mode" : "Switch to day mode"}
+      title={isLight ? "Switch to night mode" : "Switch to day mode"}
+    >
+      {isLight ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+      <span>{isLight ? "Night mode" : "Day mode"}</span>
+    </button>
+  );
 
   function tabIconForHref(href: string) {
     if (href === "/pipeline-command-center" || href.includes("pipeline-command-center")) return LayoutDashboard;
@@ -314,10 +367,10 @@ export function DeskShell({
               const cls = opts.drawer
                 ? demo
                   ? navLinkClassDrawerDemo(active)
-                  : navLinkClassDrawer(active)
+                  : navLinkClassDrawer(active, isLight)
                 : demo
                   ? navLinkClassDemo(active)
-                  : navLinkClass(active);
+                  : navLinkClass(active, isLight);
               return (
                 <NavTiltLink
                   key={`${section.title}-${href}-${label}`}
@@ -366,8 +419,13 @@ export function DeskShell({
 
   if (isMobileShell) {
     const mobileChrome = (
-      <div className="flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden bg-[#050505]">
-        <header className="sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b border-[#222] bg-[#050505]/95 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl">
+      <div className={clsx("flex min-h-svh min-w-0 max-w-full flex-col overflow-x-hidden", shellCanvas)}>
+        <header
+          className={clsx(
+            "sticky top-0 z-40 flex min-h-14 shrink-0 items-center justify-between gap-2 border-b px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-xl",
+            isLight ? "border-slate-300 bg-white/95" : "border-[#222] bg-[#050505]/95",
+          )}
+        >
           <button
             type="button"
             aria-expanded={drawerOpen}
@@ -388,7 +446,7 @@ export function DeskShell({
               className="h-8 w-auto max-w-[min(11rem,calc(100vw-8rem))] object-contain object-center [animation:logoPulse_3.8s_ease-in-out_infinite]"
             />
           </div>
-          <div className="relative z-20 h-10 w-10 shrink-0" aria-hidden />
+          <div className="relative z-20 shrink-0">{toggleThemeButton}</div>
         </header>
 
         <main className="@container min-h-0 min-w-0 flex-1 overflow-x-hidden px-3 py-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] sm:px-4">
@@ -396,7 +454,10 @@ export function DeskShell({
         </main>
 
         <nav
-          className="fixed bottom-0 left-0 right-0 z-[90] border-t border-[#222] bg-[#111]/98 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl"
+          className={clsx(
+            "fixed bottom-0 left-0 right-0 z-[90] border-t pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-xl",
+            isLight ? "border-slate-300 bg-white/98" : "border-[#222] bg-[#111]/98",
+          )}
           aria-label="Primary navigation"
         >
           <div className="mx-auto grid h-[3.75rem] max-w-lg grid-cols-5">
@@ -462,7 +523,8 @@ export function DeskShell({
           />
           <div
             className={clsx(
-              "absolute left-0 top-0 flex h-full w-[min(21rem,90vw)] max-w-full flex-col border-r border-[#222] bg-[#111] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              "absolute left-0 top-0 flex h-full w-[min(21rem,90vw)] max-w-full flex-col border-r transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              isLight ? "border-slate-300 bg-white" : "border-[#222] bg-[#111]",
               drawerOpen ? "translate-x-0" : "-translate-x-full",
             )}
             role="dialog"
@@ -470,11 +532,18 @@ export function DeskShell({
             aria-label="Navigation"
           >
             <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-3 py-2.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-4 sm:py-3">
-              <p className="min-w-0 text-sm font-semibold tracking-tight text-white">All pages</p>
+              <p className={clsx("min-w-0 text-sm font-semibold tracking-tight", isLight ? "text-slate-900" : "text-white")}>
+                All pages
+              </p>
               <button
                 type="button"
                 aria-label="Close menu"
-                className="flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/[0.08] hover:text-zinc-100 active:bg-white/[0.12]"
+                className={clsx(
+                  "flex h-9 w-9 shrink-0 touch-manipulation items-center justify-center rounded-lg transition",
+                  isLight
+                    ? "text-slate-500 hover:bg-slate-100 hover:text-slate-800 active:bg-slate-200"
+                    : "text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100 active:bg-white/[0.12]",
+                )}
                 onClick={closeDrawer}
               >
                 <X className="h-5 w-5" strokeWidth={2.25} />
@@ -483,8 +552,16 @@ export function DeskShell({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
               {renderNav({ drawer: true, onNavigate: closeDrawer })}
             </div>
+            <div className={clsx("shrink-0 border-t p-4", isLight ? "border-slate-200" : "border-white/[0.07]")}>
+              {toggleThemeButton}
+            </div>
             {sidebarFooter ? (
-              <div className="shrink-0 space-y-2 border-t border-white/[0.07] bg-black/25 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <div
+                className={clsx(
+                  "shrink-0 space-y-2 border-t p-4 pb-[max(1rem,env(safe-area-inset-bottom))]",
+                  isLight ? "border-slate-200 bg-slate-50/80" : "border-white/[0.07] bg-black/25",
+                )}
+              >
                 {sidebarFooter}
               </div>
             ) : null}
@@ -499,8 +576,8 @@ export function DeskShell({
   }
 
   return (
-    <div className="flex min-h-svh min-w-0 max-w-full overflow-x-hidden bg-[#050505]">
-      <aside className="relative flex w-[17.5rem] shrink-0 flex-col border-r border-[#222] bg-[#111] sm:w-72">
+    <div className={clsx("flex min-h-svh min-w-0 max-w-full overflow-x-hidden", shellCanvas)}>
+      <aside className={clsx("relative flex w-[17.5rem] shrink-0 flex-col border-r sm:w-72", chromePanel)}>
         {asideTop ?? (
           <div className="relative border-b border-[#222] px-3 py-4 sm:px-4 sm:py-5">
             <div className="flex min-h-[220px] items-center justify-center sm:min-h-[248px]">
@@ -525,12 +602,13 @@ export function DeskShell({
 
         {renderNav({ drawer: false })}
 
-        {sidebarFooter ? (
-          <div className="mb-4 space-y-2 border-t border-[#222] p-3">{sidebarFooter}</div>
-        ) : null}
+        <div className={clsx("mb-4 space-y-2 border-t p-3", isLight ? "border-slate-200" : "border-[#222]")}>
+          {toggleThemeButton}
+          {sidebarFooter}
+        </div>
       </aside>
       {/* No @container here: pages use viewport breakpoints on desktop. Mobile shell uses @container on its own <main>. */}
-      <main className="min-h-0 min-w-0 flex-1 overflow-x-hidden bg-[#050505] px-4 py-5 md:px-7 md:py-8 lg:px-10 lg:py-10">
+      <main className={clsx("min-h-0 min-w-0 flex-1 overflow-x-hidden px-4 py-5 md:px-7 md:py-8 lg:px-10 lg:py-10", mainCanvas)}>
         {children}
       </main>
       {globalStyles}
