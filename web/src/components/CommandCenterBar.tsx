@@ -142,6 +142,18 @@ export function CommandCenterBar({
             >
               Recent imports
             </button>
+            <a
+              href="https://web-friendly.vercel.app/selling-preview"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`inline-flex items-center justify-center rounded-md border border-white/10 bg-[#0a0a0a] font-medium text-zinc-300 transition hover:border-white/15 hover:bg-white/[0.04] ${
+                compact
+                  ? "w-full px-3 py-2.5 text-xs @min-[480px]:w-auto @min-[480px]:py-2"
+                  : "px-4 py-2.5 text-sm"
+              }`}
+            >
+              Our Website
+            </a>
           </div>
         </div>
       </div>
