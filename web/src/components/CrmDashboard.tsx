@@ -583,12 +583,12 @@ export function CrmDashboard({
 
   return (
     <DeskShell sections={commandDeskSections({ canManageRoles })} sidebarFooter={sidebarFooter}>
-      <div className="relative mx-auto w-full min-w-0 max-w-[1600px] text-zinc-100">
+      <div className="crm-dashboard-root relative mx-auto w-full min-w-0 max-w-[1600px] text-zinc-100">
         <DailyBriefingBanner />
 
         <header
           className={clsx(
-            "mb-8 rounded-2xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.06] via-[#0b0c0f]/95 to-[#0b0c0f]/95 px-4 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_34px_-22px_rgba(34,211,238,0.65)]",
+            "crm-hero-panel mb-8 rounded-2xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.06] via-[#0b0c0f]/95 to-[#0b0c0f]/95 px-4 py-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_34px_-22px_rgba(34,211,238,0.65)]",
             layoutMobileShell ? "@md:px-6 @md:py-7" : "md:px-6 md:py-7",
           )}
         >
@@ -661,7 +661,7 @@ export function CrmDashboard({
               </Link>
             </div>
           ) : null}
-          <div className="mt-4 inline-flex max-w-2xl flex-col gap-1 rounded-xl border border-violet-300/25 bg-gradient-to-r from-violet-500/[0.14] to-black/45 px-3 py-2 backdrop-blur-sm">
+          <div className="crm-welcome-card mt-4 inline-flex max-w-2xl flex-col gap-1 rounded-xl border border-violet-300/25 bg-gradient-to-r from-violet-500/[0.14] to-black/45 px-3 py-2 backdrop-blur-sm">
             <p className="text-base font-semibold tracking-tight text-zinc-100 [text-shadow:0_2px_18px_rgba(0,0,0,0.75)]">
               Welcome,{" "}
               <span className="text-white [text-shadow:0_2px_22px_rgba(167,139,250,0.38)]">{welcomeFirstName}</span>
@@ -704,7 +704,7 @@ export function CrmDashboard({
 
         <section
           id="crm-leads-section"
-          className="relative overflow-visible rounded-xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.035] via-[#0a0d12]/95 to-[#090b10]/95 ring-1 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.45)]"
+          className="crm-leads-panel relative overflow-visible rounded-xl border border-cyan-300/15 bg-gradient-to-b from-cyan-500/[0.035] via-[#0a0d12]/95 to-[#090b10]/95 ring-1 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_30px_-20px_rgba(34,211,238,0.45)]"
         >
           <div className="flex flex-col gap-1 border-b border-white/[0.08] px-3.5 py-2">
             <div className="flex min-h-[1.5rem] flex-wrap items-center justify-center gap-2.5 text-center">
@@ -868,7 +868,7 @@ function LeadStatusFilterBar({
   const current = normalized ?? "";
 
   return (
-    <div className="border-b border-white/[0.06] bg-black/20 px-4 py-2.5">
+    <div className="crm-statusbar border-b border-white/[0.06] bg-black/20 px-4 py-2.5">
       <div
         className={clsx(
           "flex flex-col gap-2",
@@ -952,7 +952,7 @@ function DebouncedCompanySearch({
   const clearHref = buildListPath(1, favoritesOnly, "", statusFilter);
 
   return (
-      <div className="border-b border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.035] via-black/25 to-black/25 px-4 py-2.5">
+      <div className="crm-searchbar border-b border-white/[0.08] bg-gradient-to-r from-cyan-500/[0.035] via-black/25 to-black/25 px-4 py-2.5">
       <div
         className={clsx(
           "flex flex-col gap-3",
@@ -1092,7 +1092,7 @@ const StatCard = memo(function StatCard({
         : "border-cyan-300/20 bg-gradient-to-br from-cyan-500/[0.08] via-[#0b0c0f]/90 to-[#0b0c0f]/90 ring-cyan-300/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_0_34px_-22px_rgba(34,211,238,0.7)]";
   const toneLabel = tone === "violet" ? "text-violet-200/75" : tone === "emerald" ? "text-emerald-200/75" : "text-cyan-200/75";
   return (
-    <div className={clsx("relative rounded-xl border px-5 py-6 ring-1", toneClass)}>
+    <div className={clsx("crm-stat-card relative rounded-xl border px-5 py-6 ring-1", toneClass)}>
       {helpText ? <HelpMarker accent="crimson" text={helpText} /> : null}
       {showDailyLeadBadge ? (
         <div className="absolute right-11 top-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-200 shadow-[0_0_16px_-8px_rgba(16,185,129,0.9)]">
@@ -1127,7 +1127,7 @@ const AppointmentsStatCard = memo(function AppointmentsStatCard({
 }) {
   return (
     <div
-      className={`relative rounded-xl border bg-gradient-to-br from-cyan-500/[0.06] via-[#0b0c0f]/90 to-[#0b0c0f]/90 px-5 py-6 ring-1 ring-cyan-300/10 ${
+      className={`crm-stat-card relative rounded-xl border bg-gradient-to-br from-cyan-500/[0.06] via-[#0b0c0f]/90 to-[#0b0c0f]/90 px-5 py-6 ring-1 ring-cyan-300/10 ${
         active ? "border-emerald-400/35 shadow-[0_0_32px_-16px_rgba(16,185,129,0.75)]" : "border-cyan-300/20"
       }`}
     >
@@ -1280,7 +1280,7 @@ const LeadsTableSection = memo(function LeadsTableSection({
 
   return (
     <>
-      <div className="w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] max-md:overflow-y-visible md:max-h-[58vh] md:overflow-y-auto">
+      <div className="crm-leads-table w-full min-w-0 overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch] max-md:overflow-y-visible md:max-h-[58vh] md:overflow-y-auto">
         <table className="w-full min-w-[820px] border-separate border-spacing-0 text-left text-[13px]">
           <thead>
             <tr className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
